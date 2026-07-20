@@ -458,7 +458,7 @@ def _execute_agent(
             outcome.completion_tokens,
             outcome.finished,
             outcome.cost_capped,
-            outcome.num_turns or 0,
+            outcome.num_turns if outcome.num_turns is not None else 0,
             outcome,
         )
     assert provider is not None  # resolved by _resolve_run_engine for non-CLI specs
@@ -643,7 +643,7 @@ def _run_model_loop(  # noqa: PLR0912, linear ReAct loop with budget + cost guar
     effort: dict[str, Any] | None = None,
     model: str | None = None,
     max_run_cost: float | None = None,
-) -> tuple[int, int, bool, bool]:
+) -> tuple[int, int, bool, bool, int]:
     prompt_tokens = 0
     completion_tokens = 0
     finished = False
@@ -651,9 +651,9 @@ def _run_model_loop(  # noqa: PLR0912, linear ReAct loop with budget + cost guar
     actual_steps = 0
 
     for step in range(1, max_steps + 1):
-        actual_steps = step
         if not deadline.ensure_time(collector, "llm_request", step):
             break
+        actual_steps = step
         request_data: dict[str, Any] = {"step": step, "messages": len(messages)}
         if effort is not None:
             request_data["effort"] = effort
