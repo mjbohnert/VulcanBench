@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from harness.task_metadata import (
+    SCALE_DEFAULTS,
     infer_task_complexity_from_gold_patch,
     repo_scale,
     resolve_agent_timeout_s,
@@ -107,3 +108,34 @@ def test_validate_scale_rejects_bad_task_complexity() -> None:
         {"task_complexity": "giant"},
     )
     assert any("task_complexity" in r for r in reasons)
+
+
+def test_scale_budgets_can_spend_their_step_allowance() -> None:
+    """Wall-clock budget must cover the step allowance at large-repo step cost.
+
+    Steps get more expensive as the repo grows (context-heavy model round trips,
+    slower test runs). Measured cost on large repos is 10-15s/step; a budget
+    below allowance * that rate cuts runs off mid-work, which measures repo size
+    rather than capability.
+    """
+    worst_case_step_s = 15
+    for scale, d in SCALE_DEFAULTS.items():
+        steps = d["suggested_max_steps"]
+        budget = d["suggested_timeout_s"]
+        if scale in ("large", "xlarge"):
+            assert budget >= steps * worst_case_step_s, (
+                f"{scale}: {budget}s cannot spend {steps} steps at {worst_case_step_s}s/step"
+            )
+
+
+def test_bigger_repos_get_at_least_as_much_wall_clock() -> None:
+    # xlarge previously shared large's budget while allowing 33% more steps.
+    order = ["micro", "small", "medium", "large", "xlarge"]
+    budgets = [SCALE_DEFAULTS[s]["suggested_timeout_s"] for s in order]
+    steps = [SCALE_DEFAULTS[s]["suggested_max_steps"] for s in order]
+    assert budgets == sorted(budgets), budgets
+    assert steps == sorted(steps), steps
+    assert (
+        SCALE_DEFAULTS["xlarge"]["suggested_timeout_s"]
+        > (SCALE_DEFAULTS["large"]["suggested_timeout_s"])
+    )

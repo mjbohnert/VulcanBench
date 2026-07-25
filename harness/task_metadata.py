@@ -20,12 +20,25 @@ SCALE_LOC_BOUNDS: dict[str, tuple[int, int | None]] = {
 }
 DEFAULT_MAX_STEPS = 50
 DEFAULT_TIMEOUT_S: float | None = None
+# Keep the wall-clock budget large enough for the step allowance to actually be
+# spendable: budget >= suggested_max_steps * per-step cost. Per-step cost rises
+# with repo size, because both halves of a step get slower -- model round trips
+# grow with context, and tool calls (test runs, builds) grow with the tree. On
+# large repos, measured steps cost 10-15s, so a 150-200 step allowance needs
+# roughly 2000-3000s. large and xlarge previously shared an 1800s budget despite
+# xlarge allowing 33% more steps, and neither tier could spend its allowance:
+# three tasks were observed working productively right up to the buzzer
+# (networkx-leiden 156 steps, sqlglot-canonicalize 122, regex-leftmost 184).
+#
+# A budget that cuts off mid-work does not measure capability, it measures repo
+# size -- and it biases any comparison between task sets with different scale
+# mixes, which is exactly how it was found.
 SCALE_DEFAULTS: dict[str, dict[str, int | float]] = {
     "micro": {"suggested_max_steps": 50, "suggested_timeout_s": 300},
     "small": {"suggested_max_steps": 60, "suggested_timeout_s": 600},
     "medium": {"suggested_max_steps": 100, "suggested_timeout_s": 1200},
-    "large": {"suggested_max_steps": 150, "suggested_timeout_s": 1800},
-    "xlarge": {"suggested_max_steps": 200, "suggested_timeout_s": 1800},
+    "large": {"suggested_max_steps": 150, "suggested_timeout_s": 2700},
+    "xlarge": {"suggested_max_steps": 200, "suggested_timeout_s": 3600},
 }
 MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024
 LIST_FILES_CAP = 500
