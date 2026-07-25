@@ -490,6 +490,10 @@ def _run_suite(
         )
     n_errors = len(result.get("errors") or [])
     n_skipped = result.get("n_skipped", 0)
+    n_retried = result.get("n_infra_retries", 0)
+    if n_retried:
+        tasks = ", ".join(sorted({r["task_id"] for r in result.get("infra_retries") or []}))
+        console.print(f"[dim]retried {n_retried} run(s) after infrastructure errors: {tasks}[/dim]")
     if n_errors:
         console.print(f"[yellow]{n_errors} run(s) errored[/yellow]")
     if n_skipped:
