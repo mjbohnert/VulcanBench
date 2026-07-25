@@ -1,0 +1,34 @@
+{
+  "id": "oss-sqlglot-udtf-chained-alias",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "hard",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": true,
+  "base_commit": "faf15e65e9059248c82564ab29de2bd4c492392e",
+  "upstream": {
+    "url": "https://github.com/tobymao/sqlglot/pull/7828",
+    "issue": "https://github.com/tobymao/sqlglot/pull/7828",
+    "commit": "faf15e65e9059248c82564ab29de2bd4c492392e"
+  },
+  "upstream_merged": "2026-07-07",
+  "decontamination_notes": "Real bug fix from tobymao/sqlglot PR #7828, merged 2026-07-07. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. canonicalize_internal_names built a fresh column map per scope, but a UDTF (unlike a CTE or subquery) can be a source in multiple scopes -- so in a chain of correlated UNNESTs only the last one had its alias rewritten while predicates already referenced the canonical _cN name, leaving an earlier UNNEST carrying its user-supplied alias and a dangling reference in the WHERE clause. The fix adds a udtf_columns map keyed by id(src_expr) and shared across scopes. Repo sliced at the PR base commit (faf15e65) and trimmed to the sqlglot package plus LICENSE; sqlglot has no required runtime dependencies, so the base sandbox image runs the hidden tests with pytest and no install step. The upstream PR also bumps a sqlglot-integration-tests submodule pointer, which is excluded from the gold patch. TEST PRECONDITIONS -- the bug is NOT reachable by calling canonicalize_internal_names on a freshly parsed expression; the tests must (1) run qualify() first with an explicit schema, and (2) use the bigquery dialect, and (3) reference the UNNEST alias as a bare column (WHERE x = y) rather than a qualified one (WHERE x.a = y.a). Probing without those preconditions produces byte-identical output before and after the fix, so a test written that way passes at the base commit and silently fails the coverage gate. Coverage: 4 fail_to_pass tests, each verified to emit a stale `x` alias at the base commit and the canonical `_c0` after the gold patch, covering a two-UNNEST chain, a three-UNNEST chain, an assertion that no user alias survives, and an assertion that every _cN referenced in the predicate is also declared as an alias. The 3 pass_to_pass guards cover a single UNNEST, a query with no UNNEST, and plain table-source canonicalization -- none involve a UDTF spanning multiple scopes, so they pass at the base commit. All expected SQL is generated from the gold patch. This PR was chosen over several other post-cutoff sqlglot candidates because those carry explicit AI-authorship markers in their titles ([CLAUDE]/(CLAUDE)); using a model-written patch as the gold answer would make the grading circular.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "two_chained_unnests", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_two_chained_unnests_are_fully_aliased -q"},
+      {"name": "three_chained_unnests", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_three_chained_unnests_are_fully_aliased -q"},
+      {"name": "no_user_alias_survives", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_no_user_alias_survives_canonicalization -q"},
+      {"name": "no_dangling_reference", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_every_referenced_name_is_declared -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "single_unnest", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_single_unnest_is_aliased -q"},
+      {"name": "no_unnest", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_query_without_unnest_is_unchanged -q"},
+      {"name": "table_source", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_table_source_is_canonicalized -q"}
+    ]
+  },
+  "test_timeout_s": 600
+}

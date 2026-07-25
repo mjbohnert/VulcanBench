@@ -1,0 +1,36 @@
+{
+  "id": "oss-jiff-strftime-lenient",
+  "category": "bug_fix",
+  "languages": ["rust"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:rust",
+  "base_commit": "ddd26a89c7f0a6fa8008f35021462e71a8db8b40",
+  "upstream": {
+    "url": "https://github.com/BurntSushi/jiff/pull/606",
+    "issue": "https://github.com/BurntSushi/jiff/issues/585",
+    "commit": "ddd26a89c7f0a6fa8008f35021462e71a8db8b40"
+  },
+  "upstream_merged": "2026-07-19",
+  "decontamination_notes": "Real bug fix from BurntSushi/jiff PR #606 (fixes issue #585), merged 2026-07-19T10:19:29Z. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. Every `<type>::strftime` method returns a `Display` impl, and `Display` cannot surface errors, so any formatting failure panicked on conversion to String. The fix switches those `Display` impls to lenient mode (src/fmt/strtime/mod.rs plus the five call sites in src/civil/{date,datetime,time}.rs, src/timestamp.rs and src/zoned.rs), emitting unrenderable directives verbatim instead of failing. Repo sliced at the PR base commit (ddd26a89). NOTE: this base is 9 hours after jiff PR #604 introduced the `jiff-core` crate, so unlike the v3 jiff tasks the slice is a two-crate workspace (root `jiff` + `crates/jiff-core` as a path dependency `jcore`). It still builds fully offline with zero external crates because jiff-core's only dependencies (defmt, log) are optional and its quickcheck dev-dependency is trimmed; verified with `docker run --network none ... cargo build --offline`. Unlicense/MIT licenses and the four include_str!'d docs (CHANGELOG/COMPARE/DESIGN/PLATFORM.md) preserved. Coverage: 5 fail_to_pass tests, each verified to panic at the base commit and pass after the gold patch, spanning trailing `%`, unrecognised directive, lone `%`, a directive needing an absent field, and a non-Zoned (civil Date) receiver. The 3 pass_to_pass regression guards assert only well-formed directives, never mentioning lenient behaviour, so they compile and pass at the base commit. All expected constants are generated from the gold patch; `\"1970 %\"` matches the doc example added by the upstream PR itself.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "trailing_percent_is_literal", "cmd": "cargo test --offline --test vb_strftime_lenient trailing_percent_is_literal"},
+      {"name": "unknown_directive_is_literal", "cmd": "cargo test --offline --test vb_strftime_lenient unknown_directive_is_literal"},
+      {"name": "lone_percent_is_literal", "cmd": "cargo test --offline --test vb_strftime_lenient lone_percent_is_literal"},
+      {"name": "missing_field_directive_is_literal", "cmd": "cargo test --offline --test vb_strftime_lenient missing_field_directive_is_literal"},
+      {"name": "civil_date_trailing_percent_is_literal", "cmd": "cargo test --offline --test vb_strftime_lenient civil_date_trailing_percent_is_literal"}
+    ],
+    "pass_to_pass": [
+      {"name": "civil_date_formats_normally", "cmd": "cargo test --offline --test vb_regression civil_date_formats_normally"},
+      {"name": "zoned_formats_normally", "cmd": "cargo test --offline --test vb_regression zoned_formats_normally"},
+      {"name": "literal_text_is_preserved", "cmd": "cargo test --offline --test vb_regression literal_text_is_preserved"}
+    ]
+  },
+  "test_timeout_s": 600
+}

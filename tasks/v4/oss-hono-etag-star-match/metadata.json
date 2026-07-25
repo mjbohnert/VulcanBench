@@ -1,0 +1,35 @@
+{
+  "id": "oss-hono-etag-star-match",
+  "category": "bug_fix",
+  "languages": ["typescript"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "large",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:node-ts",
+  "base_commit": "872997d2836dad3849817b6270d857d92f3dee85",
+  "upstream": {
+    "url": "https://github.com/honojs/hono/pull/5084",
+    "issue": "https://github.com/honojs/hono/issues/5083",
+    "commit": "872997d2836dad3849817b6270d857d92f3dee85"
+  },
+  "upstream_merged": "2026-07-10",
+  "decontamination_notes": "Real bug fix from honojs/hono PR #5084 (fixes issue #5083), merged 2026-07-10. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. The etag middleware passed the If-None-Match header straight to etagMatches(), which compares entity tags literally, so the RFC 9110 wildcard `*` never matched and a conditional GET returned 200 with a full body instead of 304. The fix in src/middleware/etag/index.ts special-cases a bare `*`, treating it as a match when the method is GET or HEAD and the response is ok. Repo sliced at the PR base commit (872997d2); the slice keeps src/, package.json and tsconfig.json and drops .github, benchmarks, perf-measures, docs, runtime-tests and every in-tree *.test.ts. Hono is dependency-free at runtime, so the node-ts image runs the hidden tests with tsx and no install step. Coverage: 3 fail_to_pass tests, each verified to return 200 at the base commit and 304 after the gold patch, covering GET, HEAD, and the empty body a 304 must carry. The 4 pass_to_pass guards cover etag issuance, a matching etag, a non-matching etag, and a 404 not being converted to 304 -- none mention the wildcard, so they pass at the base commit. NOTE: a fourth candidate f2p asserting that `*` inside a list (`W/\"other\", *`) also matches was written and FAILED at gold as well as base -- the fix deliberately handles only a bare `*` -- so it was removed rather than counted. Do not re-add it without changing the fix's scope.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "star_matches_get", "cmd": "tsx --test --test-name-pattern='^vb star matches on GET$' vb_etag_star.test.ts"},
+      {"name": "star_matches_head", "cmd": "tsx --test --test-name-pattern='^vb star matches on HEAD$' vb_etag_star.test.ts"},
+      {"name": "star_match_empty_body", "cmd": "tsx --test --test-name-pattern='^vb star match sends an empty body$' vb_etag_star.test.ts"}
+    ],
+    "pass_to_pass": [
+      {"name": "plain_request_etag", "cmd": "tsx --test --test-name-pattern='^vb existing plain request gets an etag$' vb_etag_regression.test.ts"},
+      {"name": "matching_etag_304", "cmd": "tsx --test --test-name-pattern='^vb existing matching etag yields 304$' vb_etag_regression.test.ts"},
+      {"name": "non_matching_etag_200", "cmd": "tsx --test --test-name-pattern='^vb existing non-matching etag yields 200$' vb_etag_regression.test.ts"},
+      {"name": "error_not_304", "cmd": "tsx --test --test-name-pattern='^vb existing error response is not turned into 304$' vb_etag_regression.test.ts"}
+    ]
+  },
+  "test_timeout_s": 300
+}

@@ -1,0 +1,37 @@
+{
+  "id": "oss-semver-tilde-prerelease-bound",
+  "category": "bug_fix",
+  "languages": ["javascript"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:base",
+  "base_commit": "8640bd68f1653e504b53e9be4030eccdfe4c307a",
+  "upstream": {
+    "url": "https://github.com/npm/node-semver/pull/878",
+    "issue": "https://github.com/npm/node-semver/issues/512",
+    "commit": "8640bd68f1653e504b53e9be4030eccdfe4c307a"
+  },
+  "upstream_merged": "2026-06-19",
+  "decontamination_notes": "Real bug fix from npm/node-semver PR #878 (closes issue #512), merged 2026-06-19. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. replaceTilde in classes/range.js emitted a lower bound without the '-0' prerelease suffix for the two partial tilde forms (~M and ~M.m) even under includePrerelease, while the equivalent x-range and caret forms did apply it -- so `~1.2` produced '>=1.2.0 <1.3.0-0' where the documented-equivalent `1.2.x` produced '>=1.2.0-0 <1.3.0-0', and satisfies('1.2.0-alpha', '~1.2', {includePrerelease:true}) returned false. The fix introduces a `const z = options.includePrerelease ? '-0' : ''` suffix on those two branches. A tilde range with a full version (~1.2.3) has an explicit lower bound and is deliberately unchanged. Repo sliced at the PR base commit (8640bd68); node-semver is a zero-dependency CommonJS package, so the base sandbox image runs the hidden tests with the built-in node:test runner and no install step. The repo's own test/ and tap-snapshots/ directories are removed from the slice, and the upstream PR's fixture changes (test/fixtures/range-include.js, range-parse.js) are excluded from the gold patch since those files are not present. Coverage: 5 fail_to_pass tests, each verified to fail at the base commit and pass after the gold patch, covering the ~M.m and ~M range strings, satisfies() against a prerelease of each lower bound, and a direct assertion that ~1.2 and 1.2.x produce identical ranges. The 4 pass_to_pass guards cover tilde without includePrerelease, tilde with a full version, the caret and x-range forms that already had the -0 bound, and plain satisfies() behaviour -- none mention the partial-tilde prerelease bound, so they pass at the base commit. All expected constants are generated from the gold patch and asserted through the public API (new Range(...).range, semver.satisfies).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "tilde_minor_lower_bound", "cmd": "node --test --test-name-pattern='^vb tilde minor lower bound includes prereleases$' vb_tilde_prerelease.test.js"},
+      {"name": "tilde_major_lower_bound", "cmd": "node --test --test-name-pattern='^vb tilde major lower bound includes prereleases$' vb_tilde_prerelease.test.js"},
+      {"name": "tilde_minor_satisfies_prerelease", "cmd": "node --test --test-name-pattern='^vb tilde minor matches a prerelease of its lower bound$' vb_tilde_prerelease.test.js"},
+      {"name": "tilde_major_satisfies_prerelease", "cmd": "node --test --test-name-pattern='^vb tilde major matches a prerelease of its lower bound$' vb_tilde_prerelease.test.js"},
+      {"name": "tilde_matches_xrange", "cmd": "node --test --test-name-pattern='^vb tilde agrees with the equivalent x-range$' vb_tilde_prerelease.test.js"}
+    ],
+    "pass_to_pass": [
+      {"name": "tilde_without_includeprerelease", "cmd": "node --test --test-name-pattern='^vb existing tilde without includePrerelease unaffected$' vb_semver_regression.test.js"},
+      {"name": "tilde_full_version", "cmd": "node --test --test-name-pattern='^vb existing tilde with a full version unaffected$' vb_semver_regression.test.js"},
+      {"name": "caret_and_xrange_bounds", "cmd": "node --test --test-name-pattern='^vb existing caret and x-range lower bounds unaffected$' vb_semver_regression.test.js"},
+      {"name": "plain_satisfies", "cmd": "node --test --test-name-pattern='^vb existing plain satisfies unaffected$' vb_semver_regression.test.js"}
+    ]
+  },
+  "test_timeout_s": 120
+}

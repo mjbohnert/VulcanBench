@@ -1,0 +1,50 @@
+# VulcanBench Rust sandbox image — edition 2024 / newer-MSRV toolchain.
+#
+# Build:  docker build -t vulcanbench/sandbox:rust-2024 -f sandbox/Dockerfile.rust-2024 .
+# Use:    per-task metadata ("image": "vulcanbench/sandbox:rust-2024")
+#
+# Identical to Dockerfile.rust except for the pinned toolchain. It exists so
+# crates that require a newer compiler than `vulcanbench/sandbox:rust` provides
+# can be sliced without disturbing that image: v3's Rust tasks were validated
+# and scored on 1.87.0, and repinning `:rust` would make those published results
+# irreproducible. Point a task at whichever image its crate actually needs.
+#
+# 1.88 is the floor for `let` chains (stabilized there, edition 2024), which is
+# what forced this image into existence; the pin below sits above that floor.
+FROM vulcanbench/sandbox:base
+
+ARG RUST_VERSION=1.90.0
+ARG CARGO_AUDIT_VERSION=0.21.2
+
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    case "$ARCH" in \
+      amd64) RUST_ARCH=x86_64 ;; \
+      arm64) RUST_ARCH=aarch64 ;; \
+      *) RUST_ARCH="$ARCH" ;; \
+    esac; \
+    RUSTUP_URL="https://static.rust-lang.org/rustup/archive/1.28.2/${RUST_ARCH}-unknown-linux-gnu/rustup-init"; \
+    curl -fsSL "$RUSTUP_URL" -o /tmp/rustup-init; \
+    chmod +x /tmp/rustup-init; \
+    /tmp/rustup-init -y --no-modify-path --profile minimal \
+      --default-toolchain "$RUST_VERSION" \
+      --default-host "${RUST_ARCH}-unknown-linux-gnu"; \
+    rm /tmp/rustup-init; \
+    rustup component add clippy rustfmt; \
+    cargo install cargo-audit --version "$CARGO_AUDIT_VERSION" --locked; \
+    rustup default "$RUST_VERSION"; \
+    rustc --version; \
+    cargo --version; \
+    cargo clippy --version; \
+    cargo fmt --version; \
+    cargo audit --version
+
+WORKDIR /workspace
+
+# The container runs as the invoking host UID/GID (set at `docker run` time) so
+# bind-mounted files stay writable and the process is never root.
+CMD ["sleep", "infinity"]

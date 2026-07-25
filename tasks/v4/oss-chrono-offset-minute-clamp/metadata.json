@@ -1,0 +1,38 @@
+{
+  "id": "oss-chrono-offset-minute-clamp",
+  "category": "bug_fix",
+  "languages": ["rust"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "large",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:rust",
+  "base_commit": "a71c212cdc2204a8868b8cc74e4ee48da2a4b5dc",
+  "upstream": {
+    "url": "https://github.com/chronotope/chrono/pull/1798",
+    "issue": "https://github.com/chronotope/chrono/pull/1798",
+    "commit": "a71c212cdc2204a8868b8cc74e4ee48da2a4b5dc"
+  },
+  "upstream_merged": "2026-06-22",
+  "decontamination_notes": "Real bug fix from chronotope/chrono PR #1798, merged 2026-06-22T11:30:17Z. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. OffsetFormat::format rounds an offset's seconds to the nearest minute before printing at minute precision, so a FixedOffset from 23:59:30 through its 23:59:59 maximum rounded to 1440 minutes and printed as '+24:00'; offset hours are only valid as 00-23, so DateTime::parse_from_rfc3339 rejected chrono's own output with OutOfRange. The one-line fix in src/format/formatting.rs clamps the rounded minute count to 24*60-1. Repo sliced at the PR base commit (a71c212c), trimmed to the library plus its single required dependency num-traits; all optional deps (serde, rkyv, pure-rust-locales, defmt, iana-time-zone, wasm-bindgen, js-sys, windows-link) and all dev-dependencies are dropped, and the crate is built with default-features=false plus std. num-traits and its autocfg build dependency are vendored into repo/vendor with a .cargo/config.toml replace-source stanza; verified fully offline with `docker run --network none ... cargo build --offline` (448K vendor tree). MIT/Apache-2.0 LICENSE.txt preserved. Coverage: 6 fail_to_pass tests, each verified to fail at the base commit and pass after the gold patch, spanning %z, %:z, the bottom of the rounding window (23:59:30), a negative offset, an RFC 3339 format-then-reparse round trip, and RFC 2822. The 4 pass_to_pass regression guards assert only whole-minute offsets, UTC, an ordinary round trip, and 23:59:29 (which rounds down and never reached the roll-over path), so they compile and pass at the base commit without referencing the clamp. NOTE: the upstream PR description also lists the Display impl of DateTime<FixedOffset> as an affected path, but that was not reproducible -- Display renders offsets at second precision ('+23:59:59') and so never takes the minute-rounding branch. A Display-based test was written, observed to fail both pre- and post-patch, and removed; do not re-add one. All expected constants are generated from the gold patch, and every assertion goes through public API (format, to_rfc3339, to_rfc2822, parse_from_rfc3339) rather than the pub-but-low-level OffsetFormat type the upstream test uses.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "z_directive_clamps_at_max_offset", "cmd": "cargo test --offline --test vb_offset_clamp z_directive_clamps_at_max_offset"},
+      {"name": "colon_z_directive_clamps_at_max_offset", "cmd": "cargo test --offline --test vb_offset_clamp colon_z_directive_clamps_at_max_offset"},
+      {"name": "clamps_at_bottom_of_rounding_window", "cmd": "cargo test --offline --test vb_offset_clamp clamps_at_bottom_of_rounding_window"},
+      {"name": "negative_offset_clamps_at_max_offset", "cmd": "cargo test --offline --test vb_offset_clamp negative_offset_clamps_at_max_offset"},
+      {"name": "rfc3339_round_trips_at_max_offset", "cmd": "cargo test --offline --test vb_offset_clamp rfc3339_round_trips_at_max_offset"},
+      {"name": "rfc2822_clamps_at_max_offset", "cmd": "cargo test --offline --test vb_offset_clamp rfc2822_clamps_at_max_offset"}
+    ],
+    "pass_to_pass": [
+      {"name": "whole_minute_offsets_format_normally", "cmd": "cargo test --offline --test vb_offset_regression whole_minute_offsets_format_normally"},
+      {"name": "utc_offset_formats_normally", "cmd": "cargo test --offline --test vb_offset_regression utc_offset_formats_normally"},
+      {"name": "ordinary_offset_round_trips_through_rfc3339", "cmd": "cargo test --offline --test vb_offset_regression ordinary_offset_round_trips_through_rfc3339"},
+      {"name": "seconds_below_the_rounding_window_round_down", "cmd": "cargo test --offline --test vb_offset_regression seconds_below_the_rounding_window_round_down"}
+    ]
+  },
+  "test_timeout_s": 600
+}

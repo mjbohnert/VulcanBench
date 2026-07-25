@@ -1,0 +1,25 @@
+[package]
+name = "time"
+version = "0.3.44"
+description = "Date and time library."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/time-rs/time"
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "time"
+
+[features]
+default = ["std", "parsing", "formatting"]
+alloc = []
+std = ["alloc"]
+formatting = ["std"]
+parsing = []
+large-dates = ["time-core/large-dates"]
+
+[dependencies]
+deranged.workspace = true
+num-conv.workspace = true
+powerfmt.workspace = true
+time-core.workspace = true

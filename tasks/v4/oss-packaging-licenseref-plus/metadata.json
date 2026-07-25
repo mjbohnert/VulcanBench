@@ -1,0 +1,35 @@
+{
+  "id": "oss-packaging-licenseref-plus",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": true,
+  "base_commit": "08bb047794f4e70b157dacef4538b3a6e3492743",
+  "upstream": {
+    "url": "https://github.com/pypa/packaging/pull/1219",
+    "issue": "https://github.com/pypa/packaging/pull/1219",
+    "commit": "08bb047794f4e70b157dacef4538b3a6e3492743"
+  },
+  "upstream_merged": "2026-06-11",
+  "decontamination_notes": "Real bug fix from pypa/packaging PR #1219, merged 2026-06-11. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. The SPDX spec allows a trailing '+' on a license-id (MIT+) but not on a LicenseRef. canonicalize_license_expression stripped the '+' suffix, validated the remaining LicenseRef token, and then looked the token up in the normalization table with the suffix re-appended -- so 'LicenseRef-Foo+' escaped validation and surfaced an unhandled KeyError from the dict lookup instead of the library's own InvalidLicenseExpression. The fix in src/packaging/licenses/__init__.py rejects any LicenseRef carrying a suffix and drops the suffix from the normalized token. Repo sliced at the PR base commit (08bb0477) and trimmed to the packaging package plus its LICENSE files; note the upstream layout is src/packaging/ while the slice hoists the package to the workspace root, so the gold patch paths are rewritten from src/packaging/... to packaging/... accordingly. packaging is dependency-free, so the base sandbox image runs the hidden tests with pytest and no install step. Coverage: 4 fail_to_pass tests, each verified to raise KeyError at the base commit and InvalidLicenseExpression after the gold patch, covering a bare LicenseRef with '+', one inside a compound OR expression, an explicit assertion that the raised exception is not a KeyError, and several LicenseRef spellings including an AND expression. The 4 pass_to_pass guards cover a plain LicenseRef, a license-id with a legitimate '+', case normalization of known ids, and an unknown id that was already rejected -- none involve a suffixed LicenseRef, so they pass at the base commit. Assertions check exception TYPE only, never message text, per the suite's grading rules.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "licenseref_plus_invalid", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_licenseref_with_plus_raises_invalid_expression -q"},
+      {"name": "licenseref_plus_compound", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_licenseref_with_plus_inside_compound_expression -q"},
+      {"name": "licenseref_plus_not_keyerror", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_licenseref_with_plus_does_not_raise_keyerror -q"},
+      {"name": "multiple_licenserefs_plus", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_multiple_licenserefs_with_plus -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "plain_licenseref", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_plain_licenseref_is_accepted -q"},
+      {"name": "license_id_plus", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_license_id_with_plus_is_accepted -q"},
+      {"name": "normalization", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_license_ids_are_normalized -q"},
+      {"name": "unknown_id_rejected", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_unknown_license_id_still_rejected -q"}
+    ]
+  },
+  "test_timeout_s": 300
+}

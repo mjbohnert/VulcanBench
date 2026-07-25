@@ -1,0 +1,36 @@
+{
+  "id": "oss-chi-discard-readfrom",
+  "category": "bug_fix",
+  "languages": ["go"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:base",
+  "base_commit": "3b171578ca44dfd75ca3c5cbddc7b44c600a7b49",
+  "upstream": {
+    "url": "https://github.com/go-chi/chi/pull/1110",
+    "issue": "https://github.com/go-chi/chi/pull/1110",
+    "commit": "3b171578ca44dfd75ca3c5cbddc7b44c600a7b49"
+  },
+  "upstream_merged": "2026-06-14",
+  "decontamination_notes": "Real bug fix from go-chi/chi PR #1110, merged 2026-06-14. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. httpFancyWriter.ReadFrom only routed through basicWriter.Write when a tee writer was set; with no tee it delegated straight to the underlying ResponseWriter's io.ReaderFrom, bypassing the discard flag, so bytes written via io.Copy still reached the client after Discard(). The one-line fix in middleware/wrap_writer.go extends that condition to `f.basicWriter.tee != nil || f.basicWriter.discard`. Repo sliced at the PR base commit (3b171578); chi is a zero-dependency module (go.mod declares only the module path and go 1.23), so no vendoring is needed and the base sandbox image suffices. All of the repo's own *_test.go files are removed from the slice. TWO NON-OBVIOUS PRECONDITIONS are required to reach the buggy path, and both are encoded in the tests -- a test missing either will pass at the base commit and silently fail the coverage gate: (1) NewWrapResponseWriter only returns httpFancyWriter when the wrapped writer implements http.Flusher AND http.Hijacker AND io.ReaderFrom -- a plain httptest.ResponseRecorder lacks Hijacker and falls back to basicWriter, which honors discard correctly; (2) io.Copy prefers a source's io.WriterTo over a destination's io.ReaderFrom, so a *strings.Reader source never reaches ReadFrom at all -- the tests wrap sources in struct{ io.Reader }{...} to hide WriteTo. The test recorder distinguishes the two paths by writing ReadFrom output to a separate sink buffer while Write output lands in the embedded ResponseRecorder body. Coverage: 3 fail_to_pass tests, each verified to fail at the base commit and pass after the gold patch, covering a single discarded copy, repeated copies, and a discard following a plain Write. The 5 pass_to_pass guards live in a SEPARATE package (osscheck_reg) per the v3 Go recipe and cover delivery without discard, single byte accounting, the tee path, a plain Write, and BytesWritten() after discard. NOTE: two further candidate f2p tests were written and observed to PASS at the base commit -- BytesWritten() was already correct after Discard() (only forwarding was broken), and the tee assertion initially checked the wrong buffer -- both now sit in the regression guard. All assertions go through the public middleware API.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "TestDiscardSuppressesReadFrom", "cmd": "go test -run '^TestDiscardSuppressesReadFrom$' ./osscheck/"},
+      {"name": "TestDiscardSuppressesRepeatedReadFrom", "cmd": "go test -run '^TestDiscardSuppressesRepeatedReadFrom$' ./osscheck/"},
+      {"name": "TestDiscardAfterWriteSuppressesSubsequentReadFrom", "cmd": "go test -run '^TestDiscardAfterWriteSuppressesSubsequentReadFrom$' ./osscheck/"}
+    ],
+    "pass_to_pass": [
+      {"name": "TestReadFromDeliversDataWithoutDiscard", "cmd": "go test -run '^TestReadFromDeliversDataWithoutDiscard$' ./osscheck_reg/"},
+      {"name": "TestReadFromCountsBytesOnce", "cmd": "go test -run '^TestReadFromCountsBytesOnce$' ./osscheck_reg/"},
+      {"name": "TestTeeReceivesCopyOnReadFrom", "cmd": "go test -run '^TestTeeReceivesCopyOnReadFrom$' ./osscheck_reg/"},
+      {"name": "TestPlainWriteIsUnaffected", "cmd": "go test -run '^TestPlainWriteIsUnaffected$' ./osscheck_reg/"},
+      {"name": "TestDiscardStillReportsBytesWritten", "cmd": "go test -run '^TestDiscardStillReportsBytesWritten$' ./osscheck_reg/"}
+    ]
+  },
+  "test_timeout_s": 300
+}

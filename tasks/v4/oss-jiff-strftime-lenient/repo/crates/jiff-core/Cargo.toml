@@ -1,0 +1,18 @@
+[package]
+name = "jiff-core"
+version = "0.1.0"
+authors = ["Andrew Gallant <jamslam@gmail.com>"]
+license = "Unlicense OR MIT"
+repository = "https://github.com/BurntSushi/jiff"
+description = "Core routines for the jiff crate."
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "jiff_core"
+
+[features]
+default = ["std", "tz-fat"]
+alloc = []
+std = ["alloc"]
+tz-fat = []
