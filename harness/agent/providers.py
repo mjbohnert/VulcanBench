@@ -30,10 +30,11 @@ import os
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel, Field
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 
 class ProviderError(RuntimeError):
@@ -72,6 +73,10 @@ class LLMResponse(BaseModel):
 
 class LLMProvider(ABC):
     """Base class for all model backends."""
+
+    #: Ceiling on any single HTTP call to this provider, in seconds. Raise it in
+    #: a subclass when the model's thinking legitimately runs longer.
+    MAX_REQUEST_TIMEOUT_S: float = 300.0
 
     def __init__(self, model: str) -> None:
         self.model = model
@@ -118,24 +123,65 @@ def _http_post_json(
         raise ProviderError(f"network error calling {url}: {e.reason}") from e
     except TimeoutError as e:
         # socket timeout during resp.read() surfaces raw (not as URLError);
-        # wrap it so @_RETRY treats it like any other transient provider error.
+        # wrap it so the retry wrapper treats it like any other transient error.
         raise ProviderError(f"read timeout after {timeout:.0f}s calling {url}") from e
 
 
-def _http_timeout(timeout_s: float | None) -> float:
+# Ceiling on a single provider HTTP call, independent of how much run budget is
+# left. The remaining budget bounds the *run*, not one request: using it as the
+# socket timeout let a stalled request consume the whole task. Measured over 362
+# completed Opus 5 requests, the slowest legitimate response was 207s (p99 87s,
+# median 3.3s) while observed stalls ran 962-1785s, so this sits above every real
+# response with headroom and well under any stall.
+MAX_REQUEST_TIMEOUT_S = 300
+
+
+def _http_timeout(timeout_s: float | None, cap: float = MAX_REQUEST_TIMEOUT_S) -> float:
+    """Per-request socket timeout: the request ceiling, capped by run budget.
+
+    ``timeout_s`` is the run's *remaining* budget. It caps the request so a call
+    can't outlive the run, but never extends it past ``cap``. Providers whose
+    models legitimately think for longer raise ``cap`` via
+    ``LLMProvider.MAX_REQUEST_TIMEOUT_S``.
+    """
     if timeout_s is None:
-        return 120
+        return cap
     if timeout_s <= 0:
         raise ProviderError("run budget exhausted before provider call")
-    return timeout_s
+    return min(cap, timeout_s)
 
 
-_RETRY = retry(
-    retry=retry_if_exception_type(ProviderError),
-    wait=wait_exponential(multiplier=1, min=1, max=20),
-    stop=stop_after_attempt(4),
-    reraise=True,
-)
+_MAX_ATTEMPTS = 4
+_WAIT = wait_exponential(multiplier=1, min=1, max=20)
+
+
+def _budgeted_attempts(timeout_s: float | None, request_timeout: float) -> int:
+    """How many attempts fit in the remaining run budget.
+
+    A retry is only worth making if the run can afford another request. With no
+    budget supplied, use the full allowance.
+    """
+    if timeout_s is None:
+        return _MAX_ATTEMPTS
+    if request_timeout <= 0:
+        return 1
+    return max(1, min(_MAX_ATTEMPTS, int(timeout_s // request_timeout)))
+
+
+def _call_with_retry[T](fn: Callable[..., T], attempts: int, *args: Any) -> T:
+    """Invoke ``fn`` with ProviderError retries, bounded to ``attempts``.
+
+    Transient stalls are the common failure: retrying a timed-out request
+    usually succeeds, whereas before a single stall consumed the whole run.
+    """
+    retryer = Retrying(
+        retry=retry_if_exception_type(ProviderError),
+        wait=_WAIT,
+        stop=stop_after_attempt(attempts),
+        reraise=True,
+    )
+    result: T = retryer(fn, *args)
+    return result
 
 
 class OpenAIProvider(LLMProvider):
@@ -157,20 +203,9 @@ class OpenAIProvider(LLMProvider):
         timeout_s: float | None = None,
         effort: str | None = None,
     ) -> LLMResponse:
-        timeout = _http_timeout(timeout_s)
-        if timeout_s is not None:
-            return self._complete_once(messages, tools, timeout, effort)
-        return self._complete_with_retry(messages, tools, timeout, effort)
-
-    @_RETRY
-    def _complete_with_retry(
-        self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        timeout: float,
-        effort: str | None,
-    ) -> LLMResponse:
-        return self._complete_once(messages, tools, timeout, effort)
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout, effort)
 
     def _complete_once(
         self,
@@ -270,20 +305,9 @@ class AnthropicProvider(LLMProvider):
         timeout_s: float | None = None,
         effort: str | None = None,
     ) -> LLMResponse:
-        timeout = _http_timeout(timeout_s)
-        if timeout_s is not None:
-            return self._complete_once(messages, tools, timeout, effort)
-        return self._complete_with_retry(messages, tools, timeout, effort)
-
-    @_RETRY
-    def _complete_with_retry(
-        self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        timeout: float,
-        effort: str | None,
-    ) -> LLMResponse:
-        return self._complete_once(messages, tools, timeout, effort)
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout, effort)
 
     def _complete_once(
         self,
@@ -475,19 +499,9 @@ class ZaiProvider(LLMProvider):
         effort: str | None = None,
     ) -> LLMResponse:
         del effort
-        timeout = _http_timeout(timeout_s)
-        if timeout_s is not None:
-            return self._complete_once(messages, tools, timeout)
-        return self._complete_with_retry(messages, tools, timeout)
-
-    @_RETRY
-    def _complete_with_retry(
-        self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        timeout: float,
-    ) -> LLMResponse:
-        return self._complete_once(messages, tools, timeout)
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout)
 
     def _complete_once(
         self,
@@ -515,9 +529,10 @@ class KimiProvider(LLMProvider):
     def name(self) -> str:
         return "kimi"
 
-    # K3's always-on max thinking routinely exceeds the generic 120s default on
-    # deadline-less calls (e.g. judge/grader invocations), so use a roomier one.
-    DEFAULT_TIMEOUT_S = 900.0
+    # K3's always-on max thinking routinely exceeds the generic per-request
+    # ceiling, so this provider gets a roomier one (used both for deadline-less
+    # calls such as judge/grader invocations and as the cap on budgeted calls).
+    MAX_REQUEST_TIMEOUT_S = 900.0
 
     def complete(
         self,
@@ -526,19 +541,9 @@ class KimiProvider(LLMProvider):
         timeout_s: float | None = None,
         effort: str | None = None,
     ) -> LLMResponse:
-        if timeout_s is not None:
-            return self._complete_once(messages, tools, _http_timeout(timeout_s), effort)
-        return self._complete_with_retry(messages, tools, self.DEFAULT_TIMEOUT_S, effort)
-
-    @_RETRY
-    def _complete_with_retry(
-        self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        timeout: float,
-        effort: str | None,
-    ) -> LLMResponse:
-        return self._complete_once(messages, tools, timeout, effort)
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout, effort)
 
     def _complete_once(
         self,
