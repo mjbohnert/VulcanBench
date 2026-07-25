@@ -83,5 +83,33 @@
     "oss-chi-readfrom-tee-doublecount",
     "oss-cobra-noduplicateargs",
     "oss-pflag-uintslice-hex"
-  ]
+  ],
+  "post-2026-05": [
+    "oss-pennylane-trotter-fragmented",
+    "oss-semver-inc-dotted-prerelease",
+    "oss-semver-xrange-order",
+    "oss-packaging-range-prerelease-policy",
+    "oss-sqlglot-qualify-lateral-star",
+    "oss-aiohttp-upgrade-deferred",
+    "oss-more-itertools-interleave-empty",
+    "oss-sqlglot-iso8601-nanos",
+    "oss-pflag-uintslice-hex",
+    "oss-hono-client-header-merge"
+  ],
+  "pre-2026-05": [
+    "oss-flask-teardown-robust",
+    "oss-networkx-leiden-communities",
+    "oss-sqlglot-canonicalize-internal-names",
+    "oss-itertools-strip-prefix",
+    "oss-jiff-signdur-panic",
+    "oss-jiff-date-day-lt1",
+    "oss-jiff-strftime-negpad",
+    "oss-zod-invert-codec",
+    "oss-zod-proto-catchall",
+    "oss-hono-request-bytes",
+    "oss-semver-truncate",
+    "oss-chi-readfrom-tee-doublecount",
+    "oss-cobra-noduplicateargs"
+  ],
+  "_split_note": "pre/post-2026-05 partition the 23 tasks by upstream PR merge date against a 2026-05-31 cutoff. post-2026-05 (10 tasks) is the contamination-clean subset for models with a May-2026 knowledge cutoff, e.g. anthropic:claude-opus-5; pre-2026-05 (13) may be memorized. Merge dates come from each task's metadata.json decontamination_notes."
 }
