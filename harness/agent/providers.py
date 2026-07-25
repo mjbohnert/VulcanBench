@@ -71,12 +71,30 @@ class LLMResponse(BaseModel):
         return len(self.tool_calls) > 0
 
 
+# Ceiling on a single provider HTTP call, independent of how much run budget is
+# left. The remaining budget bounds the *run*, not one request: using it as the
+# socket timeout let a stalled request consume the whole task.
+#
+# Calibrate this against the SLOWEST LEGITIMATE RESPONSE, not the average. Round
+# trips grow with conversation length, so on a large repo they climb steadily as
+# context accumulates -- one Opus 5 run on sqlglot went 2s, 4s, 43s, 111s, 153s,
+# 190s over its life. Aggregating every request hides that: across all tasks the
+# median is 3.3s and p99 is 87s, but per task the maxima split sharply by repo
+# size -- 30s on the small repos versus 333s on large/xlarge ones. A 300s ceiling
+# derived from the pooled distribution was below a response that had legitimately
+# completed in 333s, and killed real work.
+#
+# Observed stalls, by contrast, ran 962-1785s and never returned. 600s sits ~1.8x
+# above the slowest real response and ~1.6x below the shortest stall.
+DEFAULT_MAX_REQUEST_TIMEOUT_S = 600
+
+
 class LLMProvider(ABC):
     """Base class for all model backends."""
 
     #: Ceiling on any single HTTP call to this provider, in seconds. Raise it in
     #: a subclass when the model's thinking legitimately runs longer.
-    MAX_REQUEST_TIMEOUT_S: float = 300.0
+    MAX_REQUEST_TIMEOUT_S: float = DEFAULT_MAX_REQUEST_TIMEOUT_S
 
     def __init__(self, model: str) -> None:
         self.model = model
@@ -127,16 +145,7 @@ def _http_post_json(
         raise ProviderError(f"read timeout after {timeout:.0f}s calling {url}") from e
 
 
-# Ceiling on a single provider HTTP call, independent of how much run budget is
-# left. The remaining budget bounds the *run*, not one request: using it as the
-# socket timeout let a stalled request consume the whole task. Measured over 362
-# completed Opus 5 requests, the slowest legitimate response was 207s (p99 87s,
-# median 3.3s) while observed stalls ran 962-1785s, so this sits above every real
-# response with headroom and well under any stall.
-MAX_REQUEST_TIMEOUT_S = 300
-
-
-def _http_timeout(timeout_s: float | None, cap: float = MAX_REQUEST_TIMEOUT_S) -> float:
+def _http_timeout(timeout_s: float | None, cap: float = DEFAULT_MAX_REQUEST_TIMEOUT_S) -> float:
     """Per-request socket timeout: the request ceiling, capped by run budget.
 
     ``timeout_s`` is the run's *remaining* budget. It caps the request so a call

@@ -510,7 +510,7 @@ def test_providers_do_not_stream_yet() -> None:
 
 def test_http_timeout_caps_a_large_budget() -> None:
     # A generous remaining budget must not become the socket timeout.
-    assert P._http_timeout(1800.0) == P.MAX_REQUEST_TIMEOUT_S
+    assert P._http_timeout(1800.0) == P.DEFAULT_MAX_REQUEST_TIMEOUT_S
 
 
 def test_http_timeout_respects_a_smaller_budget() -> None:
@@ -534,6 +534,12 @@ def test_budgeted_attempts_fit_the_remaining_budget() -> None:
     assert P._budgeted_attempts(100.0, 300.0) == 1  # never fewer than one
 
 
+def test_request_ceiling_clears_the_slowest_observed_real_response() -> None:
+    # Round trips grow with context: the slowest response seen actually complete
+    # was 333s, on an xlarge repo. A ceiling at or below that aborts real work.
+    assert P.DEFAULT_MAX_REQUEST_TIMEOUT_S > 333
+
+
 def test_stalled_request_is_retried_rather_than_consuming_the_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -552,4 +558,4 @@ def test_stalled_request_is_retried_rather_than_consuming_the_run(
 
     assert resp.content == "ok"
     assert len(calls) == 2, "a stalled request must be retried"
-    assert all(t == P.MAX_REQUEST_TIMEOUT_S for t in calls), calls
+    assert all(t == P.DEFAULT_MAX_REQUEST_TIMEOUT_S for t in calls), calls
