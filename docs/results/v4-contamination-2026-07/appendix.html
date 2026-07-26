@@ -1,0 +1,286 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@page { size: A4 landscape; margin: 13mm 12mm; }
+* { box-sizing: border-box; margin:0; padding:0; }
+body { font-family: "Times New Roman", Times, Georgia, serif; color:#1c1a17; font-size: 9.4pt; }
+h1 { font-size: 20pt; font-weight:600; }
+h2 { font-size: 12.5pt; font-weight:600; margin-top: 13pt; padding-bottom:3pt; border-bottom:1.4px solid #1c1a17; }
+.mast { display:flex; justify-content:space-between; font-variant:small-caps; letter-spacing:1.8px;
+  font-size:9pt; color:#6f6a62; border-bottom:2px solid #1c1a17; padding-bottom:4pt; }
+.mast b { color:#1c1a17; }
+.deck { font-style:italic; color:#3a362f; margin-top:5pt; font-size:11pt; }
+p { margin-top:6pt; line-height:1.45; }
+table { width:100%; border-collapse:collapse; margin-top:7pt; font-size:8.4pt; }
+th { text-align:left; border-top:1.4px solid #1c1a17; border-bottom:1px solid #1c1a17; padding:3.5pt 3pt; font-weight:600; }
+td { padding:3.2pt 3pt; border-bottom:1px solid #e4ded2; vertical-align:top; }
+td.n { text-align:right; font-variant-numeric:tabular-nums; }
+td.dim { color:#55504a; }
+td.id { font-weight:600; }
+tr.miss td { background:#f3ece2; }
+td.oc { white-space:nowrap; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:18pt; }
+.small { font-size:8.6pt; color:#55504a; line-height:1.45; }
+.kv td { border:none; padding:2.4pt 3pt; }
+.kv td:first-child { color:#55504a; }
+.page-break { page-break-before: always; }
+.note { background:#f0ebe1; border-left:3px solid #9c6644; padding:7pt 9pt; margin-top:8pt; font-size:8.8pt; line-height:1.45; }
+</style></head><body>
+
+<div class="mast"><span><b>VulcanBench</b> &nbsp;Report No. 09 &mdash; Appendix</span><span>Claude Opus 5 &middot; July 2026</span></div>
+<h1 style="margin-top:9pt">Did Opus&nbsp;5 study for the test? &mdash; full task detail</h1>
+<div class="deck">Every task in both arms: language, upstream source, merge date, grading coverage and outcome.</div>
+
+<p>Two 13-task arms were run back-to-back against Claude Opus 5 at medium effort, one attempt each, judges disabled.
+They differ in a single property: whether the upstream fix was published <b>before</b> the model&rsquo;s May 2026 training
+cutoff (so it could have been memorised) or <b>after</b> it (so it could not). Every task is a real merged pull request,
+graded by hidden tests in a network-isolated Docker sandbox, and pre-validated so the gold patch scores 1.0, the
+unpatched repo scores 0.0, and grading is deterministic over three runs.</p>
+
+<h2>Result</h2>
+<div class="two">
+<table class="kv"><tbody>
+<tr><td>Could have seen it (pre-cutoff)</td><td><b>11 / 13</b> &mdash; 1 wrong answer, 1 ran out of time</td></tr>
+<tr><td>Never saw it (post-cutoff)</td><td><b>12 / 13</b> &mdash; 1 wrong answer</td></tr>
+<tr><td>Genuine capability misses</td><td><b>1 versus 1</b></td></tr>
+<tr><td>Stalls / infrastructure errors</td><td>0 / 0 on both arms</td></tr>
+<tr><td>Spend</td><td>$16.36 vs $4.58 &mdash; $20.94 total</td></tr>
+</tbody></table>
+<div class="small"><b>Reading the gap.</b> The visible one-task difference is inside the noise floor at n=13, where a single
+task is 7.7&nbsp;pp. The arms are matched on language but <i>not</i> on repo size, and the only non-capability failure
+landed on the largest repo in the study. Cost tracks the same asymmetry: the pre-cutoff arm carries three more
+large-or-xlarge repos and cost 3.6&times; as much to run.</div>
+</div>
+
+<h2>Composition &mdash; the arms are language-matched, not size-matched</h2>
+<div class="two">
+<table><thead><tr><th>Language</th><th>Could have seen it</th><th>Never saw it</th></tr></thead><tbody>
+<tr><td>python</td><td class='n'>3</td><td class='n'>3</td></tr><tr><td>rust</td><td class='n'>4</td><td class='n'>4</td></tr><tr><td>typescript</td><td class='n'>3</td><td class='n'>3</td></tr><tr><td>javascript</td><td class='n'>1</td><td class='n'>1</td></tr><tr><td>go</td><td class='n'>2</td><td class='n'>2</td></tr>
+<tr><td><b>total</b></td><td class="n"><b>13</b></td><td class="n"><b>13</b></td></tr>
+</tbody></table>
+<table><thead><tr><th>Repo scale</th><th>Could have seen it</th><th>Never saw it</th></tr></thead><tbody>
+<tr><td>medium</td><td class='n'>2</td><td class='n'>5</td></tr><tr><td>large</td><td class='n'>3</td><td class='n'>5</td></tr><tr><td>xlarge</td><td class='n'>8</td><td class='n'>3</td></tr>
+<tr><td><b>large + xlarge</b></td><td class="n"><b>11</b></td><td class="n"><b>8</b></td></tr>
+</tbody></table>
+</div>
+<div class="note"><b>Why this matters.</b> Language is perfectly matched across the arms &mdash; 3 Python, 4 Rust,
+3 TypeScript, 1 JavaScript, 2 Go on each side &mdash; so language cannot explain the difference. Repo scale is not
+matched, and per-step cost rises with repo size, so a scale-heavy arm loses more runs to the clock and costs more.
+Report scale composition beside any cross-suite score.</div>
+
+<div class="page-break"></div>
+<div class="mast"><span><b>VulcanBench</b> &nbsp;Report No. 09 &mdash; Appendix</span><span>Arm 1 of 2</span></div>
+<h2 style="margin-top:8pt">Could have seen it &mdash; fixes merged 2026-02-12 to 2026-05-21 (before the cutoff)</h2>
+<table><thead><tr><th>Task</th><th>Lang</th><th>Upstream repo</th><th>PR</th><th>Merged</th><th>Scale</th>
+<th>Category</th><th>Difficulty</th><th>f2p</th><th>p2p</th><th>Sec</th><th>Steps</th><th>Cost</th><th>Outcome</th></tr></thead><tbody>
+<tr class=""><td class="id">flask-teardown-robust</td><td>python</td>
+        <td class="dim">pallets/flask</td><td class="dim">#5928</td><td>2026-02-19</td>
+        <td>medium</td><td>bug fix</td><td>hard</td>
+        <td class="n">3</td><td class="n">1</td>
+        <td class="n">432</td><td class="n">200</td><td class="n">$1.55</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class="miss"><td class="id">networkx-leiden-communities</td><td>python</td>
+        <td class="dim">networkx/networkx</td><td class="dim">#8509</td><td>2026-05-12</td>
+        <td>xlarge</td><td>feature</td><td>hard</td>
+        <td class="n">6</td><td class="n">1</td>
+        <td class="n">3606</td><td class="n">274</td><td class="n">$7.68</td>
+        <td class="oc">&#10007; ran out of time</td></tr>
+<tr class="miss"><td class="id">sqlglot-canonicalize-internal-names</td><td>python</td>
+        <td class="dim">tobymao/sqlglot</td><td class="dim">#7580</td><td>2026-05-04</td>
+        <td>large</td><td>feature</td><td>hard</td>
+        <td class="n">6</td><td class="n">1</td>
+        <td class="n">1744</td><td class="n">298</td><td class="n">$4.90</td>
+        <td class="oc">&#10007; wrong answer</td></tr>
+<tr class=""><td class="id">itertools-strip-prefix</td><td>rust</td>
+        <td class="dim">rust-itertools/itertools</td><td class="dim">#1104</td><td>2026-05-21</td>
+        <td>xlarge</td><td>feature</td><td>medium</td>
+        <td class="n">4</td><td class="n">1</td>
+        <td class="n">316</td><td class="n">104</td><td class="n">$0.42</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">jiff-signdur-panic</td><td>rust</td>
+        <td class="dim">BurntSushi/jiff</td><td class="dim">#527</td><td>2026-02-28</td>
+        <td>xlarge</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">3</td>
+        <td class="n">60</td><td class="n">58</td><td class="n">$0.12</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">jiff-date-day-lt1</td><td>rust</td>
+        <td class="dim">BurntSushi/jiff</td><td class="dim">#524</td><td>2026-02-22</td>
+        <td>xlarge</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">3</td>
+        <td class="n">81</td><td class="n">74</td><td class="n">$0.13</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">jiff-strftime-negpad</td><td>rust</td>
+        <td class="dim">BurntSushi/jiff</td><td class="dim">#487</td><td>2026-02-12</td>
+        <td>xlarge</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">3</td>
+        <td class="n">193</td><td class="n">142</td><td class="n">$0.51</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">zod-invert-codec</td><td>typescript</td>
+        <td class="dim">colinhacks/zod</td><td class="dim">#5770</td><td>2026-04-28</td>
+        <td>xlarge</td><td>feature</td><td>medium</td>
+        <td class="n">5</td><td class="n">1</td>
+        <td class="n">230</td><td class="n">130</td><td class="n">$0.53</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">zod-proto-catchall</td><td>typescript</td>
+        <td class="dim">colinhacks/zod</td><td class="dim">#5898</td><td>2026-04-29</td>
+        <td>xlarge</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">1</td>
+        <td class="n">61</td><td class="n">62</td><td class="n">$0.14</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">hono-request-bytes</td><td>typescript</td>
+        <td class="dim">honojs/hono</td><td class="dim">#4921</td><td>2026-05-16</td>
+        <td>xlarge</td><td>feature</td><td>medium</td>
+        <td class="n">4</td><td class="n">1</td>
+        <td class="n">115</td><td class="n">42</td><td class="n">$0.07</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">semver-truncate</td><td>javascript</td>
+        <td class="dim">npm/node-semver</td><td class="dim">#855</td><td>2026-05-07</td>
+        <td>medium</td><td>feature</td><td>medium</td>
+        <td class="n">4</td><td class="n">1</td>
+        <td class="n">178</td><td class="n">52</td><td class="n">$0.12</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">chi-readfrom-tee-doublecount</td><td>go</td>
+        <td class="dim">go-chi/chi</td><td class="dim">#1085</td><td>2026-05-16</td>
+        <td>large</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">1</td>
+        <td class="n">185</td><td class="n">42</td><td class="n">$0.11</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">cobra-noduplicateargs</td><td>go</td>
+        <td class="dim">spf13/cobra</td><td class="dim">#2397</td><td>2026-04-25</td>
+        <td>large</td><td>feature</td><td>medium</td>
+        <td class="n">3</td><td class="n">1</td>
+        <td class="n">96</td><td class="n">42</td><td class="n">$0.07</td>
+        <td class="oc">&#10003;</td></tr>
+</tbody></table>
+<div class="small" style="margin-top:7pt"><b>f2p</b> = fail_to_pass tests, each verified to fail at the base commit and pass after the gold patch.
+<b>p2p</b> = pass_to_pass regression guards, which compile and pass at the base commit. Shaded rows are the tasks that failed.
+<b>Sec</b> and <b>Steps</b> are the graded run&rsquo;s wall-clock and agent steps.</div>
+
+<div class="page-break"></div>
+<div class="mast"><span><b>VulcanBench</b> &nbsp;Report No. 09 &mdash; Appendix</span><span>Arm 2 of 2</span></div>
+<h2 style="margin-top:8pt">Never saw it &mdash; fixes merged 2026-06-10 to 2026-07-19 (after the cutoff)</h2>
+<table><thead><tr><th>Task</th><th>Lang</th><th>Upstream repo</th><th>PR</th><th>Merged</th><th>Scale</th>
+<th>Category</th><th>Difficulty</th><th>f2p</th><th>p2p</th><th>Sec</th><th>Steps</th><th>Cost</th><th>Outcome</th></tr></thead><tbody>
+<tr class=""><td class="id">chi-discard-readfrom</td><td>go</td>
+        <td class="dim">go-chi/chi</td><td class="dim">#1110</td><td>2026-06-14</td>
+        <td>medium</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">5</td>
+        <td class="n">256</td><td class="n">54</td><td class="n">$0.14</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">chrono-offset-minute-clamp</td><td>rust</td>
+        <td class="dim">chronotope/chrono</td><td class="dim">#1798</td><td>2026-06-22</td>
+        <td>large</td><td>bug fix</td><td>medium</td>
+        <td class="n">6</td><td class="n">4</td>
+        <td class="n">222</td><td class="n">58</td><td class="n">$0.11</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">hono-etag-star-match</td><td>typescript</td>
+        <td class="dim">honojs/hono</td><td class="dim">#5084</td><td>2026-07-10</td>
+        <td>large</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">4</td>
+        <td class="n">137</td><td class="n">34</td><td class="n">$0.07</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">hono-trie-empty-wildcard</td><td>typescript</td>
+        <td class="dim">honojs/hono</td><td class="dim">#5102</td><td>2026-07-10</td>
+        <td>large</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">5</td>
+        <td class="n">213</td><td class="n">74</td><td class="n">$0.23</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">hono-url-param-prefix</td><td>typescript</td>
+        <td class="dim">honojs/hono</td><td class="dim">#5096</td><td>2026-07-12</td>
+        <td>large</td><td>bug fix</td><td>medium</td>
+        <td class="n">4</td><td class="n">4</td>
+        <td class="n">130</td><td class="n">38</td><td class="n">$0.06</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">jiff-strftime-lenient</td><td>rust</td>
+        <td class="dim">BurntSushi/jiff</td><td class="dim">#606</td><td>2026-07-19</td>
+        <td>xlarge</td><td>bug fix</td><td>medium</td>
+        <td class="n">5</td><td class="n">3</td>
+        <td class="n">734</td><td class="n">192</td><td class="n">$0.88</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">more-itertools-subfactorial</td><td>python</td>
+        <td class="dim">more-itertools/more-itertools</td><td class="dim">#1166</td><td>2026-06-10</td>
+        <td>medium</td><td>feature</td><td>medium</td>
+        <td class="n">4</td><td class="n">3</td>
+        <td class="n">74</td><td class="n">70</td><td class="n">$0.16</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">packaging-licenseref-plus</td><td>python</td>
+        <td class="dim">pypa/packaging</td><td class="dim">#1219</td><td>2026-06-11</td>
+        <td>medium</td><td>bug fix</td><td>medium</td>
+        <td class="n">4</td><td class="n">4</td>
+        <td class="n">41</td><td class="n">34</td><td class="n">$0.06</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">pflag-custom-isboolflag</td><td>go</td>
+        <td class="dim">spf13/pflag</td><td class="dim">#487</td><td>2026-07-02</td>
+        <td>medium</td><td>bug fix</td><td>medium</td>
+        <td class="n">3</td><td class="n">4</td>
+        <td class="n">252</td><td class="n">82</td><td class="n">$0.33</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class="miss"><td class="id">regex-leftmost-suffix-candidate</td><td>rust</td>
+        <td class="dim">rust-lang/regex</td><td class="dim">#1364</td><td>2026-07-15</td>
+        <td>xlarge</td><td>bug fix</td><td>veryhard</td>
+        <td class="n">7</td><td class="n">5</td>
+        <td class="n">1257</td><td class="n">104</td><td class="n">$2.05</td>
+        <td class="oc">&#10007; wrong answer</td></tr>
+<tr class=""><td class="id">semver-tilde-prerelease-bound</td><td>javascript</td>
+        <td class="dim">npm/node-semver</td><td class="dim">#878</td><td>2026-06-19</td>
+        <td>medium</td><td>bug fix</td><td>medium</td>
+        <td class="n">5</td><td class="n">4</td>
+        <td class="n">47</td><td class="n">54</td><td class="n">$0.10</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">sqlglot-udtf-chained-alias</td><td>python</td>
+        <td class="dim">tobymao/sqlglot</td><td class="dim">#7828</td><td>2026-07-07</td>
+        <td>xlarge</td><td>bug fix</td><td>hard</td>
+        <td class="n">4</td><td class="n">3</td>
+        <td class="n">87</td><td class="n">58</td><td class="n">$0.24</td>
+        <td class="oc">&#10003;</td></tr>
+<tr class=""><td class="id">time-strftime-truncated-padding</td><td>rust</td>
+        <td class="dim">time-rs/time</td><td class="dim">#782</td><td>2026-06-12</td>
+        <td>large</td><td>bug fix</td><td>medium</td>
+        <td class="n">5</td><td class="n">4</td>
+        <td class="n">243</td><td class="n">58</td><td class="n">$0.16</td>
+        <td class="oc">&#10003;</td></tr>
+</tbody></table>
+<div class="small" style="margin-top:7pt">Ten distinct upstream projects. Every task records its upstream merge date in metadata, so the
+clean/contaminated split can be recomputed against a future model&rsquo;s cutoff rather than re-derived by hand.</div>
+
+<div class="page-break"></div>
+<div class="mast"><span><b>VulcanBench</b> &nbsp;Report No. 09 &mdash; Appendix</span><span>Method &middot; caveats</span></div>
+<h2 style="margin-top:8pt">Harness defects fixed before these numbers were taken</h2>
+<p>An earlier version of this comparison read 7/13 vs 12/13 &mdash; a large gap pointing the wrong way for contamination.
+It was five stalled HTTP requests. Four defects were found and fixed; each changed scoring behaviour, so results published
+before them (Reports No. 4 and No. 08) are not comparable to this one.</p>
+<table><thead><tr><th>Defect</th><th>Effect on a score</th><th>Fix</th></tr></thead><tbody>
+<tr><td>The run&rsquo;s remaining budget was passed as the per-request socket timeout, and supplying a timeout also bypassed the retry wrapper</td>
+<td>A single stalled request consumed an entire task and scored it 0. Six of 13 tasks died this way in the first run; one spent 21&nbsp;s working and 1785&nbsp;s blocked on one socket.</td>
+<td>The budget now caps the request instead of becoming it; retry is live on every path, bounded so retries cannot overrun the budget.</td></tr>
+<tr><td>The request ceiling was calibrated from a pooled latency distribution</td>
+<td>300&nbsp;s sat below a response that had legitimately completed in 333&nbsp;s, aborting real work. Round-trip time grows with context, so the tail is per-task, not pooled &mdash; maxima were 30&nbsp;s on small repos versus 333&nbsp;s on large ones.</td>
+<td>Ceiling raised to 600&nbsp;s: ~1.8&times; above the slowest real response, ~1.6&times; below the shortest observed stall.</td></tr>
+<tr><td>A run failing on an infrastructure error was recorded and dropped</td>
+<td>The suite reported a tidy pass@1 over a silently smaller denominator, with a different task dropping each run. Two consecutive runs both printed &ldquo;over 12 tasks&rdquo; for different reasons.</td>
+<td>Environmental failures are re-queued (bounded, and gated by the spend cap) and surfaced in the summary.</td></tr>
+<tr><td><span style="font-family:monospace">large</span> and <span style="font-family:monospace">xlarge</span> shared an 1800&nbsp;s budget despite xlarge allowing 33% more steps</td>
+<td>Neither tier could spend its step allowance at the 10&ndash;15&nbsp;s/step measured on large repos, so runs were cut off mid-work &mdash; penalising whichever arm carried more big repos.</td>
+<td>Raised to 2700&nbsp;s / 3600&nbsp;s so the budget covers the allowance.</td></tr>
+</tbody></table>
+
+<h2>Caveats</h2>
+<p><b>Near ceiling.</b> At 11&ndash;12 of 13 the model solves nearly everything it attempts, and a ceiling leaves memorisation
+little room to show itself. This rules out a large contamination effect, not a small one. A sharper test needs harder tasks
+or a weaker model, not more tasks at this difficulty.<br>
+<b>Sample size.</b> 13 tasks per arm; one task is 7.7&nbsp;pp. Only multi-task gaps are meaningful.<br>
+<b>Single attempt.</b> One run per task, no pass@k. Borderline tasks may flip between runs.<br>
+<b>One model.</b> Contamination sensitivity is not necessarily uniform across model families.<br>
+<b>Emulation.</b> These runs executed amd64 sandbox images on an arm64 host (~2&times; overhead on tool calls). Scores are
+unaffected; wall-clock and cost-per-solved are inflated relative to native runs and are not comparable to earlier reports.<br>
+<b>Not blinded.</b> Task selection for the post-cutoff arm was made by the same process that ran the comparison.</p>
+
+<h2>Reproduction</h2>
+<p>Both arms are subsets recorded in the committed suite manifests &mdash; <span style="font-family:monospace">pre-2026-05</span>
+in <span style="font-family:monospace">tasks/v3/suite.json</span> and <span style="font-family:monospace">new_in_v4</span> in
+<span style="font-family:monospace">tasks/v4/suite.json</span>. Materialise each as a scratch suite of symlinks, then:</p>
+<p style="font-family:monospace; font-size:8.4pt">vulcanbench run --suite v3-pre --model anthropic:claude-opus-5 --effort medium --no-judges --repeat 1 --max-concurrency 4 --max-cost 30.00<br>
+vulcanbench run --suite v4-new --model anthropic:claude-opus-5 --effort medium --no-judges --repeat 1 --max-concurrency 4 --max-cost 30.00</p>
+<p class="small">Requires the harness fixes above. Pricing: Claude Opus 5 $5/$25 per million tokens. Full traces, final patches
+and replay HTML for every run are under <span style="font-family:monospace">runs/</span>. Machine-readable results:
+<span style="font-family:monospace">docs/results/v4-contamination-2026-07/results.json</span>.</p>
+
+</body></html>
