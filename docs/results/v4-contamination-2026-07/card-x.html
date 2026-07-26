@@ -3,78 +3,60 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 1600px; height: 900px; }
 body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
-.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.page { width: 1600px; height: 900px; padding: 40px 74px 28px; position: relative; }
 .masthead { display: flex; justify-content: space-between; align-items: baseline;
-  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 18px; color: #6f6a62; }
 .masthead b { color: #1c1a17; font-weight: 600; }
 .rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
 .rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
 
-h1 { text-align: center; font-size: 64px; font-weight: 600; margin-top: 64px; letter-spacing: 0.2px; }
-.deck { text-align: center; font-style: italic; font-size: 25px; margin-top: 18px; color: #3a362f; }
+h1 { text-align: center; font-size: 56px; font-weight: 600; margin-top: 54px; }
 
-.board { display: grid; grid-template-columns: 1fr 1fr; gap: 120px; margin: 70px auto 0; width: 1100px; }
-.arm { text-align: center; }
-.armlabel { font-variant: small-caps; letter-spacing: 3px; font-size: 23px; color: #6f6a62; }
-.score { font-size: 104px; font-weight: 600; line-height: 1.05; margin-top: 6px; font-variant-numeric: tabular-nums; }
-.score span { font-size: 46px; color: #6f6a62; font-weight: 400; }
-.bar { display: flex; height: 28px; width: 420px; margin: 18px auto 0; }
-.bar i { display: block; height: 100%; }
-.detail { font-size: 22px; color: #55504a; margin-top: 13px; }
+.qs { display: grid; grid-template-columns: 1fr 1fr; gap: 66px; margin: 66px auto 0; width: 1310px; }
+.q { text-align: center; padding: 30px 22px 34px; background: #efe9dd; border-top: 4px solid #1c1a17; }
+.qtext { font-size: 27px; font-style: italic; color: #3a362f; min-height: 76px; line-height: 1.35; }
+.ans { font-size: 112px; font-weight: 700; line-height: 1; margin-top: 2px; letter-spacing: 1px; }
+.yes { color: #9c6644; }
+.no  { color: #40628c; }
+.because { font-size: 24px; margin-top: 18px; line-height: 1.4; }
+.because b { font-weight: 700; }
 
-.verdict { text-align: center; margin-top: 66px; }
-.verdict .big { font-size: 40px; font-weight: 600; }
-.verdict .sub { font-size: 23px; margin-top: 12px; color: #3a362f; }
-.verdict .sub b { font-weight: 600; }
+.verdict { text-align: center; margin-top: 88px; font-size: 33px; line-height: 1.4; }
+.verdict b { font-weight: 700; }
+.verdict .fix { display: block; font-size: 24px; font-style: italic; color: #55504a; margin-top: 14px; }
 
-.foot { position: absolute; left: 78px; right: 78px; bottom: 26px;
-  border-top: 1px solid #1c1a17; padding-top: 12px; font-size: 21px;
-  color: #55504a; line-height: 1.45; display: flex; justify-content: space-between; gap: 40px; }
+.foot { position: absolute; left: 74px; right: 74px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 11px; font-size: 20px;
+  color: #55504a; line-height: 1.4; display: flex; justify-content: space-between; gap: 40px; }
 .foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
   letter-spacing: 1.5px; color: #1c1a17; font-size: 19px; }
-.key { display: flex; justify-content: center; gap: 34px; font-size: 20px; color: #55504a; margin-top: 42px; }
-.key span { display: inline-flex; align-items: center; gap: 8px; }
-.sw { width: 15px; height: 15px; display: inline-block; }
 </style></head><body>
 <div class="page">
   <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 09</span><span>Claude Opus 5 &nbsp;&middot;&nbsp; July 2026</span></div>
   <div class="rule2"></div><div class="rule1"></div>
 
-  <h1>Did Opus&nbsp;5 study for the test?</h1>
-  <div class="deck">Thirteen tasks it could have memorised. Thirteen it couldn&rsquo;t. Same model, same settings.</div>
+  <h1>Was our eval suite contaminated?</h1>
 
-  <div class="board">
-    <div class="arm">
-      <div class="armlabel">could have seen it</div>
-      <div class="score">11<span>/13</span></div>
-      <div class="bar">
-        <i style="background:#5d7ba0; width:84.6%"></i><i style="background:#9c6644; width:7.7%"></i><i style="background:#c9c2b6; width:7.7%"></i>
-      </div>
-      <div class="detail">fixes published <b>before</b> its cutoff</div>
+  <div class="qs">
+    <div class="q">
+      <div class="qtext">Had Opus&nbsp;5 seen the answers<br>before we tested it?</div>
+      <div class="ans yes">YES</div>
+      <div class="because"><b>13 of 23 tasks</b> in Suite&nbsp;v3 were<br>published before its training cutoff</div>
     </div>
-    <div class="arm">
-      <div class="armlabel">never saw it</div>
-      <div class="score">12<span>/13</span></div>
-      <div class="bar">
-        <i style="background:#5d7ba0; width:92.3%"></i><i style="background:#9c6644; width:7.7%"></i>
-      </div>
-      <div class="detail">fixes published <b>after</b> its cutoff</div>
+    <div class="q">
+      <div class="qtext">Did that make<br>its score look better?</div>
+      <div class="ans no">NO</div>
+      <div class="because">It got <b>one wrong</b> on the tasks it could<br>have seen, and <b>one</b> on the tasks it couldn&rsquo;t</div>
     </div>
-  </div>
-
-  <div class="key">
-    <span><span class="sw" style="background:#5d7ba0"></span>solved</span>
-    <span><span class="sw" style="background:#9c6644"></span>wrong answer</span>
-    <span><span class="sw" style="background:#c9c2b6"></span>ran out of time</span>
   </div>
 
   <div class="verdict">
-    <div class="big">No advantage from having seen the answer.</div>
-    <div class="sub">Each side got exactly <b>one</b> genuinely wrong. The one-task gap is repo size, not memory.</div>
+    So: the suite <b>was</b> contaminated &mdash; and it <b>didn&rsquo;t help the model one bit</b>.
+    <span class="fix">We rebuilt it anyway. Suite v4 is 23 tasks, all published after the cutoff.</span>
   </div>
 
   <div class="foot">
-    <div>26 real merged pull requests &middot; Python, Rust, TypeScript, JavaScript, Go &middot; hidden tests, offline sandbox<br><i>Near ceiling at 11&ndash;12 of 13 &mdash; this rules out a big effect, not a small one.</i></div>
+    <div>26 real merged pull requests &middot; Python, Rust, TypeScript, JavaScript, Go &middot; hidden tests, offline sandbox<br><i>It solves ~90% either way, so this rules out a big advantage, not a small one.</i></div>
     <div class="brand">vulcanbench &middot; open source</div>
   </div>
 </div>
