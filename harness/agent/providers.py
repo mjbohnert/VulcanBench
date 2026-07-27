@@ -293,6 +293,19 @@ def _with_prompt_caching(
     return system_field, converted
 
 
+# Output allowance per normalized effort level. Thinking is billed against
+# max_tokens, so deeper effort needs a larger cap to leave room for the tool call
+# after the reasoning. 128000 is the Opus 5 / Sonnet 5 / Fable 5 output ceiling.
+_MAX_TOKENS_BY_EFFORT = {
+    "low": 32000,
+    "medium": 48000,
+    "high": 64000,
+    "extra-high": 96000,
+    "xhigh": 96000,
+    "max": 128000,
+}
+
+
 class AnthropicProvider(LLMProvider):
     """Anthropic Messages API.
 
@@ -334,9 +347,13 @@ class AnthropicProvider(LLMProvider):
         payload: dict[str, Any] = {
             "model": self.model,
             # Thinking counts toward max_tokens on always-on-thinking models
-            # (Fable 5) and adaptive-by-default models (Sonnet 5); 4096 could
-            # truncate a thinking-heavy step to an empty response.
-            "max_tokens": 16000,
+            # (Fable 5) and adaptive-by-default models (Opus 5, Sonnet 5), so the
+            # cap has to cover reasoning *and* the tool call that follows it. A
+            # flat 16000 truncated thinking-heavy steps on Opus 5 at high effort:
+            # the reply consumed the whole allowance and came back with no content
+            # and no tool_calls, ending the run with an empty patch (Report No. 10).
+            # Scale with effort instead; 128000 is the model ceiling.
+            "max_tokens": _MAX_TOKENS_BY_EFFORT.get(effort or "high", 64000),
             "messages": converted,
         }
         if effort is not None:
@@ -373,6 +390,16 @@ class AnthropicProvider(LLMProvider):
                 "model refused the request"
                 f" (category={details.get('category')!r}):"
                 f" {details.get('explanation') or 'no explanation provided'}"
+            )
+        # A step that spends the whole output allowance returns no content and no
+        # tool_use block. Left unreported it looks identical to a model that tried
+        # and failed: the run just ends and the empty patch grades 0.0. Surface it
+        # so the retry path can see it and it is never mistaken for a wrong answer.
+        if body.get("stop_reason") == "max_tokens" and not body.get("content"):
+            raise ProviderError(
+                "response truncated at the max_tokens limit"
+                f" ({payload['max_tokens']} tokens, effort={effort or 'high'})"
+                " before any content or tool call was produced"
             )
         content_text: list[str] = []
         tool_calls: list[ToolInvocation] = []
