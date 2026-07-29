@@ -13,6 +13,8 @@ Providers implemented:
 - ``anthropic:<model>`` Anthropic Messages API.
 - ``zai:<model>``      Z.ai (Zhipu) OpenAI-compatible Chat Completions API.
 - ``kimi:<model>``     Moonshot AI (Kimi) OpenAI-compatible Chat Completions API.
+- ``qwen:<model>``     Alibaba Cloud DashScope OpenAI-compatible Chat Completions
+                       API (Qwen).
 
 Only the Python standard library is used for HTTP so the harness stays
 dependency-light; ``tenacity`` provides retry/backoff.
@@ -34,11 +36,16 @@ from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel, Field
-from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import Retrying, retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 
 class ProviderError(RuntimeError):
     """Raised when a provider cannot produce a response."""
+
+
+class NonRetryableProviderError(ProviderError):
+    """A ProviderError that must fail fast: retrying only re-bills the failure
+    (e.g. a response truncated at the output ceiling)."""
 
 
 class ToolInvocation(BaseModel):
@@ -164,6 +171,10 @@ _MAX_ATTEMPTS = 4
 _WAIT = wait_exponential(multiplier=1, min=1, max=20)
 
 
+def _is_retryable(e: BaseException) -> bool:
+    return isinstance(e, ProviderError) and not isinstance(e, NonRetryableProviderError)
+
+
 def _budgeted_attempts(timeout_s: float | None, request_timeout: float) -> int:
     """How many attempts fit in the remaining run budget.
 
@@ -182,15 +193,40 @@ def _call_with_retry[T](fn: Callable[..., T], attempts: int, *args: Any) -> T:
 
     Transient stalls are the common failure: retrying a timed-out request
     usually succeeds, whereas before a single stall consumed the whole run.
+    NonRetryableProviderError (refusals, output-cap truncation) is surfaced
+    immediately — a retry at the same settings cannot change the outcome.
     """
     retryer = Retrying(
-        retry=retry_if_exception_type(ProviderError),
+        retry=retry_if_exception(_is_retryable),
         wait=_WAIT,
         stop=stop_after_attempt(attempts),
         reraise=True,
     )
     result: T = retryer(fn, *args)
     return result
+
+
+_RETRY = retry(
+    retry=retry_if_exception(_is_retryable),
+    wait=_WAIT,
+    stop=stop_after_attempt(4),
+    reraise=True,
+)
+
+# Anthropic output ceiling by requested effort. Thinking bills against
+# ``max_tokens`` on always-on-thinking models (Fable 5) and adaptive models
+# (Sonnet 5), so the ceiling must scale with effort — the old fixed 16K cap
+# truncated thinking-heavy steps to empty responses that were then scored as
+# wrong answers (see Report No. 10's harness note).
+_ANTHROPIC_MAX_TOKENS: dict[str, int] = {
+    "low": 32_000,
+    "medium": 64_000,
+    "high": 128_000,
+    "xhigh": 128_000,
+    "extra-high": 128_000,
+    "max": 128_000,
+}
+_ANTHROPIC_MAX_TOKENS_DEFAULT = 32_000
 
 
 class OpenAIProvider(LLMProvider):
@@ -293,17 +329,6 @@ def _with_prompt_caching(
     return system_field, converted
 
 
-# Output allowance per normalized effort level. Thinking is billed against
-# max_tokens, so deeper effort needs a larger cap to leave room for the tool call
-# after the reasoning. 128000 is the Opus 5 / Sonnet 5 / Fable 5 output ceiling.
-_MAX_TOKENS_BY_EFFORT = {
-    "low": 32000,
-    "medium": 48000,
-    "high": 64000,
-    "extra-high": 96000,
-    "xhigh": 96000,
-    "max": 128000,
-}
 
 
 class AnthropicProvider(LLMProvider):
@@ -344,16 +369,10 @@ class AnthropicProvider(LLMProvider):
         base = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
         system, converted = _to_anthropic_messages(messages)
         system_field, converted = _with_prompt_caching(system, converted)
+        max_tokens = _ANTHROPIC_MAX_TOKENS.get(effort or "", _ANTHROPIC_MAX_TOKENS_DEFAULT)
         payload: dict[str, Any] = {
             "model": self.model,
-            # Thinking counts toward max_tokens on always-on-thinking models
-            # (Fable 5) and adaptive-by-default models (Opus 5, Sonnet 5), so the
-            # cap has to cover reasoning *and* the tool call that follows it. A
-            # flat 16000 truncated thinking-heavy steps on Opus 5 at high effort:
-            # the reply consumed the whole allowance and came back with no content
-            # and no tool_calls, ending the run with an empty patch (Report No. 10).
-            # Scale with effort instead; 128000 is the model ceiling.
-            "max_tokens": _MAX_TOKENS_BY_EFFORT.get(effort or "high", 64000),
+            "max_tokens": max_tokens,
             "messages": converted,
         }
         if effort is not None:
@@ -391,16 +410,6 @@ class AnthropicProvider(LLMProvider):
                 f" (category={details.get('category')!r}):"
                 f" {details.get('explanation') or 'no explanation provided'}"
             )
-        # A step that spends the whole output allowance returns no content and no
-        # tool_use block. Left unreported it looks identical to a model that tried
-        # and failed: the run just ends and the empty patch grades 0.0. Surface it
-        # so the retry path can see it and it is never mistaken for a wrong answer.
-        if body.get("stop_reason") == "max_tokens" and not body.get("content"):
-            raise ProviderError(
-                "response truncated at the max_tokens limit"
-                f" ({payload['max_tokens']} tokens, effort={effort or 'high'})"
-                " before any content or tool call was produced"
-            )
         content_text: list[str] = []
         tool_calls: list[ToolInvocation] = []
         for block in body.get("content", []):
@@ -414,6 +423,14 @@ class AnthropicProvider(LLMProvider):
                         arguments=block.get("input", {}) or {},
                     )
                 )
+        if body.get("stop_reason") == "max_tokens" and not tool_calls:
+            # Thinking consumed the whole output budget: the step carries no
+            # action, and silently returning it would score the run as a wrong
+            # answer instead of a harness-visible failure.
+            raise NonRetryableProviderError(
+                f"response truncated at max_tokens={max_tokens} with no tool call"
+                " (stop_reason=max_tokens)"
+            )
         usage = body.get("usage", {})
         # With prompt caching, ``input_tokens`` is the UNCACHED remainder; cache reads
         # bill ~0.1x and cache writes ~1.25x (separate usage fields). Fold them into an
@@ -602,6 +619,60 @@ class KimiProvider(LLMProvider):
             temperature=None,
             extra_payload={"reasoning_effort": effort} if effort else None,
         )
+
+
+class QwenProvider(LLMProvider):
+    """Alibaba Cloud DashScope (Qwen) OpenAI-compatible Chat Completions API.
+
+    Uses ``/compatible-mode/v1/chat/completions``. Default base URL is the
+    international endpoint; set ``DASHSCOPE_BASE_URL`` for China
+    (``https://dashscope.aliyuncs.com/compatible-mode/v1``) or another region.
+    Reasoning effort is not supported on this path (``reasoning_effort`` is
+    silently ignored by DashScope; Qwen's ``enable_thinking`` needs streaming
+    on some models, which this harness does not use yet) — ``--effort`` is
+    recorded as metadata only.
+    """
+
+    @property
+    def name(self) -> str:
+        return "qwen"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        del effort
+        timeout = _http_timeout(timeout_s)
+        if timeout_s is not None:
+            return self._complete_once(messages, tools, timeout)
+        return self._complete_with_retry(messages, tools, timeout)
+
+    @_RETRY
+    def _complete_with_retry(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+    ) -> LLMResponse:
+        return self._complete_once(messages, tools, timeout)
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+    ) -> LLMResponse:
+        api_key = os.environ.get("DASHSCOPE_API_KEY")
+        if not api_key:
+            raise ProviderError("DASHSCOPE_API_KEY is not set")
+        base = os.environ.get(
+            "DASHSCOPE_BASE_URL",
+            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        ).rstrip("/")
+        return _chat_completions_complete(base, api_key, self.model, messages, tools, timeout)
 
 
 def _loads_args(raw: Any) -> dict[str, Any]:
@@ -830,6 +901,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "anthropic": AnthropicProvider,
     "zai": ZaiProvider,
     "kimi": KimiProvider,
+    "qwen": QwenProvider,
     "mock": MockProvider,
 }
 

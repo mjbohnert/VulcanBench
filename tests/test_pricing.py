@@ -55,6 +55,12 @@ def test_kimi_k3_priced() -> None:
     assert pricing.cost_usd("kimi:kimi-k3", 1_000_000, 1_000_000) == 18.0
 
 
+def test_qwen_plus_priced() -> None:
+    # DashScope intl list (≤256K): input 0.40/1M, output 1.60/1M -> 2.00.
+    assert pricing.is_priced("qwen:qwen3.7-plus")
+    assert pricing.cost_usd("qwen:qwen3.7-plus", 1_000_000, 1_000_000) == 2.0
+
+
 def test_anthropic_frontier_models_priced() -> None:
     # Sonnet 5 standard pricing: input 3.00/1M, output 15.00/1M -> 1M+1M = 18.00.
     assert pricing.is_priced("anthropic:claude-sonnet-5")
@@ -62,6 +68,9 @@ def test_anthropic_frontier_models_priced() -> None:
     # Opus 4.8: input 5.00/1M, output 25.00/1M -> 30.00. Both are needed for the
     # effort-sweep cost/Pareto axis; an unpriced model silently yields cost=None.
     assert pricing.cost_usd("anthropic:claude-opus-4-8", 1_000_000, 1_000_000) == 30.0
+    # Opus 5: input 5.00/1M, output 25.00/1M -> 30.00 (Report No. 10 pricing).
+    assert pricing.is_priced("anthropic:claude-opus-5")
+    assert pricing.cost_usd("anthropic:claude-opus-5", 1_000_000, 1_000_000) == 30.0
     # Fable 5: input 10.00/1M, output 50.00/1M -> 60.00.
     assert pricing.is_priced("anthropic:claude-fable-5")
     assert pricing.cost_usd("anthropic:claude-fable-5", 1_000_000, 1_000_000) == 60.0
