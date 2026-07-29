@@ -1,0 +1,88 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@page { size: A4; margin: 0; }
+html, body { width: 210mm; }
+body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 8.6pt; line-height: 1.27; }
+.page { padding: 11mm 15mm 10mm; position: relative; height: 296mm; overflow: hidden; }
+.rhead b { font-size: 11pt; }
+.rmeta { color: #555; font-size: 8pt; margin-top: 2px; }
+.rule { border-top: 1.5px solid #1a1a1a; margin: 6px 0 9px; }
+h1 { font-size: 15.5pt; margin: 2px 0 3px; }
+.byline { font-style: italic; color: #333; font-size: 8.8pt; margin-bottom: 7px; }
+h2 { font-size: 9.8pt; margin: 7px 0 3px; }
+p.abs, p.note { text-align: justify; }
+p.note { font-style: italic; color: #444; font-size: 7.4pt; margin-top: 3px; }
+table { width: 100%; border-collapse: collapse; font-size: 8.2pt; margin-top: 3px; }
+thead th { background: #eee; text-align: right; padding: 2.5px 5px; border-top: 1.5px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; }
+thead th:first-child { text-align: left; }
+tbody td { padding: 2.2px 5px; text-align: right; }
+tbody td:first-child { text-align: left; }
+tbody tr:nth-child(odd) td { background: #f7f7f7; }
+tbody tr:last-child td { border-bottom: 1.5px solid #1a1a1a; }
+tr.win td { font-weight: 700; }
+table.tl td, table.tl th { text-align: left; }
+.findings p { margin-top: 3.5px; text-align: justify; }
+.prose p { margin-top: 3.5px; text-align: justify; }
+.foot { position: absolute; bottom: 7mm; left: 15mm; right: 15mm; text-align: center; color: #666; font-size: 7.5pt; font-style: italic; border-top: 0.5px solid #999; padding-top: 3px; }
+</style></head><body>
+<div class="page">
+  <div class="rhead"><b>VulcanBench Technical Report No. 09</b>
+    <div class="rmeta">July 25, 2026&ensp;|&ensp;contamination A/B&ensp;|&ensp;26 tasks&ensp;|&ensp;26 runs&ensp;|&ensp;1 model&ensp;|&ensp;5 languages&ensp;|&ensp;$20.94</div>
+  </div>
+  <div class="rule"></div>
+
+  <h1>Does training-data contamination move Claude Opus 5&rsquo;s score?</h1>
+  <p class="byline">A controlled A/B: thirteen v3 tasks whose upstream fixes merged before Opus 5&rsquo;s May 2026 training cutoff (the model may have memorised them) against thirteen new v4 tasks merged after it (it cannot have) &mdash; run back-to-back with identical settings.</p>
+
+  <h2>Abstract</h2>
+  <p class="abs">No detectable contamination effect. The arm Opus 5 could have memorised scores 11/13; the arm it cannot have seen scores 12/13 &mdash; and each side records exactly one genuine wrong answer. The visible one-task gap is repo-scale composition, not memory: the contaminated arm carries 11 of 13 large-or-xlarge repositories against the clean arm&rsquo;s 8, which is also why it cost 3.6&times; more and ran 2&times; longer per task. At 11&ndash;12 of 13 the model is near ceiling, so this rules out a large effect, not a small one. Getting to this null took four harness fixes: before them, the same comparison read 7/13 vs 12/13 &mdash; a large gap pointing the wrong way for contamination, produced entirely by stalled HTTP requests scored as failures.</p>
+
+  <h2>Table 1. Results (Claude Opus 5, medium effort, one attempt per task)</h2>
+  <table>
+    <thead><tr><th>Arm</th><th>Score</th><th>pass@1</th><th>Genuine misses</th><th>Hit wall-clock</th><th>Cost</th><th>Tok/task</th><th>Time/task</th><th>$/task</th><th>$/solved</th></tr></thead>
+    <tbody>
+      <tr class="win"><td>Clean (post-cutoff)</td><td>12/13</td><td>92.3%</td><td>1</td><td>0</td><td>$4.58</td><td>38 K</td><td>4.7 min</td><td>$0.35</td><td>$0.38</td></tr>
+      <tr><td>Contaminated (pre-cutoff)</td><td>11/13</td><td>84.6%</td><td>1</td><td>1</td><td>$16.36</td><td>121 K</td><td>9.4 min</td><td>$1.26</td><td>$1.49</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Genuine misses completed and produced a wrong patch. Hit wall-clock = still working productively when the budget expired &mdash; a different failure mode, not a statement about capability. Zero stalls, zero infrastructure errors, zero retries on either arm.</p>
+
+  <h2>Findings</h2>
+  <div class="findings">
+    <p><b>1. No detectable contamination effect.</b> Genuine capability misses are 1 versus 1. The headline gap is a single task (7.7 pp), inside the noise floor at n=13. Memorisation of the upstream fix did not measurably help.</p>
+    <p><b>2. The visible gap is repo-scale composition.</b> The contaminated arm carries 11/13 large-or-xlarge repositories against the clean arm&rsquo;s 8/13. Bigger repos cost more per step &mdash; context-heavy round trips, slower test runs &mdash; which is why the same 13-task shape cost 3.6&times; more and ran 2&times; longer per task, and why the one wall-clock loss landed there. Any cross-suite comparison must report scale mix alongside score.</p>
+    <p><b>3. Evidence against a large effect, not proof of none.</b> At 11&ndash;12 of 13 the model is near ceiling, and a ceiling leaves memorisation little room to show itself. A sharper test needs harder tasks or a weaker model, not more tasks at this difficulty.</p>
+    <p><b>4. Most of the apparent signal was harness bugs.</b> Before the fixes below, the comparison read 7/13 vs 12/13. Fixing the request ceiling and retries moved it to 10/13 vs 12/13; all four fixes landed it at 11/13 vs 12/13. Each fix moved the contaminated arm up and the arms closer together &mdash; the &ldquo;contamination signal&rdquo; was infrastructure.</p>
+  </div>
+
+  <h2>Table 2. Harness defects found and fixed for this report</h2>
+  <table class="tl">
+    <thead><tr><th>Defect</th><th>Effect on scores</th></tr></thead>
+    <tbody>
+      <tr><td>Run budget passed as the per-request socket timeout, disabling retries</td><td>One stalled request consumed a whole task and scored it 0; six of 13 first-run tasks died this way</td></tr>
+      <tr><td>Request ceiling set from a pooled latency distribution</td><td>300 s sat below a response that legitimately completed in 333 s; now 600 s</td></tr>
+      <tr><td>Infrastructure errors dropped the task instead of retrying</td><td>Tidy pass@1 over a silently smaller denominator, a different task each run</td></tr>
+      <tr><td>large and xlarge shared an 1800 s budget</td><td>Neither tier could spend its step allowance; now 2700 s / 3600 s</td></tr>
+    </tbody>
+  </table>
+  <p class="note">These changed scoring behaviour. Results published before them &mdash; including Reports No. 04 and No. 08 &mdash; were produced under the old semantics and are not comparable to this report.</p>
+
+  <h2>Table 3. Failure map (the three tasks not solved; the other 23 passed)</h2>
+  <table class="tl">
+    <thead><tr><th>Task</th><th>Arm</th><th>Scale</th><th>Outcome</th></tr></thead>
+    <tbody>
+      <tr><td>sqlglot-canonicalize-internal-names</td><td>contaminated</td><td>large</td><td>&times; completed, wrong patch (1744 s, 298 steps)</td></tr>
+      <tr><td>networkx-leiden-communities</td><td>contaminated</td><td>xlarge</td><td>&times; still working at the 3600 s budget (274 steps)</td></tr>
+      <tr><td>regex-leftmost-suffix-candidate</td><td>clean</td><td>xlarge</td><td>&times; completed, wrong patch (1257 s, 104 steps)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Method &amp; caveats</h2>
+  <div class="prose">
+    <p>Both arms graded by deterministic hidden tests in a network-isolated Docker sandbox; every task pre-validated gold = 1.0, unpatched = 0.0. The arms are committed suite manifests &mdash; pre-2026-05 in tasks/v3/suite.json, new_in_v4 in tasks/v4/suite.json &mdash; and every task records upstream_merged, so the split can be recomputed against any future model&rsquo;s cutoff. v4 is clean for a May 2026 cutoff specifically, not indefinitely. Caveats: n=13 per arm, one task is 7.7 pp, so only multi-task gaps are meaningful; single attempt per task; one model &mdash; contamination sensitivity is not necessarily uniform across families; wall-clock inflated ~2&times; by amd64 emulation on an arm64 host (scores unaffected). Opus 5 at $5/$25 per million tokens.</p>
+  </div>
+
+  <div class="foot">VulcanBench Technical Report No. 09 &middot; vulcanbench.com &middot; open source &middot; July 25, 2026</div>
+</div>
+</body></html>

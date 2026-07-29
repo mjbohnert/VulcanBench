@@ -1,0 +1,111 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 34px 62px 24px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.4px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 7px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+
+h1 { text-align: center; font-size: 46px; font-weight: 600; margin-top: 22px; line-height: 1.14; }
+.deck { text-align: center; font-style: italic; font-size: 23px; margin-top: 12px; color: #3a362f; }
+
+.main { display: grid; grid-template-columns: 1fr 452px; gap: 40px; margin-top: 20px; }
+
+.ev { border-top: 3px solid #1c1a17; padding-top: 11px; margin-bottom: 17px; }
+.ev .h { font-variant: small-caps; letter-spacing: 2px; font-size: 17px; color: #6f6a62; }
+.ev .b { font-size: 20px; line-height: 1.4; margin-top: 6px; }
+.ev .b b { font-weight: 700; }
+.num { font-family: "Courier New", monospace; font-size: 18.5px; }
+
+.verdict { position: absolute; left: 62px; right: 62px; bottom: 92px; text-align: center;
+  font-size: 29px; line-height: 1.36; }
+.verdict b { font-weight: 700; }
+
+.foot { position: absolute; left: 62px; right: 62px; bottom: 22px;
+  border-top: 1px solid #1c1a17; padding-top: 10px; font-size: 18px;
+  color: #55504a; line-height: 1.4; display: flex; justify-content: space-between; gap: 36px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 18px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 09</span><span>Claude Opus 5 &nbsp;&middot;&nbsp; July 2026</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>We thought we&rsquo;d caught the model cheating.<br>We&rsquo;d caught our own harness.</h1>
+  <div class="deck">13 eval tasks Opus&nbsp;5 could have memorised vs. 13 it couldn&rsquo;t &mdash; run four times as we fixed what we were really measuring.</div>
+
+  <div class="main">
+    <div>
+      <svg viewBox="0 0 1010 372" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <!-- gap area between the two arms -->
+        <polygon points="150,196 530,136 910,116 910,96 530,96 150,96" fill="#9c6644" opacity="0.13"/>
+        <!-- axis -->
+        <line x1="110" y1="316" x2="960" y2="316" stroke="#1c1a17" stroke-width="1.2"/>
+        <text x="96" y="102" text-anchor="end" font-size="17" fill="#6f6a62" font-family="Georgia, serif">12</text>
+        <text x="96" y="202" text-anchor="end" font-size="17" fill="#6f6a62" font-family="Georgia, serif">7</text>
+        <text x="60" y="160" text-anchor="middle" font-size="17" fill="#6f6a62" font-family="Georgia, serif" font-style="italic" transform="rotate(-90 60 160)">tasks solved (of 13)</text>
+
+        <!-- never saw it: flat 12 -->
+        <line x1="150" y1="96" x2="910" y2="96" stroke="#40628c" stroke-width="3.5"/>
+        <circle cx="150" cy="96" r="7" fill="#40628c"/><circle cx="530" cy="96" r="7" fill="#40628c"/><circle cx="910" cy="96" r="7" fill="#40628c"/>
+        <text x="150" y="78" text-anchor="middle" font-size="21" font-weight="bold" fill="#40628c" font-family="Georgia, serif">12</text>
+        <text x="530" y="78" text-anchor="middle" font-size="21" font-weight="bold" fill="#40628c" font-family="Georgia, serif">12</text>
+        <text x="910" y="78" text-anchor="middle" font-size="21" font-weight="bold" fill="#40628c" font-family="Georgia, serif">12</text>
+        <text x="960" y="101" font-size="18" fill="#40628c" font-family="Georgia, serif" font-style="italic">never saw it</text>
+
+        <!-- could have seen it: 7 -> 10 -> 11 -->
+        <polyline points="150,196 530,136 910,116" fill="none" stroke="#9c6644" stroke-width="3.5"/>
+        <circle cx="150" cy="196" r="7" fill="#9c6644"/><circle cx="530" cy="136" r="7" fill="#9c6644"/><circle cx="910" cy="116" r="7" fill="#9c6644"/>
+        <text x="150" y="224" text-anchor="middle" font-size="21" font-weight="bold" fill="#9c6644" font-family="Georgia, serif">7</text>
+        <text x="530" y="164" text-anchor="middle" font-size="21" font-weight="bold" fill="#9c6644" font-family="Georgia, serif">10</text>
+        <text x="910" y="144" text-anchor="middle" font-size="21" font-weight="bold" fill="#9c6644" font-family="Georgia, serif">11</text>
+        <text x="960" y="121" font-size="18" fill="#9c6644" font-family="Georgia, serif" font-style="italic">could have seen it</text>
+
+        <!-- gap annotation -->
+        <text x="270" y="160" font-size="18" fill="#7a5334" font-family="Georgia, serif" font-style="italic">&ldquo;contamination&rdquo;</text>
+
+        <!-- stage ticks + labels -->
+        <line x1="150" y1="316" x2="150" y2="324" stroke="#1c1a17"/><line x1="530" y1="316" x2="530" y2="324" stroke="#1c1a17"/><line x1="910" y1="316" x2="910" y2="324" stroke="#1c1a17"/>
+        <text x="150" y="346" text-anchor="middle" font-size="18" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">first run</text>
+        <text x="150" y="366" text-anchor="middle" font-size="16.5" fill="#6f6a62" font-family="Georgia, serif">as-is</text>
+        <text x="530" y="346" text-anchor="middle" font-size="18" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">after fixing stalls</text>
+        <text x="530" y="366" text-anchor="middle" font-size="16.5" fill="#6f6a62" font-family="Georgia, serif">timeouts + retries</text>
+        <text x="910" y="346" text-anchor="middle" font-size="18" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">after fixing budgets</text>
+        <text x="910" y="366" text-anchor="middle" font-size="16.5" fill="#6f6a62" font-family="Georgia, serif">time limits + dropped runs</text>
+      </svg>
+    </div>
+
+    <div>
+      <div class="ev">
+        <div class="h">1 &middot; the smoking gun wasn&rsquo;t</div>
+        <div class="b">One &ldquo;failed&rdquo; task spent <b class="num">21s</b> working and
+        <b class="num">1785s</b> frozen on a single network request. Six of 13 losses were stalls, not wrong answers.</div>
+      </div>
+      <div class="ev">
+        <div class="h">2 &middot; the fix was wrong too</div>
+        <div class="b">Our first timeout cap killed a reply that legitimately took <b class="num">333s</b>.
+        Big repos are slow: <b class="num">30s</b> typical on small ones, <b class="num">333s</b> on large.</div>
+      </div>
+      <div class="ev">
+        <div class="h">3 &middot; the leftover gap</div>
+        <div class="b">Both halves hold <b>the same languages</b> &mdash; but the older half packs
+        <b class="num">11</b> big repos to the newer half&rsquo;s <b class="num">8</b>. Big repos run out of clock.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    Strip out the stalls and the clock, and the model got <b>exactly one task wrong on each side</b>.<br>
+    The suite <b>was</b> contaminated &mdash; and it never showed up in the score.
+  </div>
+
+  <div class="foot">
+    <div>26 real merged pull requests &middot; Python, Rust, TypeScript, JavaScript, Go &middot; hidden tests, offline sandbox<br><i>It solves ~90% either way, so this rules out a big advantage, not a small one.</i></div>
+    <div class="brand">vulcanbench &middot; open source</div>
+  </div>
+</div>
+</body></html>
