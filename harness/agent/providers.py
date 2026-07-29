@@ -35,11 +35,16 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from pydantic import BaseModel, Field
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 
 class ProviderError(RuntimeError):
     """Raised when a provider cannot produce a response."""
+
+
+class NonRetryableProviderError(ProviderError):
+    """A ProviderError that must fail fast: retrying only re-bills the failure
+    (e.g. a response truncated at the output ceiling)."""
 
 
 class ToolInvocation(BaseModel):
@@ -133,11 +138,26 @@ def _http_timeout(timeout_s: float | None) -> float:
 
 
 _RETRY = retry(
-    retry=retry_if_exception_type(ProviderError),
+    retry=retry_if_exception(
+        lambda e: isinstance(e, ProviderError) and not isinstance(e, NonRetryableProviderError)
+    ),
     wait=wait_exponential(multiplier=1, min=1, max=20),
     stop=stop_after_attempt(4),
     reraise=True,
 )
+
+# Anthropic output ceiling by requested effort. Thinking bills against
+# ``max_tokens`` on always-on-thinking models (Fable 5) and adaptive models
+# (Sonnet 5), so the ceiling must scale with effort — the old fixed 16K cap
+# truncated thinking-heavy steps to empty responses that were then scored as
+# wrong answers (see Report No. 10's harness note).
+_ANTHROPIC_MAX_TOKENS: dict[str, int] = {
+    "low": 32_000,
+    "medium": 64_000,
+    "high": 128_000,
+    "xhigh": 128_000,
+}
+_ANTHROPIC_MAX_TOKENS_DEFAULT = 32_000
 
 
 class OpenAIProvider(LLMProvider):
@@ -300,12 +320,10 @@ class AnthropicProvider(LLMProvider):
         base = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
         system, converted = _to_anthropic_messages(messages)
         system_field, converted = _with_prompt_caching(system, converted)
+        max_tokens = _ANTHROPIC_MAX_TOKENS.get(effort or "", _ANTHROPIC_MAX_TOKENS_DEFAULT)
         payload: dict[str, Any] = {
             "model": self.model,
-            # Thinking counts toward max_tokens on always-on-thinking models
-            # (Fable 5) and adaptive-by-default models (Sonnet 5); 4096 could
-            # truncate a thinking-heavy step to an empty response.
-            "max_tokens": 16000,
+            "max_tokens": max_tokens,
             "messages": converted,
         }
         if effort is not None:
@@ -356,6 +374,14 @@ class AnthropicProvider(LLMProvider):
                         arguments=block.get("input", {}) or {},
                     )
                 )
+        if body.get("stop_reason") == "max_tokens" and not tool_calls:
+            # Thinking consumed the whole output budget: the step carries no
+            # action, and silently returning it would score the run as a wrong
+            # answer instead of a harness-visible failure.
+            raise NonRetryableProviderError(
+                f"response truncated at max_tokens={max_tokens} with no tool call"
+                " (stop_reason=max_tokens)"
+            )
         usage = body.get("usage", {})
         # With prompt caching, ``input_tokens`` is the UNCACHED remainder; cache reads
         # bill ~0.1x and cache writes ~1.25x (separate usage fields). Fold them into an

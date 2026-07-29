@@ -415,6 +415,64 @@ def test_zai_ignores_effort(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resp.content == "ok"
 
 
+def test_anthropic_max_tokens_scales_with_effort(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-test")
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen["max_tokens"] = payload["max_tokens"]
+        return {"content": [{"type": "text", "text": "ok"}], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    AnthropicProvider("claude-opus-5").complete([{"role": "user", "content": "hi"}], [])
+    assert seen["max_tokens"] == 32_000
+    AnthropicProvider("claude-opus-5").complete(
+        [{"role": "user", "content": "hi"}], [], effort="xhigh"
+    )
+    assert seen["max_tokens"] == 128_000
+    AnthropicProvider("claude-opus-5").complete(
+        [{"role": "user", "content": "hi"}], [], effort="medium"
+    )
+    assert seen["max_tokens"] == 64_000
+
+
+def test_anthropic_truncated_response_raises_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A step whose whole output budget went to thinking carries no action;
+    # it must raise (harness-visible) and must NOT be retried (re-bills the
+    # same failure at up to 128K output tokens per attempt).
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-test")
+    calls = {"n": 0}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        calls["n"] += 1
+        return {"content": [], "stop_reason": "max_tokens", "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    with pytest.raises(P.NonRetryableProviderError, match="max_tokens"):
+        AnthropicProvider("claude-fable-5").complete([{"role": "user", "content": "hi"}], [])
+    assert calls["n"] == 1
+
+
+def test_anthropic_truncated_with_tool_call_still_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # If a complete tool_use block survived the cutoff the step is actionable.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-test")
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        return {
+            "content": [{"type": "tool_use", "id": "t1", "name": "run_tests", "input": {}}],
+            "stop_reason": "max_tokens",
+            "usage": {},
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    resp = AnthropicProvider("claude-fable-5").complete([{"role": "user", "content": "hi"}], [])
+    assert resp.tool_calls[0].name == "run_tests"
+
+
 def test_kimi_complete_omits_temperature(monkeypatch: pytest.MonkeyPatch) -> None:
     # kimi-k3 rejects sampling params; the payload must not carry temperature.
     monkeypatch.setenv("MOONSHOT_API_KEY", "kimi-test")

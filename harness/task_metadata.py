@@ -24,8 +24,11 @@ SCALE_DEFAULTS: dict[str, dict[str, int | float]] = {
     "micro": {"suggested_max_steps": 50, "suggested_timeout_s": 300},
     "small": {"suggested_max_steps": 60, "suggested_timeout_s": 600},
     "medium": {"suggested_max_steps": 100, "suggested_timeout_s": 1200},
-    "large": {"suggested_max_steps": 150, "suggested_timeout_s": 1800},
-    "xlarge": {"suggested_max_steps": 200, "suggested_timeout_s": 1800},
+    # large/xlarge raised from 1800s in July 2026 (Report No. 10 ran under
+    # these values): always-on-thinking models were hitting the 30-minute wall
+    # mid-work. Reports 07/08 predate the change and ran at 1800s.
+    "large": {"suggested_max_steps": 150, "suggested_timeout_s": 2700},
+    "xlarge": {"suggested_max_steps": 200, "suggested_timeout_s": 3600},
 }
 MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024
 LIST_FILES_CAP = 500
