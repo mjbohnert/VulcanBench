@@ -1,0 +1,169 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+h1 { text-align: center; font-size: 37px; font-weight: 600; margin-top: 18px; letter-spacing: 0.2px; }
+.eff { font-size: 25px; font-weight: 400; font-style: italic; color: #55504a; }
+.authors { text-align: center; font-style: italic; font-size: 19px; margin-top: 8px; color: #3a362f; }
+.abstract { width: 1300px; margin: 14px auto 0; font-size: 19px; line-height: 1.45; text-align: center; }
+.cols { display: grid; grid-template-columns: 830px 570px; gap: 44px; margin-top: 18px; }
+.tcap, .fcap { font-size: 15px; margin-bottom: 6px; line-height: 1.35; }
+.tcap b, .fcap b { font-variant: small-caps; letter-spacing: 1px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead th { border-top: 2px solid #1c1a17; border-bottom: 1px solid #1c1a17;
+  padding: 5px 4px; font-weight: 600; text-align: right; font-size: 13.5px; }
+thead th:first-child, thead th:nth-child(2) { text-align: left; }
+tbody td { padding: 3.8px 4px; text-align: right; font-variant-numeric: tabular-nums; }
+tbody td:first-child { text-align: left; color: #8a847a; font-size: 13px; }
+tbody td:nth-child(2) { text-align: left; font-style: italic; }
+tbody tr:last-child td { border-bottom: 2px solid #1c1a17; }
+tbody tr.win td { font-weight: 700; }
+tbody tr.subject td { background: #efeade; }
+.bar { width: 108px; height: 11px; background: #e2dccd; display: inline-block; vertical-align: middle; }
+.bar i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: center; font-size: 14px; margin-top: 6px; color: #3a362f; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend .note { width: 100%; text-align: center; font-size: 12.5px; color: #6f6a62; font-style: italic; }
+.sw { width: 13px; height: 13px; display: inline-block; border-radius: 50%; }
+.findings { margin-top: 9px; font-size: 14px; line-height: 1.38; }
+.findings p { margin-top: 6px; }
+.findings .n { font-weight: 700; }
+.foot { position: absolute; left: 78px; right: 78px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 8px; font-size: 13px;
+  color: #55504a; line-height: 1.38; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 15px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Technical Report No. 11</span><span>July 2026 &nbsp;&middot;&nbsp; 23 tasks &middot; 6 models &middot; 15 configurations &middot; 5 languages</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>The v3 Leaderboard <span class="eff">(every model we&rsquo;ve measured)</span></h1>
+  <div class="authors">Twenty-three real merged PRs across Python, Rust, TypeScript, JavaScript, and Go, graded by deterministic hidden tests</div>
+
+  <div class="abstract">
+  <b>Grok 4.5 (medium) owns the suite: 21/23 at $0.32 per solved task &mdash; nothing else matches it on either axis.</b>
+  Claude Opus 5 debuts level with Fable&nbsp;5&rsquo;s best at 20/23, and is the only model whose score falls at every step up the effort knob.</div>
+
+  <div class="cols">
+    <div>
+      <div class="fcap"><b>Figure 1.</b> Score vs. price per solved task. Up and left is better; shades darken with effort.</div>
+      <svg viewBox="0 0 840 478" xmlns="http://www.w3.org/2000/svg" width="100%">
+<line x1="60" y1="50"  x2="790" y2="50"  stroke="#e2dccd" stroke-width="1"/>
+<line x1="60" y1="140" x2="790" y2="140" stroke="#e2dccd" stroke-width="1"/>
+<line x1="60" y1="230" x2="790" y2="230" stroke="#e2dccd" stroke-width="1"/>
+<line x1="60" y1="320" x2="790" y2="320" stroke="#e2dccd" stroke-width="1"/>
+<line x1="60" y1="410" x2="790" y2="410" stroke="#e2dccd" stroke-width="1"/>
+<text x="52" y="54"  text-anchor="end" font-size="12" fill="#6f6a62" font-family="Georgia, serif">21/23</text>
+<text x="52" y="144" text-anchor="end" font-size="12" fill="#6f6a62" font-family="Georgia, serif">20/23</text>
+<text x="52" y="234" text-anchor="end" font-size="12" fill="#6f6a62" font-family="Georgia, serif">19/23</text>
+<text x="52" y="324" text-anchor="end" font-size="12" fill="#6f6a62" font-family="Georgia, serif">18/23</text>
+<text x="52" y="414" text-anchor="end" font-size="12" fill="#6f6a62" font-family="Georgia, serif">17/23</text>
+<text x="796" y="54"  font-size="11" fill="#a39d91" font-family="Georgia, serif">91.3%</text>
+<text x="796" y="144" font-size="11" fill="#a39d91" font-family="Georgia, serif">87.0%</text>
+<text x="796" y="234" font-size="11" fill="#a39d91" font-family="Georgia, serif">82.6%</text>
+<text x="796" y="324" font-size="11" fill="#a39d91" font-family="Georgia, serif">78.3%</text>
+<text x="796" y="414" font-size="11" fill="#a39d91" font-family="Georgia, serif">73.9%</text>
+<line x1="60" y1="435" x2="790" y2="435" stroke="#1c1a17" stroke-width="1"/>
+<line x1="200" y1="435" x2="200" y2="441" stroke="#1c1a17" stroke-width="1"/>
+<line x1="341" y1="435" x2="341" y2="441" stroke="#1c1a17" stroke-width="1"/>
+<line x1="481" y1="435" x2="481" y2="441" stroke="#1c1a17" stroke-width="1"/>
+<line x1="622" y1="435" x2="622" y2="441" stroke="#1c1a17" stroke-width="1"/>
+<line x1="762" y1="435" x2="762" y2="441" stroke="#1c1a17" stroke-width="1"/>
+<text x="200" y="456" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif">$0.50</text>
+<text x="341" y="456" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif">$1.00</text>
+<text x="481" y="456" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif">$1.50</text>
+<text x="622" y="456" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif">$2.00</text>
+<text x="762" y="456" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif">$2.50</text>
+<text x="425" y="474" text-anchor="middle" font-size="14" font-style="italic" fill="#1c1a17" font-family="Georgia, serif">USD per solved task</text>
+
+<polyline points="110.5,230 149.8,50" fill="none" stroke="#8a8478" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="152" y="104" font-size="12" font-style="italic" fill="#8a8478" font-family="Georgia, serif">efficiency frontier</text>
+
+<circle cx="110.5" cy="230" r="8" fill="#c99b7a"/>
+<circle cx="149.8" cy="50"  r="8" fill="#9c6644"/>
+<circle cx="177.9" cy="50"  r="8" fill="#6e4227"/>
+<circle cx="119.0" cy="320" r="8" fill="#ccd4dd" stroke="#8a99ab" stroke-width="1"/>
+<circle cx="189.2" cy="230" r="8" fill="#a3b1c2"/>
+<circle cx="284.6" cy="140" r="8" fill="#7a8ba1"/>
+<circle cx="231.3" cy="140" r="8" fill="#8ba3c4"/>
+<circle cx="301.5" cy="230" r="8" fill="#5d7ba0"/>
+<circle cx="352.0" cy="140" r="8" fill="#27425f"/>
+<circle cx="203.2" cy="320" r="8" fill="#7d6b8f"/>
+<circle cx="338.0" cy="410" r="8" fill="#85ab9f"/>
+<circle cx="444.7" cy="140" r="8" fill="#f7f5f0" stroke="#3f7369" stroke-width="2.2"/>
+<circle cx="256.5" cy="140" r="9" fill="#c56a52" stroke="#1c1a17" stroke-width="1.6"/>
+<circle cx="416.6" cy="230" r="9" fill="#a34b34" stroke="#1c1a17" stroke-width="1.6"/>
+<circle cx="739.5" cy="320" r="9" fill="#6e2a1c" stroke="#1c1a17" stroke-width="1.6"/>
+
+<text x="150" y="24" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">Grok 4.5 medium &middot; 21/23 &middot; $0.32</text>
+<text x="190" y="56" font-size="12" fill="#3a362f" font-family="Georgia, serif">Grok high</text>
+<text x="110" y="256" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Grok low</text>
+<text x="119" y="304" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Sol low</text>
+<text x="189" y="214" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Sol medium</text>
+<text x="297" y="145" font-size="12" fill="#3a362f" font-family="Georgia, serif">Sol high</text>
+<text x="231" y="124" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Fable low</text>
+<text x="301" y="214" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Fable medium</text>
+<text x="352" y="124" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Fable high</text>
+<text x="203" y="304" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Haiku 4.5</text>
+<text x="338" y="394" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Kimi 30-min</text>
+<text x="445" y="124" text-anchor="middle" font-size="12" fill="#3a362f" font-family="Georgia, serif">Kimi 2-h &Dagger;</text>
+<text x="256" y="166" text-anchor="middle" font-size="12.5" fill="#6e2a1c" font-family="Georgia, serif">Opus 5 low</text>
+<text x="417" y="214" text-anchor="middle" font-size="12.5" fill="#6e2a1c" font-family="Georgia, serif">Opus 5 medium</text>
+<text x="726" y="315" text-anchor="end" font-size="12.5" fill="#6e2a1c" font-family="Georgia, serif">Opus 5 high</text>
+<text x="726" y="332" text-anchor="end" font-size="11.5" font-style="italic" fill="#8a8478" font-family="Georgia, serif">7.6&times; the frontier price</text>
+</svg>
+      <div class="legend">
+        <span><span class="sw" style="background:#9c6644"></span>Grok 4.5</span>
+        <span><span class="sw" style="background:#a3b1c2"></span>GPT-5.6 Sol</span>
+        <span><span class="sw" style="background:#5d7ba0"></span>Claude Fable 5</span>
+        <span><span class="sw" style="background:#a34b34; box-shadow:0 0 0 1.5px #1c1a17"></span>Claude Opus 5</span>
+        <span><span class="sw" style="background:#3f7369"></span>Kimi K3</span>
+        <span><span class="sw" style="background:#7d6b8f"></span>Haiku 4.5</span>
+        <span class="note">Hollow marker = extended-budget ablation, not a standard configuration.</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="tcap"><b>Table 1.</b> All fifteen configurations, ranked by score, then by price per solved task.</div>
+      <table>
+        <thead><tr><th>#</th><th>Configuration</th><th>Score</th><th></th><th>Suite&nbsp;$</th><th>$/solved</th></tr></thead>
+        <tbody>
+          <tr class="win"><td>1</td><td>Grok 4.5 medium</td><td>21/23</td><td><span class="bar"><i style="width:91%;background:#9c6644"></i></span></td><td>$6.67</td><td>$0.32</td></tr>
+          <tr><td>2</td><td>Grok 4.5 high</td><td>21/23</td><td><span class="bar"><i style="width:91%;background:#6e4227"></i></span></td><td>$8.76</td><td>$0.42</td></tr>
+          <tr><td>3</td><td>Claude Fable 5 low&dagger;</td><td>20/23</td><td><span class="bar"><i style="width:87%;background:#8ba3c4"></i></span></td><td>$12.18</td><td>$0.61</td></tr>
+          <tr class="subject"><td>4</td><td>Claude Opus 5 low</td><td>20/23</td><td><span class="bar"><i style="width:87%;background:#c56a52"></i></span></td><td>$14.07</td><td>$0.70</td></tr>
+          <tr><td>5</td><td>GPT-5.6 Sol high</td><td>20/23</td><td><span class="bar"><i style="width:87%;background:#7a8ba1"></i></span></td><td>$15.90</td><td>$0.80</td></tr>
+          <tr><td>6</td><td>Claude Fable 5 high&dagger;</td><td>20/23</td><td><span class="bar"><i style="width:87%;background:#27425f"></i></span></td><td>$20.82</td><td>$1.04</td></tr>
+          <tr><td>7</td><td>Kimi K3 2-h&Dagger;</td><td>20/23</td><td><span class="bar"><i style="width:87%;background:#3f7369"></i></span></td><td>$27.43</td><td>$1.37</td></tr>
+          <tr><td>8</td><td>Grok 4.5 low</td><td>19/23</td><td><span class="bar"><i style="width:83%;background:#c99b7a"></i></span></td><td>$3.39</td><td>$0.18</td></tr>
+          <tr><td>9</td><td>GPT-5.6 Sol medium</td><td>19/23</td><td><span class="bar"><i style="width:83%;background:#a3b1c2"></i></span></td><td>$8.83</td><td>$0.46</td></tr>
+          <tr><td>10</td><td>Claude Fable 5 medium&dagger;</td><td>19/23</td><td><span class="bar"><i style="width:83%;background:#5d7ba0"></i></span></td><td>$16.32</td><td>$0.86</td></tr>
+          <tr class="subject"><td>11</td><td>Claude Opus 5 medium</td><td>19/23</td><td><span class="bar"><i style="width:83%;background:#a34b34"></i></span></td><td>$24.09</td><td>$1.27</td></tr>
+          <tr><td>12</td><td>GPT-5.6 Sol low</td><td>18/23</td><td><span class="bar"><i style="width:78%;background:#ccd4dd"></i></span></td><td>$3.85</td><td>$0.21</td></tr>
+          <tr><td>13</td><td>Claude Haiku 4.5</td><td>18/23</td><td><span class="bar"><i style="width:78%;background:#7d6b8f"></i></span></td><td>$9.14</td><td>$0.51</td></tr>
+          <tr class="subject"><td>14</td><td>Claude Opus 5 high</td><td>18/23</td><td><span class="bar"><i style="width:78%;background:#6e2a1c"></i></span></td><td>$43.60</td><td>$2.42</td></tr>
+          <tr><td>15</td><td>Kimi K3 30-min</td><td>17/23</td><td><span class="bar"><i style="width:74%;background:#85ab9f"></i></span></td><td>$16.84</td><td>$0.99</td></tr>
+        </tbody>
+      </table>
+      <div class="findings">
+        <p><span class="n">1.</span> Nothing matches Grok medium&rsquo;s 21/23, and the only two configurations that undercut its price score two and three tasks lower.</p>
+        <p><span class="n">2.</span> The effort knob pays on Grok (19&rarr;21) and Sol (18&rarr;19&rarr;20), stalls on Fable (20&rarr;19&rarr;20), and subtracts on Opus 5 (20&rarr;19&rarr;18 at 3.1&times; the cost).</p>
+        <p><span class="n">3.</span> All fifteen configurations fail the same two tasks &mdash; PennyLane Trotter and SQLGlot canonicalize. Opus 5 (low) takes the first-ever partial on PennyLane, 0.40.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>Method.</b> VulcanBench v3: 23 tasks from real merged post-cutoff PRs, network-isolated Docker sandboxes, deterministic hidden-test grading, one attempt per task per configuration. Grok/Sol/Fable from Report No.&nbsp;07; Kimi and Haiku from No.&nbsp;08; Opus 5 from No.&nbsp;10, run under the raised output cap (earlier reports used the 16&nbsp;K cap). &dagger;&nbsp;Fable 5 with Opus 4.8 refusal fallback. &Dagger;&nbsp;Kimi 2-h row is a budget-override ablation. Opus 4.8 excluded &mdash; only 5 of 23 tasks on record.</div>
+    <div class="brand">vulcanbench &middot; open source &middot; July 27, 2026</div>
+  </div>
+</div>
+</body></html>

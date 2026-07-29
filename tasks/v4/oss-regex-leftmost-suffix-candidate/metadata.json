@@ -1,0 +1,40 @@
+{
+  "id": "oss-regex-leftmost-suffix-candidate",
+  "category": "bug_fix",
+  "languages": ["rust"],
+  "difficulty": "veryhard",
+  "task_complexity": "multi_file",
+  "created": "2026-07-24",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:rust",
+  "base_commit": "926af2e68eca3ce089815790541cf50759ba2c59",
+  "upstream": {
+    "url": "https://github.com/rust-lang/regex/pull/1364",
+    "issue": "https://github.com/rust-lang/regex/issues/1354",
+    "commit": "926af2e68eca3ce089815790541cf50759ba2c59"
+  },
+  "upstream_merged": "2026-07-15",
+  "decontamination_notes": "Real bug fix from rust-lang/regex PR #1364 (fixes issue #1354), merged 2026-07-15T20:13:56Z. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. When a pattern has no usable prefix literal but an extractable suffix or inner literal, the meta engine scans for that literal to generate candidate positions and confirms each with a search; if the first candidate confirmed a match starting later than one confirmed by a subsequent candidate, the non-leftmost match was returned. Minimal reproducer: `.bb|b` on `zabb` reports 2..3 instead of 1..4. Per the upstream description this can never cause a false positive or false negative, only a wrong span. This is the largest gold patch in the suite -- 18 source files across regex-automata and regex-syntax, ~1618 changed lines -- so it is labeled veryhard/multi_file and is expected to sit in the frontier-hard tail rather than be routinely solved. Repo sliced at the PR base commit (926af2e6), trimmed to the root `regex` crate plus its two in-repo path crates (regex-automata, regex-syntax); the regex-capi, regex-cli, regex-lite and regex-test workspace members, all dev-dependencies, and the repos' own test targets are dropped. NOTE: the root manifest ships `autotests = false` with explicit [[test]] targets; those targets are stripped with the dev-dependencies, so the slice sets `autotests = true` for the injected vb_ tests to be discovered -- do not revert this. External deps aho-corasick and memchr (both required for the literal-optimization path that carries the bug -- trimming them would hide it) are vendored into repo/vendor with a .cargo/config.toml replace-source stanza; verified fully offline with `docker run --network none ... cargo build --offline`. The vendor tree also carries the optional arbitrary/syn/proc-macro2/quote chain that `cargo vendor` collects feature-agnostically; it is unused at the built feature set and could be pruned to shrink the 5.6M vendor tree. MIT/Apache-2.0 licenses preserved. Coverage: 7 fail_to_pass tests, each verified to report a wrong span at the base commit and the correct span after the gold patch. Five are the upstream regression cases from testdata/regression.toml (reverse-suffix-start-of-match-failure-010/011/012/020/030); the other two assert the same leftmost span through the Captures and find_iter APIs, so the fix must hold across three public entry points rather than just Regex::find. The 5 pass_to_pass guards cover a prefix-literal alternation, a plain literal, leftmost-then-first alternation, a non-matching haystack, and an anchored pattern -- none depend on candidate ordering, so they compile and pass at the base commit without referencing the fix. All expected spans are generated from the gold patch.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "suffix_literal_leftmost_with_dot_prefix", "cmd": "cargo test --offline --test vb_leftmost_suffix suffix_literal_leftmost_with_dot_prefix"},
+      {"name": "suffix_literal_leftmost_shorter_alternate", "cmd": "cargo test --offline --test vb_leftmost_suffix suffix_literal_leftmost_shorter_alternate"},
+      {"name": "suffix_literal_leftmost_with_trailing_context", "cmd": "cargo test --offline --test vb_leftmost_suffix suffix_literal_leftmost_with_trailing_context"},
+      {"name": "suffix_literal_leftmost_with_variable_length_prefix", "cmd": "cargo test --offline --test vb_leftmost_suffix suffix_literal_leftmost_with_variable_length_prefix"},
+      {"name": "inner_literal_leftmost_with_bounded_repetition", "cmd": "cargo test --offline --test vb_leftmost_suffix inner_literal_leftmost_with_bounded_repetition"},
+      {"name": "captures_agree_with_leftmost_span", "cmd": "cargo test --offline --test vb_leftmost_suffix captures_agree_with_leftmost_span"},
+      {"name": "find_iter_starts_at_leftmost_span", "cmd": "cargo test --offline --test vb_leftmost_suffix find_iter_starts_at_leftmost_span"}
+    ],
+    "pass_to_pass": [
+      {"name": "prefix_literal_alternation_matches_leftmost", "cmd": "cargo test --offline --test vb_regex_regression prefix_literal_alternation_matches_leftmost"},
+      {"name": "plain_literal_matches_leftmost", "cmd": "cargo test --offline --test vb_regex_regression plain_literal_matches_leftmost"},
+      {"name": "alternation_prefers_leftmost_then_first", "cmd": "cargo test --offline --test vb_regex_regression alternation_prefers_leftmost_then_first"},
+      {"name": "non_matching_haystack_reports_none", "cmd": "cargo test --offline --test vb_regex_regression non_matching_haystack_reports_none"},
+      {"name": "anchored_pattern_unaffected", "cmd": "cargo test --offline --test vb_regex_regression anchored_pattern_unaffected"}
+    ]
+  },
+  "test_timeout_s": 900
+}

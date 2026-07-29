@@ -1,0 +1,34 @@
+{
+  "id": "oss-more-itertools-subfactorial",
+  "category": "feature",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": true,
+  "base_commit": "0c48044a70bae53fed919526bb1229d459a3e496",
+  "upstream": {
+    "url": "https://github.com/more-itertools/more-itertools/pull/1166",
+    "issue": "https://github.com/more-itertools/more-itertools/pull/1166",
+    "commit": "0c48044a70bae53fed919526bb1229d459a3e496"
+  },
+  "upstream_merged": "2026-06-10",
+  "decontamination_notes": "Real feature from more-itertools/more-itertools PR #1166, merged 2026-06-10. Labeled decontaminated: true because it post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. Adds a net-new public subfactorial(n) to more_itertools/more.py (plus its .pyi stub and __all__ entry): the number of permutations of n elements with no fixed points, i.e. the length of the existing derangements() iterator, computed directly rather than by enumeration. Sequence is OEIS A000166 (1, 0, 1, 2, 9, 44, 265, 1854, ...); negative input raises ValueError. Repo sliced at the PR base commit (0c48044a) and trimmed to the more_itertools package plus LICENSE; the package's own tests/ directory is removed. more-itertools is dependency-free, so the base sandbox image runs the hidden tests with pytest and no install step. NET-NEW-SYMBOL TASK: at the base commit the import of subfactorial fails, so the whole fail_to_pass module errors during pytest collection -- every fail_to_pass test therefore fails at base, which is the intended behaviour and matches the v3 semver-truncate precedent. For that reason the pass_to_pass guards live in a SEPARATE module (reg_tests.py) that imports only pre-existing names, so it collects and passes at the base commit. Coverage: 4 fail_to_pass tests covering the known OEIS values, agreement with ilen(derangements(...)) for n=0..5, agreement with the round(n!/e) closed form for n=1..11, and ValueError on negative input. 3 pass_to_pass guards cover derangements() output, derangements() lengths, and distinct_permutations(). NOTE: a fifth candidate f2p asserting 'subfactorial' in more_itertools.__all__ was written and FAILED at gold too -- the package exposes no aggregated top-level __all__ -- so it was removed; assert against the module's public API instead. All expected values are generated from the gold patch.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "known_values", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_subfactorial_known_values -q"},
+      {"name": "matches_derangements_length", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_subfactorial_matches_derangements_length -q"},
+      {"name": "matches_closed_form", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_subfactorial_matches_rounded_closed_form -q"},
+      {"name": "rejects_negative", "cmd": "PYTHONPATH=. python -m pytest oss_tests.py::test_subfactorial_rejects_negative -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "derangements_basic", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_derangements_basic -q"},
+      {"name": "derangements_length", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_derangements_length_unchanged -q"},
+      {"name": "distinct_permutations", "cmd": "PYTHONPATH=. python -m pytest reg_tests.py::test_distinct_permutations_unchanged -q"}
+    ]
+  },
+  "test_timeout_s": 300
+}

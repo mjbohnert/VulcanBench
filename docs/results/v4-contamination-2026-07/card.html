@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+
+h1 { text-align: center; font-size: 64px; font-weight: 600; margin-top: 64px; letter-spacing: 0.2px; }
+.deck { text-align: center; font-style: italic; font-size: 25px; margin-top: 18px; color: #3a362f; }
+
+.board { display: grid; grid-template-columns: 1fr 1fr; gap: 120px; margin: 78px auto 0; width: 1100px; }
+.arm { text-align: center; }
+.armlabel { font-variant: small-caps; letter-spacing: 3px; font-size: 20px; color: #6f6a62; }
+.score { font-size: 104px; font-weight: 600; line-height: 1.05; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.score span { font-size: 46px; color: #6f6a62; font-weight: 400; }
+.bar { display: flex; height: 28px; width: 420px; margin: 18px auto 0; }
+.bar i { display: block; height: 100%; }
+.detail { font-size: 19px; color: #55504a; margin-top: 13px; }
+
+.verdict { text-align: center; margin-top: 76px; }
+.verdict .big { font-size: 40px; font-weight: 600; }
+.verdict .sub { font-size: 23px; margin-top: 12px; color: #3a362f; }
+.verdict .sub b { font-weight: 600; }
+
+.foot { position: absolute; left: 78px; right: 78px; bottom: 26px;
+  border-top: 1px solid #1c1a17; padding-top: 9px; font-size: 15px;
+  color: #55504a; line-height: 1.45; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 15px; }
+.key { display: flex; justify-content: center; gap: 30px; font-size: 16px; color: #55504a; margin-top: 42px; }
+.key span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 15px; height: 15px; display: inline-block; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 09</span><span>Claude Opus 5 &nbsp;&middot;&nbsp; July 2026</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>Did Opus&nbsp;5 study for the test?</h1>
+  <div class="deck">Thirteen tasks it could have memorised. Thirteen it couldn&rsquo;t. Same model, same settings.</div>
+
+  <div class="board">
+    <div class="arm">
+      <div class="armlabel">could have seen it</div>
+      <div class="score">11<span>/13</span></div>
+      <div class="bar">
+        <i style="background:#5d7ba0; width:84.6%"></i><i style="background:#9c6644; width:7.7%"></i><i style="background:#c9c2b6; width:7.7%"></i>
+      </div>
+      <div class="detail">fixes published <b>before</b> its cutoff</div>
+    </div>
+    <div class="arm">
+      <div class="armlabel">never saw it</div>
+      <div class="score">12<span>/13</span></div>
+      <div class="bar">
+        <i style="background:#5d7ba0; width:92.3%"></i><i style="background:#9c6644; width:7.7%"></i>
+      </div>
+      <div class="detail">fixes published <b>after</b> its cutoff</div>
+    </div>
+  </div>
+
+  <div class="key">
+    <span><span class="sw" style="background:#5d7ba0"></span>solved</span>
+    <span><span class="sw" style="background:#9c6644"></span>wrong answer</span>
+    <span><span class="sw" style="background:#c9c2b6"></span>ran out of time</span>
+  </div>
+
+  <div class="verdict">
+    <div class="big">No advantage from having seen the answer.</div>
+    <div class="sub">Each side got exactly <b>one</b> genuinely wrong. The one-task gap is repo size, not memory.</div>
+  </div>
+
+  <div class="foot">
+    <div><b>How.</b> 26 real merged pull requests across Python, Rust, TypeScript, JavaScript and Go, graded by hidden tests in an offline sandbox. One attempt each. <b>Caveat:</b> at 11&ndash;12 of 13 the model is near ceiling, so this rules out a big effect, not a small one.</div>
+    <div class="brand">vulcanbench &middot; open source</div>
+  </div>
+</div>
+</body></html>

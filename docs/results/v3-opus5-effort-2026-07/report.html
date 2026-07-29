@@ -1,0 +1,87 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@page { size: A4; margin: 0; }
+html, body { width: 210mm; }
+body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 8.6pt; line-height: 1.27; }
+.page { padding: 11mm 15mm 10mm; position: relative; height: 296mm; overflow: hidden; }
+.rhead b { font-size: 11pt; }
+.rmeta { color: #555; font-size: 8pt; margin-top: 2px; }
+.rule { border-top: 1.5px solid #1a1a1a; margin: 6px 0 9px; }
+h1 { font-size: 15.5pt; margin: 2px 0 3px; }
+.byline { font-style: italic; color: #333; font-size: 8.8pt; margin-bottom: 7px; }
+h2 { font-size: 9.8pt; margin: 7px 0 3px; }
+p.abs, p.note { text-align: justify; }
+p.note { font-style: italic; color: #444; font-size: 7.4pt; margin-top: 3px; }
+table { width: 100%; border-collapse: collapse; font-size: 8.2pt; margin-top: 3px; }
+thead th { background: #eee; text-align: right; padding: 2.5px 5px; border-top: 1.5px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; }
+thead th:first-child { text-align: left; }
+tbody td { padding: 2.2px 5px; text-align: right; }
+tbody td:first-child { text-align: left; }
+tbody tr:nth-child(odd) td { background: #f7f7f7; }
+tbody tr:last-child td { border-bottom: 1.5px solid #1a1a1a; }
+tr.win td { font-weight: 700; }
+.findings p { margin-top: 3.5px; text-align: justify; }
+.prose p { margin-top: 3.5px; text-align: justify; }
+.foot { position: absolute; bottom: 7mm; left: 15mm; right: 15mm; text-align: center; color: #666; font-size: 7.5pt; font-style: italic; border-top: 0.5px solid #999; padding-top: 3px; }
+</style></head><body>
+<div class="page">
+  <div class="rhead"><b>VulcanBench Technical Report No. 10</b>
+    <div class="rmeta">July 26, 2026&ensp;|&ensp;v3 suite&ensp;|&ensp;23 tasks&ensp;|&ensp;69 runs&ensp;|&ensp;3 effort levels&ensp;|&ensp;5 languages&ensp;|&ensp;$81.76</div>
+  </div>
+  <div class="rule"></div>
+
+  <h1>Claude Opus 5 across the effort knob</h1>
+  <p class="byline">First measurement of Opus 5 on the full v3 suite: twenty-three real merged post-cutoff PRs across Python, Rust, TypeScript, JavaScript, and Go, graded by deterministic hidden tests, at low, medium, and high effort.</p>
+
+  <h2>Abstract</h2>
+  <p class="abs">Claude Opus 5&rsquo;s cheapest setting is its best: 20/23 (87.0%) at $0.70 per solved task on low effort. Score falls at every step up the knob &mdash; 20 &rarr; 19 &rarr; 18 &mdash; while suite cost triples ($14.07 &rarr; $43.60). The deficit is unfinished work, not bad work: high effort returns the fewest wrong answers of any setting (one, against three at low) and the most wall-clock timeouts (four). Two of its three regressions are budget cutoffs on tasks it solves at low, so granting it unlimited time its ceiling is a tie, at 3.1&times; the cost. The sweep also set the first non-zero score ever recorded on PennyLane Trotter fragmentation, and surfaced a harness bug with consequences beyond this report.</p>
+
+  <h2>Table 1. Results (one attempt per task per effort level)</h2>
+  <table>
+    <thead><tr><th>Effort</th><th>Score</th><th>pass@1</th><th>Wrong</th><th>Timed out</th><th>Cost</th><th>Tok/task</th><th>Time/task</th><th>Steps</th><th>$/task</th><th>$/solved</th></tr></thead>
+    <tbody>
+      <tr class="win"><td>low</td><td>20/23</td><td>87.0%</td><td>3</td><td>0</td><td>$14.07</td><td>53 K</td><td>5.2 min</td><td>70</td><td>$0.61</td><td>$0.70</td></tr>
+      <tr><td>medium</td><td>19/23</td><td>82.6%</td><td>3</td><td>1</td><td>$24.09</td><td>93 K</td><td>7.6 min</td><td>99</td><td>$1.05</td><td>$1.27</td></tr>
+      <tr><td>high</td><td>18/23</td><td>78.3%</td><td>1</td><td>4</td><td>$43.60</td><td>157 K</td><td>13.6 min</td><td>128</td><td>$1.90</td><td>$2.42</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Wrong = a finished run that failed the hidden tests; timed out = cut off at the 45-minute (large-repository) or 60-minute (xlarge) wall-clock budget, unchanged from Reports 07 and 08. Tokens are billed tokens; time is sandbox wall-clock.</p>
+
+  <h2>Findings</h2>
+  <div class="findings">
+    <p><b>1. Low is never worse than high, and costs a third as much.</b> Measured, low leads 20 to 18. Two of high&rsquo;s three regressions are budget cutoffs on tasks it solves at low &mdash; grant it unlimited time on both and it reaches 20/23, a tie, at 3.1&times; the cost. There is no reading of this sweep where paying for effort wins.</p>
+    <p><b>2. Effort trades wrong answers for unfinished runs.</b> Wrong answers fall (3 &rarr; 3 &rarr; 1); runs that never finish climb (0 &rarr; 1 &rarr; 4). High spends 3&times; the tokens and 2.6&times; the clock per task, then times out on the biggest repositories &mdash; networkx-leiden cut off at 60 minutes after solving in 11.6 at low, aiohttp at 45 after solving in 3.9. The one regression the clock does not explain is flask-teardown-robust: it finished, and returned a worse patch (0.67) than at low.</p>
+    <p><b>3. Effort buys exactly one task.</b> itertools-strip-prefix is a genuine wrong answer at low and medium and solved at high &mdash; the same task GPT-5.6 Sol went 0-for-3 on in Report 07. One task, for an extra $29.53 of suite spend.</p>
+    <p><b>4. First crack in a wall.</b> pennylane-trotter-fragmented has never been solved by any model on v3. At low effort Opus 5 finishes it with a 0.40 partial &mdash; the first non-zero score recorded on it; at medium and high it runs the full 60 minutes and scores nothing. Report 07&rsquo;s effort-discriminator inverts too: flask-teardown-robust, which all three earlier models needed high effort to solve, falls to Opus 5 at low.</p>
+  </div>
+
+  <h2>Table 2. Failure map (the seven tasks that moved; the other sixteen passed at all three settings)</h2>
+  <table>
+    <thead><tr><th>Task</th><th>low</th><th>medium</th><th>high</th></tr></thead>
+    <tbody>
+      <tr><td>aiohttp-upgrade-deferred</td><td>&#10003;</td><td>&#10003;</td><td>&times; timed out, 45 min</td></tr>
+      <tr><td>networkx-leiden-communities</td><td>&#10003;</td><td>&#10003;</td><td>&times; timed out, 60 min</td></tr>
+      <tr><td>flask-teardown-robust</td><td>&#10003;</td><td>&#10003;</td><td>partial (0.67)</td></tr>
+      <tr><td>sqlglot-iso8601-nanos</td><td>&#10003;</td><td>partial (0.67)</td><td>&#10003;</td></tr>
+      <tr><td>itertools-strip-prefix</td><td>&times; wrong</td><td>&times; wrong</td><td>&#10003;</td></tr>
+      <tr><td>sqlglot-canonicalize-internal-names</td><td>partial (0.50)</td><td>partial (0.50)</td><td>&times; timed out, 45 min</td></tr>
+      <tr><td>pennylane-trotter-fragmented</td><td>partial (0.40)</td><td>&times; timed out, 60 min</td><td>&times; timed out, 60 min</td></tr>
+    </tbody>
+  </table>
+  <p class="note">All five timeouts hit their wall-clock budget to the second; none was step-limited. A timeout scores 0.0 but is a different failure from a wrong answer. Partial scores below 1.0 count as unsolved.</p>
+
+  <h2>The 16 K output cap</h2>
+  <div class="prose">
+    <p>A first pass at the high column returned 17/23. It was an artifact: five of six unfinished runs died on a hardcoded 16,000-token output cap in the harness (harness/agent/providers.py), returning no content and no tool calls. Thinking bills against max_tokens, so raising effort raised the truncation rate &mdash; and the harness scored the empty patch as a failed attempt, indistinguishable in the summary from a model that tried and produced a wrong answer.</p>
+    <p>Fixed two ways: max_tokens now scales with effort (32 K at low through 128 K at max, the model ceiling), and a truncated response now raises instead of failing silently. Every run in this report was produced under the fix; only three runs across the sweep had ever hit the cap, and all were re-run. This reaches past this report: every prior VulcanBench result ran under the 16 K cap, and any run that hit it was scored as a wrong answer. Reports 07 and 08 cannot be re-checked &mdash; their raw runs have rotated out of retention.</p>
+  </div>
+
+  <h2>Method &amp; caveats</h2>
+  <div class="prose">
+    <p>VulcanBench v3: 23 tasks from real merged post-cutoff PRs, network-isolated Docker sandboxes, deterministic hidden-test grading, one attempt per task per configuration. Opus 5 at $5/$25 per million tokens; reported high column is batch suite-bb35bfc8. Caveats: single attempts, and four of high&rsquo;s five failures are wall-clock cutoffs &mdash; its ceiling here is partly the budget, not the model.</p>
+  </div>
+
+  <div class="foot">VulcanBench Technical Report No. 10 &middot; vulcanbench.com &middot; open source &middot; July 26, 2026</div>
+</div>
+</body></html>

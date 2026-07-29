@@ -385,3 +385,83 @@ def test_run_suite_only_missing_tops_up_repeats(tmp_path: Path) -> None:
         only_missing=True,
     )
     assert res["n_runs"] == 2  # 1 already cached, top up to 3
+
+
+# --- infrastructure-error retry ---------------------------------------------
+#
+# A stalled provider call says nothing about the model. Before this, such a unit
+# was recorded in ``errors`` and dropped, so the suite reported a tidy pass@1 over
+# a quietly smaller denominator -- and a different task dropped on each run.
+
+
+def test_infrastructure_error_is_retried_and_keeps_the_denominator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+    _make_task(base / "demo", "task-b")
+    real = suite_mod.run_agent
+    stalled: list[str] = []
+
+    def flaky(**kwargs):  # type: ignore[no-untyped-def]
+        # task-b stalls once, then succeeds -- the transient case retry exists for.
+        if kwargs["task_id"] == "task-b" and not stalled:
+            stalled.append("task-b")
+            raise suite_mod.ProviderError("read timeout after 600s calling https://api/v1/messages")
+        return real(**kwargs)
+
+    monkeypatch.setattr(suite_mod, "run_agent", flaky)
+    result = run_suite(
+        "demo", "mock:synthetic", output_dir=tmp_path / "runs", tasks_base=base, judges=False
+    )
+
+    assert result["errors"] == [], "a transient stall must not surface as a suite error"
+    assert result["n_infra_retries"] == 1
+    assert result["infra_retries"][0]["task_id"] == "task-b"
+    # The point of the retry: both tasks still produce a scored run.
+    assert {t["task_id"] for t in result["tasks"]} == {"task-a", "task-b"}
+    assert result["n_runs"] == 2
+
+
+def test_infrastructure_retries_are_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+
+    def always_stalls(**kwargs):  # type: ignore[no-untyped-def]
+        raise suite_mod.ProviderError("read timeout")
+
+    monkeypatch.setattr(suite_mod, "run_agent", always_stalls)
+    result = run_suite(
+        "demo",
+        "mock:synthetic",
+        output_dir=tmp_path / "runs",
+        tasks_base=base,
+        judges=False,
+        max_infra_retries=2,
+    )
+
+    # Gives up rather than looping forever, and reports the failure honestly.
+    assert result["n_infra_retries"] == 2
+    assert len(result["errors"]) == 1
+    assert result["errors"][0]["task_id"] == "task-a"
+
+
+def test_graded_failure_is_not_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+    calls: list[str] = []
+
+    def broken(**kwargs):  # type: ignore[no-untyped-def]
+        calls.append(kwargs["task_id"])
+        raise ValueError("a bug in the harness, not a stalled request")
+
+    monkeypatch.setattr(suite_mod, "run_agent", broken)
+    result = run_suite(
+        "demo", "mock:synthetic", output_dir=tmp_path / "runs", tasks_base=base, judges=False
+    )
+
+    assert result["n_infra_retries"] == 0, "only environmental failures are retried"
+    assert len(calls) == 1
+    assert len(result["errors"]) == 1

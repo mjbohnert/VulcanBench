@@ -1,0 +1,35 @@
+{
+  "id": "oss-pflag-custom-isboolflag",
+  "category": "bug_fix",
+  "languages": ["go"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:base",
+  "base_commit": "6404d8209615987d23eafd5c38207dc343a5881e",
+  "upstream": {
+    "url": "https://github.com/spf13/pflag/pull/487",
+    "issue": "https://github.com/spf13/pflag/pull/487",
+    "commit": "6404d8209615987d23eafd5c38207dc343a5881e"
+  },
+  "upstream_merged": "2026-07-02",
+  "decontamination_notes": "Real bug fix from spf13/pflag PR #487, merged 2026-07-02. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. pflag decided whether a flag was boolean-like by type-asserting its Value to the unexported boolFlag interface without ever calling IsBoolFlag(), and only auto-assigned NoOptDefVal=\"true\" when Value.Type() was literally \"bool\". A custom Value returning true from IsBoolFlag() but reporting another Type() therefore never got NoOptDefVal and failed to parse without an argument ('flag needs an argument'), while a Value returning false from IsBoolFlag() was still treated as bool-like in some paths. The fix adds isNoOptBoolValue() in bool.go and routes the checks in flag.go through it. Repo sliced at the PR base commit (6404d820); pflag is a zero-dependency module (go.mod declares only the module path and go 1.12), so no vendoring is needed and the base sandbox image suffices. The repo's own *_test.go files at the module root are removed from the slice. Coverage: 3 fail_to_pass tests, each verified to fail at the base commit and pass after the gold patch, covering NoOptDefVal assignment, parsing with no argument, and a following operand remaining a positional arg rather than being consumed. The 4 pass_to_pass guards live in a SEPARATE package (osscheck_reg) per the v3 Go recipe and cover a built-in bool flag, a built-in string flag still requiring an argument, a plain custom Value with no IsBoolFlag() method, and an explicit inline --verbose=false. NOTE: a fourth candidate f2p test asserting that --verbose=false is honored was written and observed to PASS at the base commit -- supplying the value inline never depended on NoOptDefVal -- so it was moved into the regression guard rather than counted as fail_to_pass. All assertions go through the public pflag API (NewFlagSet, Var, Lookup, Parse, Args).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "TestBoolLikeValueGetsNoOptDefVal", "cmd": "go test -run '^TestBoolLikeValueGetsNoOptDefVal$' ./osscheck/"},
+      {"name": "TestBoolLikeValueParsesWithoutArgument", "cmd": "go test -run '^TestBoolLikeValueParsesWithoutArgument$' ./osscheck/"},
+      {"name": "TestBoolLikeValueFollowedByPositionalArg", "cmd": "go test -run '^TestBoolLikeValueFollowedByPositionalArg$' ./osscheck/"}
+    ],
+    "pass_to_pass": [
+      {"name": "TestBuiltinBoolFlagParsesWithoutArgument", "cmd": "go test -run '^TestBuiltinBoolFlagParsesWithoutArgument$' ./osscheck_reg/"},
+      {"name": "TestBuiltinStringFlagRequiresArgument", "cmd": "go test -run '^TestBuiltinStringFlagRequiresArgument$' ./osscheck_reg/"},
+      {"name": "TestPlainCustomValueRequiresArgument", "cmd": "go test -run '^TestPlainCustomValueRequiresArgument$' ./osscheck_reg/"},
+      {"name": "TestExplicitInlineValueIsHonored", "cmd": "go test -run '^TestExplicitInlineValueIsHonored$' ./osscheck_reg/"}
+    ]
+  },
+  "test_timeout_s": 300
+}

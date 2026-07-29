@@ -1,0 +1,320 @@
+{
+  "report": "No. 09",
+  "title": "Does training-data contamination move Claude Opus 5's score?",
+  "date": "2026-07-25",
+  "model": "anthropic:claude-opus-5",
+  "effort": "medium",
+  "repeat": 1,
+  "judges": false,
+  "cutoff_tested": "2026-05-31",
+  "total_spend_usd": 20.94,
+  "headline": "No detectable contamination effect: genuine capability misses 1 vs 1; the 1-task headline gap is within noise at n=13 and tracks repo-scale composition.",
+  "caveats": [
+    "amd64 images on arm64 host: ~2x emulation overhead inflates time and $/solved, not scores",
+    "n=13 per arm; one task = 7.7pp",
+    "single attempt per task; no pass@k",
+    "single model"
+  ],
+  "arms": {
+    "contaminated": {
+      "suite_id": "suite-cc78648f",
+      "n_tasks": 13,
+      "solved": 11,
+      "pass_at_1": 0.8462,
+      "genuine_misses": 1,
+      "wall_clock_misses": 1,
+      "repo_scale_mix": {
+        "large": 3,
+        "xlarge": 8,
+        "medium": 2
+      },
+      "cost_usd": 16.36,
+      "tokens_per_task": 120861,
+      "seconds_per_task": 561.3,
+      "infra_retries": 0,
+      "errors": 0,
+      "tasks": [
+        {
+          "task_id": "oss-chi-readfrom-tee-doublecount",
+          "repo_scale": "large",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 185.4,
+          "steps": 42,
+          "cost_usd": 0.1142,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-cobra-noduplicateargs",
+          "repo_scale": "large",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 95.7,
+          "steps": 42,
+          "cost_usd": 0.0693,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-flask-teardown-robust",
+          "repo_scale": "medium",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 431.7,
+          "steps": 200,
+          "cost_usd": 1.5499,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-hono-request-bytes",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 115.2,
+          "steps": 42,
+          "cost_usd": 0.0732,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-itertools-strip-prefix",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 315.8,
+          "steps": 104,
+          "cost_usd": 0.4224,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-jiff-date-day-lt1",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 80.9,
+          "steps": 74,
+          "cost_usd": 0.1259,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-jiff-signdur-panic",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 59.8,
+          "steps": 58,
+          "cost_usd": 0.1201,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-jiff-strftime-negpad",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 192.9,
+          "steps": 142,
+          "cost_usd": 0.5108,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-networkx-leiden-communities",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 0,
+          "duration_s": 3606.0,
+          "steps": 274,
+          "cost_usd": 7.6818,
+          "outcome": "wall_clock"
+        },
+        {
+          "task_id": "oss-semver-truncate",
+          "repo_scale": "medium",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 178.5,
+          "steps": 52,
+          "cost_usd": 0.1158,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-sqlglot-canonicalize-internal-names",
+          "repo_scale": "large",
+          "upstream_merged": null,
+          "functional": 0.5,
+          "duration_s": 1743.9,
+          "steps": 298,
+          "cost_usd": 4.9048,
+          "outcome": "genuine_miss"
+        },
+        {
+          "task_id": "oss-zod-invert-codec",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 229.7,
+          "steps": 130,
+          "cost_usd": 0.5267,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-zod-proto-catchall",
+          "repo_scale": "xlarge",
+          "upstream_merged": null,
+          "functional": 1.0,
+          "duration_s": 61.5,
+          "steps": 62,
+          "cost_usd": 0.1404,
+          "outcome": "solved"
+        }
+      ]
+    },
+    "clean": {
+      "suite_id": "suite-70d652f4",
+      "n_tasks": 13,
+      "solved": 12,
+      "pass_at_1": 0.9231,
+      "genuine_misses": 1,
+      "wall_clock_misses": 0,
+      "repo_scale_mix": {
+        "xlarge": 3,
+        "large": 5,
+        "medium": 5
+      },
+      "cost_usd": 4.58,
+      "tokens_per_task": 37711,
+      "seconds_per_task": 284.0,
+      "infra_retries": 0,
+      "errors": 0,
+      "tasks": [
+        {
+          "task_id": "oss-chi-discard-readfrom",
+          "repo_scale": "medium",
+          "upstream_merged": "2026-06-14",
+          "functional": 1.0,
+          "duration_s": 255.8,
+          "steps": 54,
+          "cost_usd": 0.1397,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-chrono-offset-minute-clamp",
+          "repo_scale": "large",
+          "upstream_merged": "2026-06-22",
+          "functional": 1.0,
+          "duration_s": 222.1,
+          "steps": 58,
+          "cost_usd": 0.1095,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-hono-etag-star-match",
+          "repo_scale": "large",
+          "upstream_merged": "2026-07-10",
+          "functional": 1.0,
+          "duration_s": 136.6,
+          "steps": 34,
+          "cost_usd": 0.0674,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-hono-trie-empty-wildcard",
+          "repo_scale": "large",
+          "upstream_merged": "2026-07-10",
+          "functional": 1.0,
+          "duration_s": 212.8,
+          "steps": 74,
+          "cost_usd": 0.2326,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-hono-url-param-prefix",
+          "repo_scale": "large",
+          "upstream_merged": "2026-07-12",
+          "functional": 1.0,
+          "duration_s": 129.9,
+          "steps": 38,
+          "cost_usd": 0.057,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-jiff-strftime-lenient",
+          "repo_scale": "xlarge",
+          "upstream_merged": "2026-07-19",
+          "functional": 1.0,
+          "duration_s": 733.6,
+          "steps": 192,
+          "cost_usd": 0.8836,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-more-itertools-subfactorial",
+          "repo_scale": "medium",
+          "upstream_merged": "2026-06-10",
+          "functional": 1.0,
+          "duration_s": 73.7,
+          "steps": 70,
+          "cost_usd": 0.1578,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-packaging-licenseref-plus",
+          "repo_scale": "medium",
+          "upstream_merged": "2026-06-11",
+          "functional": 1.0,
+          "duration_s": 41.2,
+          "steps": 34,
+          "cost_usd": 0.0556,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-pflag-custom-isboolflag",
+          "repo_scale": "medium",
+          "upstream_merged": "2026-07-02",
+          "functional": 1.0,
+          "duration_s": 252.2,
+          "steps": 82,
+          "cost_usd": 0.3252,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-regex-leftmost-suffix-candidate",
+          "repo_scale": "xlarge",
+          "upstream_merged": "2026-07-15",
+          "functional": 0,
+          "duration_s": 1256.7,
+          "steps": 104,
+          "cost_usd": 2.0481,
+          "outcome": "genuine_miss"
+        },
+        {
+          "task_id": "oss-semver-tilde-prerelease-bound",
+          "repo_scale": "medium",
+          "upstream_merged": "2026-06-19",
+          "functional": 1.0,
+          "duration_s": 46.8,
+          "steps": 54,
+          "cost_usd": 0.1027,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-sqlglot-udtf-chained-alias",
+          "repo_scale": "xlarge",
+          "upstream_merged": "2026-07-07",
+          "functional": 1.0,
+          "duration_s": 87.3,
+          "steps": 58,
+          "cost_usd": 0.2406,
+          "outcome": "solved"
+        },
+        {
+          "task_id": "oss-time-strftime-truncated-padding",
+          "repo_scale": "large",
+          "upstream_merged": "2026-06-12",
+          "functional": 1.0,
+          "duration_s": 243.4,
+          "steps": 58,
+          "cost_usd": 0.1567,
+          "outcome": "solved"
+        }
+      ]
+    }
+  }
+}

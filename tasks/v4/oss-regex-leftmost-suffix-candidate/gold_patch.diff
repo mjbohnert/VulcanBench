@@ -1,0 +1,2172 @@
+diff --git a/regex-automata/src/dfa/search.rs b/regex-automata/src/dfa/search.rs
+index 5a82261f97..09e21786c5 100644
+--- a/regex-automata/src/dfa/search.rs
++++ b/regex-automata/src/dfa/search.rs
+@@ -125,25 +125,33 @@ fn find_fwd_imp<A: Automaton + ?Sized>(
+         if dfa.is_special_state(sid) {
+             if dfa.is_start_state(sid) {
+                 if let Some(ref pre) = pre {
+-                    let span = Span::from(at..input.end());
+-                    match pre.find(input.haystack(), span) {
+-                        None => return Ok(mat),
+-                        Some(ref span) => {
+-                            // We want to skip any update to 'at' below
+-                            // at the end of this iteration and just
+-                            // jump immediately back to the next state
+-                            // transition at the leading position of the
+-                            // candidate match.
+-                            //
+-                            // ... but only if we actually made progress
+-                            // with our prefilter, otherwise if the start
+-                            // state has a self-loop, we can get stuck.
+-                            if span.start > at {
+-                                at = span.start;
+-                                if !universal_start {
+-                                    sid = prefilter_restart(dfa, &input, at)?;
++                    // A prefilter finds possible starts of new matches. Once
++                    // a match is pending, the DFA may still be resolving its
++                    // priority. Skipping ahead here could discard that match
++                    // and replace it with a later one.
++                    if mat.is_none() {
++                        let span = Span::from(at..input.end());
++                        match pre.find(input.haystack(), span) {
++                            None => return Ok(mat),
++                            Some(ref span) => {
++                                // We want to skip any update to 'at' below
++                                // at the end of this iteration and just
++                                // jump immediately back to the next state
++                                // transition at the leading position of the
++                                // candidate match.
++                                //
++                                // ... but only if we actually made progress
++                                // with our prefilter, otherwise if the start
++                                // state has a self-loop, we can get stuck.
++                                if span.start > at {
++                                    at = span.start;
++                                    if !universal_start {
++                                        sid = prefilter_restart(
++                                            dfa, &input, at,
++                                        )?;
++                                    }
++                                    continue;
+                                 }
+-                                continue;
+                             }
+                         }
+                     }
+diff --git a/regex-automata/src/hybrid/search.rs b/regex-automata/src/hybrid/search.rs
+index 1f4a505db4..587337a83d 100644
+--- a/regex-automata/src/hybrid/search.rs
++++ b/regex-automata/src/hybrid/search.rs
+@@ -231,31 +231,37 @@ fn find_fwd_imp(
+         }
+         if sid.is_tagged() {
+             if sid.is_start() {
++                // A prefilter finds possible starts of new matches. Once a
++                // match is pending, the DFA may still be resolving its
++                // priority. Skipping ahead here could discard that match and
++                // replace it with a later one.
+                 if let Some(ref pre) = pre {
+-                    let span = Span::from(at..input.end());
+-                    match pre.find(input.haystack(), span) {
+-                        None => {
+-                            cache.search_finish(span.end);
+-                            return Ok(mat);
+-                        }
+-                        Some(ref span) => {
+-                            // We want to skip any update to 'at' below
+-                            // at the end of this iteration and just
+-                            // jump immediately back to the next state
+-                            // transition at the leading position of the
+-                            // candidate match.
+-                            //
+-                            // ... but only if we actually made progress
+-                            // with our prefilter, otherwise if the start
+-                            // state has a self-loop, we can get stuck.
+-                            if span.start > at {
+-                                at = span.start;
+-                                if !universal_start {
+-                                    sid = prefilter_restart(
+-                                        dfa, cache, &input, at,
+-                                    )?;
++                    if mat.is_none() {
++                        let span = Span::from(at..input.end());
++                        match pre.find(input.haystack(), span) {
++                            None => {
++                                cache.search_finish(span.end);
++                                return Ok(mat);
++                            }
++                            Some(ref span) => {
++                                // We want to skip any update to 'at' below
++                                // at the end of this iteration and just
++                                // jump immediately back to the next state
++                                // transition at the leading position of the
++                                // candidate match.
++                                //
++                                // ... but only if we actually made progress
++                                // with our prefilter, otherwise if the start
++                                // state has a self-loop, we can get stuck.
++                                if span.start > at {
++                                    at = span.start;
++                                    if !universal_start {
++                                        sid = prefilter_restart(
++                                            dfa, cache, &input, at,
++                                        )?;
++                                    }
++                                    continue;
+                                 }
+-                                continue;
+                             }
+                         }
+                     }
+diff --git a/regex-automata/src/meta/limited.rs b/regex-automata/src/meta/limited.rs
+index ce6708c701..3082a25bbc 100644
+--- a/regex-automata/src/meta/limited.rs
++++ b/regex-automata/src/meta/limited.rs
+@@ -79,7 +79,7 @@ pub(crate) fn dfa_try_search_half_rev(
+         if at < min_start {
+             trace!(
+                 "reached position {at} which is before the previous literal \
+-				 match, quitting to avoid quadratic behavior",
++                 match, quitting to avoid quadratic behavior",
+             );
+             return Err(RetryError::Quadratic(RetryQuadraticError::new()));
+         }
+@@ -160,7 +160,7 @@ pub(crate) fn hybrid_try_search_half_rev(
+         if at < min_start {
+             trace!(
+                 "reached position {at} which is before the previous literal \
+-				 match, quitting to avoid quadratic behavior",
++                 match, quitting to avoid quadratic behavior",
+             );
+             return Err(RetryError::Quadratic(RetryQuadraticError::new()));
+         }
+diff --git a/regex-automata/src/meta/mod.rs b/regex-automata/src/meta/mod.rs
+index 01f430fcb7..31d99dc241 100644
+--- a/regex-automata/src/meta/mod.rs
++++ b/regex-automata/src/meta/mod.rs
+@@ -54,8 +54,10 @@ mod error;
+ #[cfg(any(feature = "dfa-build", feature = "hybrid"))]
+ mod limited;
+ mod literal;
++mod prefix;
+ mod regex;
+ mod reverse_inner;
++mod reverse_suffix;
+ #[cfg(any(feature = "dfa-build", feature = "hybrid"))]
+ mod stopat;
+ mod strategy;
+diff --git a/regex-automata/src/meta/prefix.rs b/regex-automata/src/meta/prefix.rs
+new file mode 100644
+index 0000000000..435265eb6c
+--- /dev/null
++++ b/regex-automata/src/meta/prefix.rs
+@@ -0,0 +1,236 @@
++/*!
++Cheap HIR proofs that literal candidate order is compatible with regex match
++order.
++
++The reverse suffix and reverse inner strategies both scan for a required
++literal before confirming the surrounding regex. These proofs are all
++conservative. If they cannot establish that the first confirmed candidate is
++the match the regex engine would report, then the corresponding reverse
++strategy is not used.
++*/
++
++use regex_syntax::hir::{literal::Literal, Class, Hir, HirKind};
++
++/// Return true when `hir` can match some string containing every byte in
++/// `lit`.
++///
++/// This is deliberately low precision. If every byte in a literal can be
++/// consumed somewhere in the HIR, this gives up and reports that the
++/// literal might occur internally. That is, this returning true does not
++/// necessarily mean that the `Hir` provided definitively matches `lit`.
++pub(super) fn hir_can_contain_literal(hir: &Hir, lit: &[u8]) -> bool {
++    lit.is_empty() || lit.iter().all(|&byte| hir_can_consume_byte(hir, byte))
++}
++
++/// Returns true when the given `Hir` has a fixed length.
++///
++/// That is, when its minimum and maximum lengths are both finite and
++/// equivalent.
++pub(super) fn hir_has_fixed_length(hir: &Hir) -> bool {
++    let props = hir.properties();
++    props
++        .minimum_len()
++        .and_then(|min| props.maximum_len().map(|max| min == max))
++        .unwrap_or(false)
++}
++
++/// Return true when an edge of `prefix` provides a required separator between
++/// the start of a match and each literal candidate.
++///
++/// More precisely, this looks at the first and last consuming children of a
++/// top-level concatenation. One of those children must be either a character
++/// class or a repetition of a character class that matches at least once. Let
++/// that child be `S`. This returns true when both of the following hold:
++///
++/// * `S` is disjoint from everything consumed by the other children in
++///   `prefix`.
++/// * `S` is disjoint from every literal in `literals`.
++///
++/// In that case, `S` acts as a separator whose characters cannot be mistaken
++/// for characters belonging to either the rest of the prefix or a literal
++/// candidate. A reverse search therefore cannot slide `S` across either one
++/// and produce a later match start from an earlier literal candidate.
++///
++/// For example, consider this prefix and literal:
++///
++/// ```text
++/// prefix  = \w+\s+
++/// literal = Holmes
++/// ```
++///
++/// The trailing `\s+` is required, is disjoint from `\w+` and cannot match
++/// anything in `Holmes`. Thus this proves the reverse suffix optimization safe
++/// for `\w+\s+Holmes`. It also works with multiple literals, such as `Holmes`
++/// and `Watson`, provided the separator is disjoint from all of them.
++///
++/// The separator may instead be the first consuming child:
++///
++/// ```text
++/// prefix  = \s[A-Za-z]{0,12}
++/// literal = ing
++/// ```
++///
++/// Here, the leading `\s` is disjoint from both `[A-Za-z]{0,12}` and `ing`.
++///
++/// This returns false when the possible separator is optional, overlaps
++/// another prefix component or can match a character in any literal. For
++/// example, neither `\s*` in `[A-Za-z]*\s*` nor `\w+` in `\w+\w+` provides
++/// the required separator.
++pub(super) fn has_disjoint_class_separator(
++    prefix: &Hir,
++    literals: &[Literal],
++) -> bool {
++    let hirs = match uncapture(prefix).kind() {
++        HirKind::Concat(hirs) if hirs.len() >= 2 => hirs,
++        _ => return false,
++    };
++    let Some(first) = hirs.iter().position(|hir| !hir_matches_empty_only(hir))
++    else {
++        return false;
++    };
++    let last =
++        hirs.iter().rposition(|hir| !hir_matches_empty_only(hir)).unwrap();
++    has_disjoint_class_separator_at(hirs, last, literals)
++        || (first != last
++            && has_disjoint_class_separator_at(hirs, first, literals))
++}
++
++fn has_disjoint_class_separator_at(
++    hirs: &[Hir],
++    separator: usize,
++    literals: &[Literal],
++) -> bool {
++    let Some(separator_class) = required_class(&hirs[separator]) else {
++        return false;
++    };
++    class_is_disjoint_from_literals(separator_class, literals)
++        && hirs.iter().enumerate().all(|(i, hir)| {
++            i == separator || hir_is_disjoint_from_class(hir, separator_class)
++        })
++}
++
++fn hir_matches_empty_only(hir: &Hir) -> bool {
++    hir.properties().maximum_len() == Some(0)
++}
++
++fn required_class(hir: &Hir) -> Option<&Class> {
++    let hir = uncapture(hir);
++    match hir.kind() {
++        HirKind::Class(cls) => Some(cls),
++        HirKind::Repetition(rep) if rep.min > 0 => {
++            match uncapture(&rep.sub).kind() {
++                HirKind::Class(cls) => Some(cls),
++                _ => None,
++            }
++        }
++        _ => None,
++    }
++}
++
++fn hir_is_disjoint_from_class(hir: &Hir, separator: &Class) -> bool {
++    match hir.kind() {
++        HirKind::Empty | HirKind::Look(_) => true,
++        HirKind::Literal(lit) => {
++            class_is_disjoint_from_literal(separator, &lit.0)
++        }
++        HirKind::Class(cls) => classes_are_disjoint(cls, separator),
++        HirKind::Repetition(rep) => {
++            hir_is_disjoint_from_class(&rep.sub, separator)
++        }
++        HirKind::Capture(capture) => {
++            hir_is_disjoint_from_class(&capture.sub, separator)
++        }
++        HirKind::Concat(hirs) | HirKind::Alternation(hirs) => {
++            hirs.iter().all(|hir| hir_is_disjoint_from_class(hir, separator))
++        }
++    }
++}
++
++fn uncapture(mut hir: &Hir) -> &Hir {
++    while let HirKind::Capture(capture) = hir.kind() {
++        hir = &capture.sub;
++    }
++    hir
++}
++
++fn classes_are_disjoint(left: &Class, right: &Class) -> bool {
++    match (left, right) {
++        (Class::Bytes(left), Class::Bytes(right)) => {
++            let (mut intersection, other) =
++                if left.ranges().len() <= right.ranges().len() {
++                    (left.clone(), right)
++                } else {
++                    (right.clone(), left)
++                };
++            intersection.intersect(other);
++            intersection.ranges().is_empty()
++        }
++        (Class::Unicode(left), Class::Unicode(right)) => {
++            let (mut intersection, other) =
++                if left.ranges().len() <= right.ranges().len() {
++                    (left.clone(), right)
++                } else {
++                    (right.clone(), left)
++                };
++            intersection.intersect(other);
++            intersection.ranges().is_empty()
++        }
++        _ => false,
++    }
++}
++
++fn class_is_disjoint_from_literals(cls: &Class, literals: &[Literal]) -> bool {
++    literals
++        .iter()
++        .all(|lit| class_is_disjoint_from_literal(cls, lit.as_bytes()))
++}
++
++fn class_is_disjoint_from_literal(cls: &Class, lit: &[u8]) -> bool {
++    match cls {
++        Class::Bytes(cls) => {
++            lit.iter().all(|&byte| !byte_class_contains(cls, byte))
++        }
++        Class::Unicode(cls) => core::str::from_utf8(lit)
++            .map_or(false, |lit| {
++                lit.chars().all(|ch| !unicode_class_contains(cls, ch))
++            }),
++    }
++}
++
++fn hir_can_consume_byte(hir: &Hir, byte: u8) -> bool {
++    match hir.kind() {
++        HirKind::Empty | HirKind::Look(_) => false,
++        HirKind::Literal(lit) => lit.0.contains(&byte),
++        HirKind::Class(Class::Bytes(cls)) => byte_class_contains(cls, byte),
++        HirKind::Class(Class::Unicode(cls)) => {
++            // We don't check literals based on codepoints, so if
++            // we have a non-ASCII byte, we assume here that any
++            // Unicode class will match it. In practice, given
++            // the prevalence of `\w`, this is not a terrible
++            // approximation.
++            if byte > 0x7F {
++                return true;
++            }
++            let ch = char::from(byte);
++            unicode_class_contains(cls, ch)
++        }
++        HirKind::Repetition(rep) => hir_can_consume_byte(&rep.sub, byte),
++        HirKind::Capture(capture) => hir_can_consume_byte(&capture.sub, byte),
++        HirKind::Concat(hirs) | HirKind::Alternation(hirs) => {
++            hirs.iter().any(|hir| hir_can_consume_byte(hir, byte))
++        }
++    }
++}
++
++fn byte_class_contains(cls: &regex_syntax::hir::ClassBytes, byte: u8) -> bool {
++    cls.ranges()
++        .iter()
++        .any(|range| range.start() <= byte && byte <= range.end())
++}
++
++fn unicode_class_contains(
++    cls: &regex_syntax::hir::ClassUnicode,
++    ch: char,
++) -> bool {
++    cls.ranges().iter().any(|range| range.start() <= ch && ch <= range.end())
++}
+diff --git a/regex-automata/src/meta/regex.rs b/regex-automata/src/meta/regex.rs
+index 35a15d61b5..7e25763ad1 100644
+--- a/regex-automata/src/meta/regex.rs
++++ b/regex-automata/src/meta/regex.rs
+@@ -16,10 +16,11 @@ use crate::{
+         strategy::{self, Strategy},
+         wrappers,
+     },
+-    nfa::thompson::WhichCaptures,
++    nfa::thompson::{self, WhichCaptures},
+     util::{
+         captures::{Captures, GroupInfo},
+         iter,
++        look::LookMatcher,
+         pool::{Pool, PoolGuard},
+         prefilter::Prefilter,
+         primitives::{NonMaxUsize, PatternID},
+@@ -1935,7 +1936,11 @@ struct RegexInfoI {
+ }
+ 
+ impl RegexInfo {
+-    fn new(config: Config, hirs: &[&Hir]) -> RegexInfo {
++    /// Creates a new `RegexInfo` from the configuration and HIRs that make up
++    /// a meta regex.
++    ///
++    /// This is exported for use in some tests.
++    pub(super) fn new(config: Config, hirs: &[&Hir]) -> RegexInfo {
+         // Collect all of the properties from each of the HIRs, and also
+         // union them into one big set of properties representing all HIRs
+         // as if they were in one big alternation.
+@@ -3265,6 +3270,27 @@ impl Config {
+         }
+     }
+ 
++    /// Returns a "baseline" Thompson configuration for constructing NFAs based
++    /// on this configuration.
++    ///
++    /// This is just a convenience routine to avoid repeating configuration
++    /// construction.
++    ///
++    /// Callers may still need to set other things, like whether the NFA should
++    /// be compiled in reverse. Callers may also override settings, like
++    /// forcing no capture states to be included.
++    pub(crate) fn to_thompson_config(&self) -> thompson::Config {
++        let mut lookm = LookMatcher::new();
++        lookm.set_line_terminator(self.get_line_terminator());
++        thompson::Config::new()
++            .utf8(self.get_utf8_empty())
++            .reverse(false)
++            .nfa_size_limit(self.get_nfa_size_limit())
++            .shrink(false)
++            .which_captures(self.get_which_captures())
++            .look_matcher(lookm)
++    }
++
+     /// Overwrite the default configuration such that the options in `o` are
+     /// always used. If an option in `o` is not set, then the corresponding
+     /// option in `self` is used. If it's not set in `self` either, then it
+diff --git a/regex-automata/src/meta/reverse_inner.rs b/regex-automata/src/meta/reverse_inner.rs
+index 3d78779f6f..4f93a1e5a6 100644
+--- a/regex-automata/src/meta/reverse_inner.rs
++++ b/regex-automata/src/meta/reverse_inner.rs
+@@ -34,85 +34,168 @@ those and a concatenation of the Hir expressions seen up to that point.
+ 
+ use alloc::vec::Vec;
+ 
+-use regex_syntax::hir::{self, literal, Hir, HirKind};
++use regex_syntax::hir::{
++    self,
++    literal::{self, Literal},
++    Hir, HirKind,
++};
+ 
+-use crate::{util::prefilter::Prefilter, MatchKind};
++use crate::{meta::prefix, util::prefilter::Prefilter, MatchKind};
+ 
+-/// Attempts to extract an "inner" prefilter from the given HIR expressions. If
+-/// one was found, then a concatenation of the HIR expressions that precede it
+-/// is returned.
++/// Returns true when it's impossible for an earlier match to be detected after
++/// a literal candidate (corresponding to anything in `literals`) has
++/// been found.
+ ///
+-/// The idea here is that the prefilter returned can be used to find candidate
+-/// matches. And then the HIR returned can be used to build a reverse regex
+-/// matcher, which will find the start of the candidate match. Finally, the
+-/// match still has to be confirmed with a normal anchored forward scan to find
+-/// the end position of the match.
++/// Specifically, that there is no earlier match than what a reverse scan of
++/// `concat_prefix` after a match of `literals` reports.
+ ///
+-/// Note that this assumes leftmost-first match semantics, so callers must
+-/// not call this otherwise.
+-pub(crate) fn extract(hirs: &[&Hir]) -> Option<(Hir, Prefilter)> {
+-    if hirs.len() != 1 {
++/// Since this requires a single `Hir`, this implies the reverse inner optimization
++/// only works with a single regex.
++pub(super) fn has_no_earlier_match(
++    concat_prefix: &Hir,
++    literals: &[Literal],
++) -> bool {
++    // let literals = prefix::LiteralSet::many(literals);
++    if literals.is_empty() || literals.iter().any(|lit| lit.is_empty()) {
+         debug!(
+-            "skipping reverse inner optimization since it only \
+-		 	 supports 1 pattern, {} were given",
+-            hirs.len(),
++            "reverse inner is not early return safe because \
++                 no non-empty inner literals were found"
+         );
+-        return None;
++        return false;
+     }
+-    let mut concat = match top_concat(hirs[0]) {
+-        Some(concat) => concat,
+-        None => {
+-            debug!(
+-                "skipping reverse inner optimization because a top-level \
+-		 	     concatenation could not found",
+-            );
+-            return None;
++    // With one literal, an occurrence crossing the prefix boundary must
++    // overlap another occurrence of that same literal. Such an overlap
++    // requires the prefix to consume every distinct byte in the literal.
++    // This reasoning does not apply when one extracted literal can cross
++    // the boundary into a different extracted literal.
++    if literals.len() == 1 {
++        let prefix_may_contain = prefix::hir_can_contain_literal(
++            concat_prefix,
++            literals[0].as_bytes(),
++        );
++        debug!(
++            "reverse inner prefix can contain inner literals? \
++             {prefix_may_contain}"
++        );
++        if !prefix_may_contain {
++            return true;
+         }
+-    };
+-    // We skip the first HIR because if it did have a prefix prefilter in it,
+-    // we probably wouldn't be here looking for an inner prefilter.
+-    for i in 1..concat.len() {
+-        let hir = &concat[i];
+-        let pre = match prefilter(hir) {
+-            None => continue,
+-            Some(pre) => pre,
+-        };
+-        // Even if we got a prefilter, if it isn't consider "fast," then we
+-        // probably don't want to bother with it. Namely, since the reverse
+-        // inner optimization requires some overhead, it likely only makes
+-        // sense if the prefilter scan itself is (believed) to be much faster
+-        // than the regex engine.
+-        if !pre.is_fast() {
++    }
++
++    let fixed_length = prefix::hir_has_fixed_length(concat_prefix);
++    debug!("reverse inner has fixed length prefix? {fixed_length}");
++    if fixed_length {
++        return true;
++    }
++
++    let class_separator =
++        prefix::has_disjoint_class_separator(concat_prefix, &literals);
++    debug!("reverse inner has disjoint class separator? {class_separator}");
++    if class_separator {
++        return true;
++    }
++
++    // We couldn't prove that the reverse inner optimization
++    // was safe, so bail out.
++    false
++}
++
++/// This attempts to extract an "inner" prefilter from the given HIR
++/// expressions. If one was found, then a concatenation of the HIR expressions
++/// that precede it is returned.
++///
++/// The idea here is that the prefilter returned can be used to find
++/// candidate matches. And then the HIR returned can be used to build a
++/// reverse regex matcher, which will find the start of the candidate
++/// match. Finally, the match still has to be confirmed with a normal
++/// anchored forward scan to find the end position of the match.
++///
++/// Note that this assumes leftmost-first match semantics, so callers must
++/// not call this otherwise.
++#[derive(Debug)]
++pub(crate) struct InnerPrefilter {
++    pub(crate) prefix: Hir,
++    /// The prefilter generated from `literals`.
++    pub(crate) pre: Prefilter,
++    /// The actual literals extracted and used to build `pre`.
++    ///
++    /// These are used by the meta strategy to prove that the inner prefilter
++    /// can return after the first confirmed candidate. If that proof fails, we
++    /// could try extracting a different set of literals. But we don't
++    /// currently do that.
++    pub(crate) literals: Vec<Literal>,
++}
++
++impl InnerPrefilter {
++    pub(crate) fn new(hirs: &[&Hir]) -> Option<InnerPrefilter> {
++        if hirs.len() != 1 {
+             debug!(
+-                "skipping extracted inner prefilter because \
+-				 it probably isn't fast"
++                "skipping reverse inner optimization since it only \
++                 supports 1 pattern, {} were given",
++                hirs.len(),
+             );
+-            continue;
++            return None;
+         }
+-        let concat_suffix = Hir::concat(concat.split_off(i));
+-        let concat_prefix = Hir::concat(concat);
+-        // Look for a prefilter again. Why? Because above we only looked for
+-        // a prefilter on the individual 'hir', but we might be able to find
+-        // something better and more discriminatory by looking at the entire
+-        // suffix. We don't do this above to avoid making this loop worst case
+-        // quadratic in the length of 'concat'.
+-        let pre2 = match prefilter(&concat_suffix) {
+-            None => pre,
+-            Some(pre2) => {
+-                if pre2.is_fast() {
+-                    pre2
+-                } else {
+-                    pre
+-                }
++        let mut concat = match top_concat(hirs[0]) {
++            Some(concat) => concat,
++            None => {
++                debug!(
++                    "skipping reverse inner optimization because a top-level \
++                     concatenation could not found",
++                );
++                return None;
+             }
+         };
+-        return Some((concat_prefix, pre2));
++        // We skip the first HIR because if it did have a prefix prefilter in
++        // it, we probably wouldn't be here looking for an inner prefilter.
++        for i in 1..concat.len() {
++            let hir = &concat[i];
++            let (pre, lits) = match prefilter_with_literals(hir) {
++                None => continue,
++                Some(pre) => pre,
++            };
++            // Even if we got a prefilter, if it isn't consider "fast," then
++            // we probably don't want to bother with it. Namely, since the
++            // reverse inner optimization requires some overhead, it likely
++            // only makes sense if the prefilter scan itself is (believed) to
++            // be much faster than the regex engine.
++            if !pre.is_fast() {
++                debug!(
++                    "skipping extracted inner prefilter because \
++                     it probably isn't fast"
++                );
++                continue;
++            }
++            let concat_suffix = Hir::concat(concat.split_off(i));
++            let concat_prefix = Hir::concat(concat);
++            // Look for a prefilter again. Why? Because above we only looked
++            // for a prefilter on the individual 'hir', but we might be able
++            // to find something better and more discriminatory by looking at
++            // the entire suffix. We don't do this above to avoid making this
++            // loop worst case quadratic in the length of 'concat'.
++            let (preinner, inner_literals) =
++                match prefilter_with_literals(&concat_suffix) {
++                    None => (pre, lits),
++                    Some((pre2, lits2)) => {
++                        if pre2.is_fast() {
++                            (pre2, lits2)
++                        } else {
++                            (pre, lits)
++                        }
++                    }
++                };
++            return Some(InnerPrefilter {
++                prefix: concat_prefix,
++                pre: preinner,
++                literals: inner_literals,
++            });
++        }
++        debug!(
++            "skipping reverse inner optimization because a top-level \
++             sub-expression with a fast prefilter could not be found"
++        );
++        None
+     }
+-    debug!(
+-        "skipping reverse inner optimization because a top-level \
+-	     sub-expression with a fast prefilter could not be found"
+-    );
+-    None
+ }
+ 
+ /// Attempt to extract a prefilter from an HIR expression.
+@@ -124,7 +207,7 @@ pub(crate) fn extract(hirs: &[&Hir]) -> Option<(Hir, Prefilter)> {
+ ///
+ /// Note that this assumes leftmost-first match semantics, so callers must
+ /// not call this otherwise.
+-fn prefilter(hir: &Hir) -> Option<Prefilter> {
++fn prefilter_with_literals(hir: &Hir) -> Option<(Prefilter, Vec<Literal>)> {
+     let mut extractor = literal::Extractor::new();
+     extractor.kind(literal::ExtractKind::Prefix);
+     let mut prefixes = extractor.extract(hir);
+@@ -148,9 +231,9 @@ fn prefilter(hir: &Hir) -> Option<Prefilter> {
+         prefixes.len(),
+         prefixes
+     );
+-    prefixes
+-        .literals()
+-        .and_then(|lits| Prefilter::new(MatchKind::LeftmostFirst, lits))
++    let lits = prefixes.literals()?;
++    let pre = Prefilter::new(MatchKind::LeftmostFirst, lits)?;
++    Some((pre, lits.to_vec()))
+ }
+ 
+ /// Looks for a "top level" HirKind::Concat item in the given HIR. This will
+diff --git a/regex-automata/src/meta/reverse_suffix.rs b/regex-automata/src/meta/reverse_suffix.rs
+new file mode 100644
+index 0000000000..323b12be34
+--- /dev/null
++++ b/regex-automata/src/meta/reverse_suffix.rs
+@@ -0,0 +1,270 @@
++/*!
++Routines specific to the reverse suffix optimization.
++*/
++
++use alloc::vec::Vec;
++
++use regex_syntax::hir::{literal::Literal, Hir, HirKind, Repetition};
++
++use crate::meta::prefix;
++
++/// Returns true when it's impossible for an earlier match to be detected after
++/// a literal candidate (corresponding to `suffix`) has been found.
++///
++/// Specifically, that there is no earlier match than what a reverse scan of
++/// `hirs` after a match of `suffix` reports.
++///
++/// At present, this always returns `false` when `hirs` has any length except
++/// `1`. That is, this optimization does not apply to multi-regex.
++pub(super) fn has_no_earlier_match(hirs: &[&Hir], suffix: &[u8]) -> bool {
++    if hirs.len() != 1 || suffix.is_empty() {
++        return false;
++    }
++    let hir = hirs[0];
++    let Some(prefix) = strip_literal_suffix(hir, suffix) else { return false };
++
++    let fixed_length = prefix::hir_has_fixed_length(&prefix);
++    debug!("reverse suffix has fixed length prefix? {fixed_length}");
++    if fixed_length {
++        return true;
++    }
++
++    let class_separator = prefix::has_disjoint_class_separator(
++        &prefix,
++        &[Literal::inexact(suffix)],
++    );
++    debug!("reverse suffix has disjoint class separator? {class_separator}");
++    if class_separator {
++        return true;
++    }
++
++    let internal = prefix::hir_can_contain_literal(&prefix, suffix);
++    debug!("reverse suffix has internal suffix? {internal}");
++    if !internal {
++        return true;
++    }
++
++    // We couldn't prove that the reverse suffix optimization
++    // was safe, so bail out.
++    false
++}
++
++/// Strip `suffix` from the end of `hir` and return the HIR that remains.
++///
++/// This is conservative. It returns `None` when the structure of the HIR does
++/// not make the suffix straightforward to remove, even when `suffix` might be
++/// required by the pattern.
++fn strip_literal_suffix(hir: &Hir, suffix: &[u8]) -> Option<Hir> {
++    let (prefix, suffix_cursor) =
++        strip_literal_suffix_at(hir, suffix, suffix.len())?;
++    if suffix_cursor == 0 {
++        Some(prefix)
++    } else {
++        None
++    }
++}
++
++/// Strip a terminal part of `suffix[..suffix_cursor]` from the end of `hir`.
++///
++/// The returned cursor marks the end of the part of `suffix` that remains to
++/// be stripped. Thus, this call removes `suffix[after..suffix_cursor]`, where
++/// `after` is the returned cursor. A non-zero cursor may be returned only when
++/// the returned HIR cannot consume any bytes. This lets a concatenation
++/// continue stripping from its preceding child without losing adjacency.
++fn strip_literal_suffix_at(
++    hir: &Hir,
++    suffix: &[u8],
++    suffix_cursor: usize,
++) -> Option<(Hir, usize)> {
++    if suffix_cursor == 0 {
++        return Some((hir.clone(), 0));
++    }
++    match hir.kind() {
++        HirKind::Literal(lit) => {
++            let bytes = &lit.0;
++            let mut len = 0;
++            while len < bytes.len()
++                && len < suffix_cursor
++                && bytes[bytes.len() - len - 1]
++                    == suffix[suffix_cursor - len - 1]
++            {
++                len += 1;
++            }
++            if len == 0 || (len < bytes.len() && len < suffix_cursor) {
++                return None;
++            }
++            Some((
++                Hir::literal(bytes[..bytes.len() - len].to_vec()),
++                suffix_cursor - len,
++            ))
++        }
++        HirKind::Capture(capture) => {
++            strip_literal_suffix_at(&capture.sub, suffix, suffix_cursor)
++        }
++        HirKind::Concat(hirs) => {
++            let mut prefix = hirs.to_vec();
++            let mut cursor = suffix_cursor;
++            for i in (0..prefix.len()).rev() {
++                let (stripped, after) =
++                    strip_literal_suffix_at(&prefix[i], suffix, cursor)?;
++                if after == cursor {
++                    return None;
++                }
++                prefix[i] = stripped;
++                cursor = after;
++                if cursor == 0 {
++                    break;
++                }
++            }
++            Some((Hir::concat(prefix), cursor))
++        }
++        HirKind::Repetition(rep) => {
++            strip_repetition_literal_suffix(rep, suffix, suffix_cursor)
++        }
++        _ => None,
++    }
++}
++
++fn strip_repetition_literal_suffix(
++    rep: &Repetition,
++    suffix: &[u8],
++    suffix_cursor: usize,
++) -> Option<(Hir, usize)> {
++    let mut min = rep.min;
++    let mut max = rep.max;
++    let mut cursor = suffix_cursor;
++    let mut tail = Vec::new();
++    while cursor > 0 {
++        if min == 0 {
++            return None;
++        }
++        let before = cursor;
++        let (stripped, after) =
++            strip_literal_suffix_at(&rep.sub, suffix, cursor)?;
++        if after == before {
++            return None;
++        }
++        min = min.saturating_sub(1);
++        max = max.map(|max| max.saturating_sub(1));
++        if !matches!(stripped.kind(), HirKind::Empty) {
++            tail.push(stripped);
++        }
++        cursor = after;
++    }
++
++    let rest = Hir::repetition(Repetition {
++        min,
++        max,
++        greedy: rep.greedy,
++        sub: rep.sub.clone(),
++    });
++    let mut prefix = Vec::with_capacity(tail.len() + 1);
++    if !matches!(rest.kind(), HirKind::Empty) {
++        prefix.push(rest);
++    }
++    tail.reverse();
++    prefix.extend(tail);
++    Some((Hir::concat(prefix), 0))
++}
++
++// We only test when we have `unicode-perl` here since some regexes require
++// that.
++#[cfg(all(feature = "unicode-perl", not(miri),))]
++#[cfg(test)]
++mod tests {
++    use crate::util::syntax;
++
++    use super::*;
++
++    #[track_caller]
++    fn assert_strip(pattern: &str, suffix: &str, expected: Option<&str>) {
++        let hir = syntax::parse(pattern).unwrap();
++        let got = strip_literal_suffix(&hir, suffix.as_bytes());
++        let expected = expected.map(|pattern| syntax::parse(pattern).unwrap());
++        assert_eq!(expected, got);
++    }
++
++    #[test]
++    fn literal() {
++        assert_strip("foobar", "bar", Some("foo"));
++        assert_strip("foobar", "foobar", Some(""));
++        assert_strip("foobar", "", Some("foobar"));
++    }
++
++    #[test]
++    fn capture() {
++        assert_strip(r".+foo(bar)", "foobar", Some(r".+"));
++    }
++
++    #[test]
++    fn concat() {
++        assert_strip(r".+(?:ab){2}cd", "ababcd", Some(r".+"));
++        assert_strip(r"a(?:)cd", "acd", Some(r""));
++        assert_strip(r"az{0}cd", "acd", Some(r""));
++        assert_strip(r"az{2}cd", "acd", None);
++        assert_strip(r"az{0,2}cd", "acd", None);
++    }
++
++    #[test]
++    fn repetition() {
++        assert_strip(r"x(?:ab){3}", "bab", Some("xaba"));
++        assert_strip(r"x(?:ab){2,}", "bab", Some(r"x(?:ab)*a"));
++    }
++
++    #[test]
++    fn mismatch() {
++        assert_strip("foobar", "baz", None);
++        assert_strip("foobar", "xfoobar", None);
++        assert_strip(r"foo[a-z]", "a", None);
++    }
++
++    #[test]
++    fn suffix_must_be_adjacent() {
++        assert_strip(r"foo(xbar)", "foobar", None);
++    }
++
++    #[test]
++    fn repetition_must_be_required() {
++        assert_strip(r"x(?:ab)*cd", "abcd", None);
++    }
++
++    #[track_caller]
++    fn assert_fixed_length_prefix(yes: bool, pattern: &str, suffix: &[u8]) {
++        let hir = syntax::parse(pattern).unwrap();
++        assert_eq!(
++            yes,
++            strip_literal_suffix(&hir, suffix)
++                .map_or(false, |hir| prefix::hir_has_fixed_length(&hir)),
++        );
++    }
++
++    #[track_caller]
++    fn assert_internal_suffix(yes: bool, pattern: &str, suffix: &[u8]) {
++        let hir = syntax::parse(pattern).unwrap();
++        assert_eq!(
++            yes,
++            strip_literal_suffix(&hir, suffix).map_or(false, |hir| {
++                prefix::hir_can_contain_literal(&hir, suffix)
++            }),
++        );
++    }
++
++    #[test]
++    fn reverse_suffix_accepts_prefix_without_internal_suffix() {
++        assert_internal_suffix(false, r"\d+XYZ", b"XYZ");
++        assert_internal_suffix(false, r"[a-q][^u-z]{13}x", b"x");
++    }
++
++    #[test]
++    fn reverse_suffix_accepts_fixed_length_prefix() {
++        assert_fixed_length_prefix(true, r"(?:ab|cd)XYZ", b"XYZ");
++        assert_internal_suffix(true, r"[A-Z][0-9]XYZ", b"XYZ");
++        assert_fixed_length_prefix(true, r"[A-Z][0-9]XYZ", b"XYZ");
++    }
++
++    #[test]
++    fn reverse_suffix_fixed_length_prefix_is_conservative() {
++        assert_fixed_length_prefix(false, r"a{1,3}yy", b"yy");
++        assert_fixed_length_prefix(false, r"a*yy", b"yy");
++    }
++}
+diff --git a/regex-automata/src/meta/strategy.rs b/regex-automata/src/meta/strategy.rs
+index ebb876b2b8..c121443039 100644
+--- a/regex-automata/src/meta/strategy.rs
++++ b/regex-automata/src/meta/strategy.rs
+@@ -3,7 +3,7 @@ use core::{
+     panic::{RefUnwindSafe, UnwindSafe},
+ };
+ 
+-use alloc::sync::Arc;
++use alloc::{borrow::Cow, format, sync::Arc};
+ 
+ use regex_syntax::hir::{literal, Hir};
+ 
+@@ -11,7 +11,7 @@ use crate::{
+     meta::{
+         error::{BuildError, RetryError, RetryFailError, RetryQuadraticError},
+         regex::{Cache, RegexInfo},
+-        reverse_inner, wrappers,
++        reverse_inner, reverse_suffix, wrappers,
+     },
+     nfa::thompson::{self, WhichCaptures, NFA},
+     util::{
+@@ -40,6 +40,9 @@ use crate::{
+ pub(super) trait Strategy:
+     Debug + Send + Sync + RefUnwindSafe + UnwindSafe + 'static
+ {
++    #[allow(dead_code)]
++    fn name(&self) -> Cow<'static, str>;
++
+     fn group_info(&self) -> &GroupInfo;
+ 
+     fn create_cache(&self) -> Cache;
+@@ -117,6 +120,7 @@ pub(super) fn new(
+                 "found that the regex can be broken down to a literal \
+                  search, avoiding the regex engine entirely",
+             );
++            debug!("using {} strategy", pre.name());
+             return Ok(pre);
+         }
+         // This now attempts another short-circuit of the regex engine: if we
+@@ -136,6 +140,7 @@ pub(super) fn new(
+                 "found plain alternation of literals, \
+                  avoiding regex engine entirely and using Aho-Corasick"
+             );
++            debug!("using {} strategy", pre.name());
+             return Ok(pre);
+         }
+         prefixes.literals().and_then(|strings| {
+@@ -163,25 +168,25 @@ pub(super) fn new(
+     core = match ReverseAnchored::new(core) {
+         Err(core) => core,
+         Ok(ra) => {
+-            debug!("using reverse anchored strategy");
++            debug!("using {} strategy", ra.name());
+             return Ok(Arc::new(ra));
+         }
+     };
+     core = match ReverseSuffix::new(core, hirs) {
+         Err(core) => core,
+         Ok(rs) => {
+-            debug!("using reverse suffix strategy");
++            debug!("using {} strategy", rs.name());
+             return Ok(Arc::new(rs));
+         }
+     };
+     core = match ReverseInner::new(core, hirs) {
+         Err(core) => core,
+         Ok(ri) => {
+-            debug!("using reverse inner strategy");
++            debug!("using {} strategy", ri.name());
+             return Ok(Arc::new(ri));
+         }
+     };
+-    debug!("using core strategy");
++    debug!("using {} strategy", core.name());
+     Ok(Arc::new(core))
+ }
+ 
+@@ -353,6 +358,10 @@ impl Pre<()> {
+ // strategy when len(patterns)==1 if the number of literals is large. In that
+ // case, literal extraction gives up and will return an infinite set.)
+ impl<P: PrefilterI> Strategy for Pre<P> {
++    fn name(&self) -> Cow<'static, str> {
++        Cow::Owned(format!("prefilter {}", self.pre.name()))
++    }
++
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+     fn group_info(&self) -> &GroupInfo {
+         &self.group_info
+@@ -460,12 +469,7 @@ impl Core {
+     ) -> Result<Core, BuildError> {
+         let mut lookm = LookMatcher::new();
+         lookm.set_line_terminator(info.config().get_line_terminator());
+-        let thompson_config = thompson::Config::new()
+-            .utf8(info.config().get_utf8_empty())
+-            .nfa_size_limit(info.config().get_nfa_size_limit())
+-            .shrink(false)
+-            .which_captures(info.config().get_which_captures())
+-            .look_matcher(lookm);
++        let thompson_config = info.config().to_thompson_config();
+         let nfa = thompson::Compiler::new()
+             .configure(thompson_config.clone())
+             .build_many_from_hir(hirs)
+@@ -512,7 +516,6 @@ impl Core {
+                     // the lazy DFA ignores capturing groups in all cases.
+                     .configure(
+                         thompson_config
+-                            .clone()
+                             .which_captures(WhichCaptures::None)
+                             .reverse(true),
+                     )
+@@ -664,6 +667,10 @@ impl Core {
+ }
+ 
+ impl Strategy for Core {
++    fn name(&self) -> Cow<'static, str> {
++        Cow::Borrowed("core")
++    }
++
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+     fn group_info(&self) -> &GroupInfo {
+         self.nfa.group_info()
+@@ -843,7 +850,7 @@ impl Strategy for Core {
+         // match bounds and not the entire haystack.
+         trace!(
+             "match found at {}..{} in capture search, \
+-		  	 using another engine to find captures",
++             using another engine to find captures",
+             m.start(),
+             m.end(),
+         );
+@@ -910,7 +917,7 @@ impl ReverseAnchored {
+         if !core.info.is_always_anchored_end() {
+             debug!(
+                 "skipping reverse anchored optimization because \
+-				 the regex is not always anchored at the end"
++                 the regex is not always anchored at the end"
+             );
+             return Err(core);
+         }
+@@ -925,7 +932,7 @@ impl ReverseAnchored {
+         if core.info.is_always_anchored_start() {
+             debug!(
+                 "skipping reverse anchored optimization because \
+-				 the regex is also anchored at the start"
++                 the regex is also anchored at the start"
+             );
+             return Err(core);
+         }
+@@ -935,7 +942,7 @@ impl ReverseAnchored {
+         if !core.hybrid.is_some() && !core.dfa.is_some() {
+             debug!(
+                 "skipping reverse anchored optimization because \
+-				 we don't have a lazy DFA or a full DFA"
++                 we don't have a lazy DFA or a full DFA"
+             );
+             return Err(core);
+         }
+@@ -979,6 +986,10 @@ impl ReverseAnchored {
+ // Thus, in this impl, we can actually assume that the end position in 'input'
+ // is equivalent to the length of the haystack.
+ impl Strategy for ReverseAnchored {
++    fn name(&self) -> Cow<'static, str> {
++        Cow::Borrowed("reverse anchored")
++    }
++
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+     fn group_info(&self) -> &GroupInfo {
+         self.core.group_info()
+@@ -1127,6 +1138,16 @@ impl ReverseSuffix {
+             );
+             return Err(core);
+         }
++        // Also like the reverse inner optimization, a reverse suffix encodes
++        // leftmost-first match semantics.
++        if core.info.config().get_match_kind() != MatchKind::LeftmostFirst {
++            debug!(
++                "skipping reverse suffix optimization because \
++                 match kind is {:?} but this only supports leftmost-first",
++                core.info.config().get_match_kind(),
++            );
++            return Err(core);
++        }
+         // Like the reverse inner optimization, we don't do this for regexes
+         // that are always anchored. It could lead to scanning too much, but
+         // could say "no match" much more quickly than running the regex
+@@ -1145,7 +1166,7 @@ impl ReverseSuffix {
+         if core.info.is_always_anchored_start() {
+             debug!(
+                 "skipping reverse suffix optimization because \
+-				 the regex is always anchored at the start",
++                 the regex is always anchored at the start",
+             );
+             return Err(core);
+         }
+@@ -1155,14 +1176,14 @@ impl ReverseSuffix {
+         if !core.hybrid.is_some() && !core.dfa.is_some() {
+             debug!(
+                 "skipping reverse suffix optimization because \
+-				 we don't have a lazy DFA or a full DFA"
++                 we don't have a lazy DFA or a full DFA"
+             );
+             return Err(core);
+         }
+         if core.pre.as_ref().map_or(false, |p| p.is_fast()) {
+             debug!(
+                 "skipping reverse suffix optimization because \
+-				 we already have a prefilter that we think is fast"
++                 we already have a prefilter that we think is fast"
+             );
+             return Err(core);
+         }
+@@ -1199,8 +1220,16 @@ impl ReverseSuffix {
+         if !pre.is_fast() {
+             debug!(
+                 "skipping reverse suffix optimization because \
+-				 while we have a suffix prefilter, it is not \
+-				 believed to be 'fast'"
++                 while we have a suffix prefilter, it is not \
++                 believed to be 'fast'"
++            );
++            return Err(core);
++        }
++        if !reverse_suffix::has_no_earlier_match(hirs, &lcs) {
++            debug!(
++                "skipping reverse suffix optimization because \
++                 an earlier suffix match could be a complete match \
++                 inside of a larger match"
+             );
+             return Err(core);
+         }
+@@ -1217,7 +1246,7 @@ impl ReverseSuffix {
+         let mut min_start = 0;
+         loop {
+             let litmatch = match self.pre.find(input.haystack(), span) {
+-                None => return Ok(None),
++                None => break,
+                 Some(span) => span,
+             };
+             trace!("reverse suffix scan found suffix match at {litmatch:?}");
+@@ -1225,17 +1254,16 @@ impl ReverseSuffix {
+                 .clone()
+                 .anchored(Anchored::Yes)
+                 .span(input.start()..litmatch.end);
+-            match self
+-                .try_search_half_rev_limited(cache, &revinput, min_start)?
++            if let Some(hm) =
++                self.try_search_half_rev_limited(cache, &revinput, min_start)?
+             {
+-                None => {
+-                    if span.start >= span.end {
+-                        break;
+-                    }
+-                    span.start = litmatch.start.checked_add(1).unwrap();
+-                }
+-                Some(hm) => return Ok(Some(hm)),
++                return Ok(Some(hm));
+             }
++
++            if span.start >= span.end {
++                break;
++            }
++            span.start = litmatch.start.checked_add(1).unwrap();
+             min_start = litmatch.end;
+         }
+         Ok(None)
+@@ -1294,6 +1322,10 @@ impl ReverseSuffix {
+ }
+ 
+ impl Strategy for ReverseSuffix {
++    fn name(&self) -> Cow<'static, str> {
++        Cow::Borrowed("reverse suffix")
++    }
++
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+     fn group_info(&self) -> &GroupInfo {
+         self.core.group_info()
+@@ -1347,7 +1379,7 @@ impl Strategy for ReverseSuffix {
+                     Ok(None) => {
+                         unreachable!(
+                             "suffix match plus reverse match implies \
+-						     there must be a match",
++                             there must be a match",
+                         )
+                     }
+                     Ok(Some(hm_end)) => Some(Match::new(
+@@ -1404,7 +1436,7 @@ impl Strategy for ReverseSuffix {
+                     Ok(None) => {
+                         unreachable!(
+                             "suffix match plus reverse match implies \
+-						     there must be a match",
++                             there must be a match",
+                         )
+                     }
+                     Ok(Some(hm_end)) => Some(hm_end),
+@@ -1458,7 +1490,7 @@ impl Strategy for ReverseSuffix {
+             Err(RetryError::Fail(_err)) => {
+                 trace!(
+                     "reverse suffix reverse fast captures search failed: \
+-                        {_err}"
++                     {_err}"
+                 );
+                 return self.core.search_slots_nofail(cache, input, slots);
+             }
+@@ -1467,7 +1499,7 @@ impl Strategy for ReverseSuffix {
+         };
+         trace!(
+             "match found at {}..{} in capture search, \
+-		  	 using another engine to find captures",
++             using another engine to find captures",
+             hm_start.offset(),
+             input.end(),
+         );
+@@ -1515,7 +1547,7 @@ impl ReverseInner {
+         if core.info.config().get_match_kind() != MatchKind::LeftmostFirst {
+             debug!(
+                 "skipping reverse inner optimization because \
+-				 match kind is {:?} but this only supports leftmost-first",
++                 match kind is {:?} but this only supports leftmost-first",
+                 core.info.config().get_match_kind(),
+             );
+             return Err(core);
+@@ -1538,7 +1570,7 @@ impl ReverseInner {
+         if core.info.is_always_anchored_start() {
+             debug!(
+                 "skipping reverse inner optimization because \
+-				 the regex is always anchored at the start",
++                 the regex is always anchored at the start",
+             );
+             return Err(core);
+         }
+@@ -1548,14 +1580,14 @@ impl ReverseInner {
+         if !core.hybrid.is_some() && !core.dfa.is_some() {
+             debug!(
+                 "skipping reverse inner optimization because \
+-				 we don't have a lazy DFA or a full DFA"
++                 we don't have a lazy DFA or a full DFA"
+             );
+             return Err(core);
+         }
+         if core.pre.as_ref().map_or(false, |p| p.is_fast()) {
+             debug!(
+                 "skipping reverse inner optimization because \
+-				 we already have a prefilter that we think is fast"
++                 we already have a prefilter that we think is fast"
+             );
+             return Err(core);
+         } else if core.pre.is_some() {
+@@ -1565,31 +1597,38 @@ impl ReverseInner {
+                  use reverse inner prefilter"
+             );
+         }
+-        let (concat_prefix, preinner) = match reverse_inner::extract(hirs) {
+-            Some(x) => x,
+-            // N.B. the 'extract' function emits debug messages explaining
++        let prefilter = match reverse_inner::InnerPrefilter::new(hirs) {
++            Some(prefilter) => prefilter,
++            // N.B. the 'new' function emits debug messages explaining
+             // why we bailed out here.
+             None => return Err(core),
+         };
++        if !reverse_inner::has_no_earlier_match(
++            &prefilter.prefix,
++            &prefilter.literals,
++        ) {
++            debug!(
++                "skipping reverse inner optimization because an inner \
++                 literal match could be confirmed before an earlier match"
++            );
++            return Err(core);
++        }
+         debug!("building reverse NFA for prefix before inner literal");
+-        let mut lookm = LookMatcher::new();
+-        lookm.set_line_terminator(core.info.config().get_line_terminator());
+-        let thompson_config = thompson::Config::new()
++        let thompson_config = core
++            .info
++            .config()
++            .to_thompson_config()
+             .reverse(true)
+-            .utf8(core.info.config().get_utf8_empty())
+-            .nfa_size_limit(core.info.config().get_nfa_size_limit())
+-            .shrink(false)
+-            .which_captures(WhichCaptures::None)
+-            .look_matcher(lookm);
++            .which_captures(WhichCaptures::None);
+         let result = thompson::Compiler::new()
+             .configure(thompson_config)
+-            .build_from_hir(&concat_prefix);
++            .build_from_hir(&prefilter.prefix);
+         let nfarev = match result {
+             Ok(nfarev) => nfarev,
+             Err(_err) => {
+                 debug!(
+                     "skipping reverse inner optimization because the \
+-					 reverse NFA failed to build: {}",
++                     reverse NFA failed to build: {}",
+                     _err,
+                 );
+                 return Err(core);
+@@ -1606,13 +1645,13 @@ impl ReverseInner {
+         } else if dfa.is_some() {
+             debug!(
+                 "skipping lazy DFA for reverse inner optimization \
+-				 because we have a full DFA"
++                 because we have a full DFA"
+             );
+             wrappers::ReverseHybrid::none()
+         } else {
+             wrappers::ReverseHybrid::new(&core.info, &nfarev)
+         };
+-        Ok(ReverseInner { core, preinner, nfarev, hybrid, dfa })
++        Ok(ReverseInner { core, preinner: prefilter.pre, nfarev, hybrid, dfa })
+     }
+ 
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+@@ -1626,14 +1665,14 @@ impl ReverseInner {
+         let mut min_pre_start = 0;
+         loop {
+             let litmatch = match self.preinner.find(input.haystack(), span) {
+-                None => return Ok(None),
++                None => break,
+                 Some(span) => span,
+             };
+             if litmatch.start < min_pre_start {
+                 trace!(
+                     "found inner prefilter match at {litmatch:?}, which starts \
+-					 before the end of the last forward scan at {min_pre_start}, \
+-					 quitting to avoid quadratic behavior",
++                     before the end of the last forward scan at {min_pre_start}, \
++                     quitting to avoid quadratic behavior",
+                 );
+                 return Err(RetryError::Quadratic(RetryQuadraticError::new()));
+             }
+@@ -1648,37 +1687,33 @@ impl ReverseInner {
+             // reverse scan goes past the minimum start point. That is, the
+             // literal search might not, but the reverse regex search for the
+             // prefix might!
+-            match self.try_search_half_rev_limited(
++            if let Some(hm_start) = self.try_search_half_rev_limited(
+                 cache,
+                 &revinput,
+                 min_match_start,
+             )? {
+-                None => {
+-                    if span.start >= span.end {
+-                        break;
++                let fwdinput = input
++                    .clone()
++                    .anchored(Anchored::Pattern(hm_start.pattern()))
++                    .span(hm_start.offset()..input.end());
++                match self.try_search_half_fwd_stopat(cache, &fwdinput)? {
++                    Err(stopat) => {
++                        min_pre_start = stopat;
++                        span.start = litmatch.start.checked_add(1).unwrap();
+                     }
+-                    span.start = litmatch.start.checked_add(1).unwrap();
+-                }
+-                Some(hm_start) => {
+-                    let fwdinput = input
+-                        .clone()
+-                        .anchored(Anchored::Pattern(hm_start.pattern()))
+-                        .span(hm_start.offset()..input.end());
+-                    match self.try_search_half_fwd_stopat(cache, &fwdinput)? {
+-                        Err(stopat) => {
+-                            min_pre_start = stopat;
+-                            span.start =
+-                                litmatch.start.checked_add(1).unwrap();
+-                        }
+-                        Ok(hm_end) => {
+-                            return Ok(Some(Match::new(
+-                                hm_start.pattern(),
+-                                hm_start.offset()..hm_end.offset(),
+-                            )))
+-                        }
++                    Ok(hm_end) => {
++                        return Ok(Some(Match::new(
++                            hm_start.pattern(),
++                            hm_start.offset()..hm_end.offset(),
++                        )));
+                     }
+                 }
+             }
++
++            if span.start >= span.end {
++                break;
++            }
++            span.start = litmatch.start.checked_add(1).unwrap();
+             min_match_start = litmatch.end;
+         }
+         Ok(None)
+@@ -1741,6 +1776,10 @@ impl ReverseInner {
+ }
+ 
+ impl Strategy for ReverseInner {
++    fn name(&self) -> Cow<'static, str> {
++        Cow::Borrowed("reverse inner")
++    }
++
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+     fn group_info(&self) -> &GroupInfo {
+         self.core.group_info()
+@@ -1860,7 +1899,7 @@ impl Strategy for ReverseInner {
+         };
+         trace!(
+             "match found at {}..{} in capture search, \
+-		  	 using another engine to find captures",
++             using another engine to find captures",
+             m.start(),
+             m.end(),
+         );
+@@ -1903,3 +1942,447 @@ fn copy_match_to_slots(m: Match, slots: &mut [Option<NonMaxUsize>]) {
+         *slot = NonMaxUsize::new(m.end());
+     }
+ }
++
++// We only test which strategy we get when all literal features are enabled.
++// Other cases are less substantially less interesting.
++//
++// We also don't test this on miri since it takes forever.
++//
++// We also require `unicode-perl` since some regexes use `\w`, `\d` and `\s`.
++#[cfg(all(
++    feature = "perf-literal-substring",
++    feature = "perf-literal-multisubstring",
++    feature = "unicode-perl",
++    not(miri),
++))]
++#[cfg(test)]
++mod tests {
++    use alloc::{format, string::String, vec::Vec};
++
++    use crate::{meta::regex::Config, util::syntax};
++
++    use super::*;
++
++    fn teddy_probably_available() -> bool {
++        cfg!(any(target_arch = "x86_64", target_arch = "aarch64"))
++    }
++
++    #[track_caller]
++    fn strategy_with(patterns: &[&str], config: Config) -> Arc<dyn Strategy> {
++        let hirs = syntax::parse_many(patterns).unwrap();
++        let hirs: Vec<&Hir> = hirs.iter().collect();
++        let info = RegexInfo::new(config, &hirs);
++        new(&info, &hirs).unwrap()
++    }
++
++    #[track_caller]
++    fn assert_strategy(name: &'static str, patterns: &[&str]) {
++        assert_strategy_with(name, patterns, Config::new());
++    }
++
++    #[track_caller]
++    fn assert_strategy_with(
++        name: &'static str,
++        patterns: &[&str],
++        config: Config,
++    ) {
++        let strategy = strategy_with(patterns, config);
++        assert_eq!(name, strategy.name().as_ref());
++    }
++
++    fn literal_alternation(count: usize) -> String {
++        let mut pattern = String::new();
++        for i in 0..count {
++            if i > 0 {
++                pattern.push('|');
++            }
++            pattern.push_str(&format!("needle{i:05}"));
++        }
++        pattern
++    }
++
++    #[test]
++    fn pre_from_prefixes_accepts_exact_literal() {
++        assert_strategy("prefilter memchr", &["a"]);
++        assert_strategy("prefilter memchr2", &["a|b"]);
++        assert_strategy("prefilter memchr3", &["a|b|c"]);
++        assert_strategy("prefilter memmem", &["Sherlock"]);
++        if teddy_probably_available() {
++            assert_strategy(
++                "prefilter teddy",
++                &["Samwise|Gandalf|Holmes|Watson"],
++            );
++        }
++    }
++
++    #[test]
++    fn pre_from_prefixes_rejects_inexact_literal() {
++        assert_strategy("core", &["a+"]);
++    }
++
++    #[test]
++    fn pre_from_prefixes_rejects_empty_literal() {
++        assert_strategy("core", &[""]);
++    }
++
++    #[test]
++    fn pre_from_prefixes_rejects_multiple_patterns() {
++        assert_strategy("core", &["a", "b"]);
++        assert_strategy("core", &["a|b", "c|d"]);
++    }
++
++    #[test]
++    fn pre_from_prefixes_rejects_captures() {
++        assert_strategy("core", &["(a)"]);
++        // ... but not when it's a non-capture.
++        assert_strategy("prefilter memchr", &["(?:a)"]);
++        // ... or when there is a capture, but it's optimized out.
++        assert_strategy("prefilter memchr", &["(){0}a"]);
++    }
++
++    #[test]
++    fn pre_from_prefixes_rejects_look_around() {
++        assert_strategy("core", &[r"a\b"]);
++    }
++
++    #[test]
++    fn pre_from_prefixes_rejects_non_leftmost_first() {
++        assert_strategy_with(
++            "core",
++            &["a"],
++            Config::new().match_kind(MatchKind::All),
++        );
++    }
++
++    #[test]
++    fn pre_from_alternation_literals_accepts_large_alternation() {
++        let pattern = literal_alternation(3_000);
++        assert_strategy("prefilter aho-corasick", &[&pattern]);
++    }
++
++    #[test]
++    fn pre_from_alternation_literals_rejects_small_alternation() {
++        let pattern = literal_alternation(2_999);
++        assert_strategy("core", &[&pattern]);
++    }
++
++    #[test]
++    fn pre_from_alternation_literals_rejects_captures() {
++        let pattern = format!("({})", literal_alternation(3_000));
++        assert_strategy("core", &[&pattern]);
++    }
++
++    #[test]
++    fn pre_from_alternation_literals_rejects_look_around() {
++        let pattern = format!(r"(?:{})\b", literal_alternation(3_000));
++        assert_strategy("core", &[&pattern]);
++    }
++
++    #[test]
++    fn pre_from_alternation_literals_rejects_non_leftmost_first() {
++        let pattern = literal_alternation(3_000);
++        assert_strategy_with(
++            "core",
++            &[&pattern],
++            Config::new().match_kind(MatchKind::All),
++        );
++    }
++
++    #[test]
++    fn pre_from_alternation_literals_rejects_multiple_patterns() {
++        let pattern1 = literal_alternation(3_000);
++        let pattern2 = literal_alternation(3_000);
++        assert_strategy("core", &[&pattern1, &pattern2]);
++    }
++
++    #[test]
++    fn core_selected_when_no_special_strategy_applies() {
++        assert_strategy("core", &["[a-z]+"]);
++    }
++
++    #[test]
++    fn core_selected_when_auto_prefilter_is_disabled() {
++        assert_strategy_with(
++            "core",
++            &[r"\w+Holmes"],
++            Config::new().auto_prefilter(false),
++        );
++    }
++
++    #[test]
++    fn core_selected_when_reverse_engines_are_disabled() {
++        assert_strategy_with(
++            "core",
++            &[r"\w+Holmes"],
++            Config::new().dfa(false).hybrid(false),
++        );
++    }
++
++    #[test]
++    fn reverse_anchored_accepts_end_anchored() {
++        assert_strategy("reverse anchored", &[r"\w+Holmes$"]);
++    }
++
++    #[test]
++    fn reverse_anchored_accepts_multiple_end_anchored_patterns() {
++        assert_strategy("reverse anchored", &[r"\w+Holmes$", r"\w+Watson$"]);
++    }
++
++    #[test]
++    fn reverse_anchored_accepts_hybrid_without_full_dfa() {
++        assert_strategy_with(
++            "reverse anchored",
++            &[r"\w+Holmes$"],
++            Config::new().dfa(false),
++        );
++    }
++
++    #[test]
++    fn reverse_anchored_rejects_start_and_end_anchored() {
++        assert_strategy("core", &[r"^\w+Holmes$"]);
++    }
++
++    #[test]
++    fn reverse_anchored_rejects_without_reverse_engine() {
++        assert_strategy_with(
++            "core",
++            &[r"\w+Holmes$"],
++            Config::new().dfa(false).hybrid(false),
++        );
++    }
++
++    #[test]
++    fn reverse_suffix_accepts_prefix_without_internal_suffix() {
++        assert_strategy("reverse suffix", &[r"\d+XYZ"]);
++        assert_strategy("reverse suffix", &[r"[a-q][^u-z]{13}x"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_internal_suffix_with_word_boundary() {
++        assert_strategy("core", &[r"\b\w+nn\b"]);
++    }
++
++    #[test]
++    fn reverse_suffix_accepts_disjoint_class_separator() {
++        assert_strategy("reverse suffix", &[r"\w+\s+Holmes"]);
++        assert_strategy("reverse suffix", &[r"\w+\d*\s+Holmes"]);
++        assert_strategy("reverse suffix", &[r"(?:\w+|[.-]+)+\s+Holmes"]);
++        assert_strategy("reverse suffix", &[r"\b\w+\s+Holmes"]);
++        assert_strategy("reverse suffix", &[r"\w+\sHolmes"]);
++        assert_strategy("reverse suffix", &[r"[a-z]+[0-9]+Holmes"]);
++        assert_strategy("reverse suffix", &[r"(\w+)(\s+)Holmes"]);
++        assert_strategy("reverse suffix", &[r"(?-u:[A-Za-z]+[0-9]+Holmes)"]);
++    }
++
++    #[test]
++    fn reverse_suffix_class_separator_is_conservative() {
++        assert_strategy("core", &[r"\w+\w+Holmes"]);
++        assert_strategy("core", &[r"\w+\s*Holmes"]);
++        assert_strategy("core", &[r"[a-z]+[0-9a]+xyz"]);
++        assert_strategy("core", &[r"[a-z]+[0-9]+a1"]);
++        assert_strategy("core", &[r"(?:.abc)?[a]+[b]+c"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_safe_nfa_overlap() {
++        assert_strategy("reverse inner", &[r"(a|aa)b"]);
++    }
++
++    #[test]
++    fn reverse_suffix_accepts_fixed_length_prefix() {
++        assert_strategy("reverse suffix", &[r"[A-Z][0-9]XYZ"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_multiple_patterns_with_common_suffix() {
++        assert_strategy("core", &[r"\d+XYZ", r"\w+XYZ"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_auto_prefilter_disabled() {
++        assert_strategy_with(
++            "core",
++            &[r"\d+XYZ"],
++            Config::new().auto_prefilter(false),
++        );
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_non_leftmost_first() {
++        assert_strategy_with(
++            "core",
++            &[r"\d+XYZ"],
++            Config::new().match_kind(MatchKind::All),
++        );
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_anchored_start() {
++        assert_strategy("core", &[r"^\d+XYZ"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_variable_length_prefix() {
++        assert_strategy("core", &[r"(?:[A-Za-z]ab)?b"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_without_reverse_engine() {
++        assert_strategy_with(
++            "core",
++            &[r"\d+XYZ"],
++            Config::new().dfa(false).hybrid(false),
++        );
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_existing_fast_prefilter() {
++        assert_strategy("core", &[r"abc\w+XYZ"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_no_literal_suffix() {
++        assert_strategy("core", &[r"[a-z]+"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_multiple_patterns_without_common_suffix() {
++        assert_strategy("core", &[r"\d+XYZ", r"\w+ABC"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_multiple_patterns_when_first_looks_safe() {
++        assert_strategy("core", &[r"\d+b", r".bb|b"]);
++        assert_strategy("core", &[r"\d+b", r"ab"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_unsafe_overlap() {
++        assert_strategy("core", &[r".abb|b"]);
++        assert_strategy("core", &[r".bb|b"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_fully_absorbed_literal() {
++        assert_strategy("core", &[r"(?:[a-wyz]{3}|[a-wyz]).b"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_disjoint_trailing_component() {
++        assert_strategy("core", &[r"(?:[ac-z]{2}b[ac-z])?[ac-z]b"]);
++    }
++
++    #[test]
++    fn reverse_suffix_rejects_internal_candidate_before_absorber() {
++        assert_strategy("core", &[r"(?:[a-z]cb|c)[a-z]*b"]);
++    }
++
++    #[test]
++    fn reverse_inner_accepts_disjoint_inner_literal() {
++        assert_strategy("reverse inner", &[r"\w+@\w+"]);
++        assert_strategy(
++            "reverse inner",
++            &[r"(?P<email>[.\pL]+@(?P<domain>[.\pL]+))"],
++        );
++    }
++
++    #[test]
++    fn reverse_inner_accepts_fixed_length_prefix() {
++        assert_strategy("reverse inner", &[r"[A-Z][0-9]@(foo|bar)"]);
++    }
++
++    #[test]
++    fn reverse_inner_accepts_disjoint_class_separator() {
++        assert_strategy("reverse inner", &[r"\w+\s+Holmes\s+\w+"]);
++        assert_strategy("reverse inner", &[r"\w+\d*\s+Holmes\s+\w+"]);
++        assert_strategy("reverse inner", &[r"\b\w+\s+Holmes\s+\w+"]);
++        if teddy_probably_available() {
++            assert_strategy(
++                "reverse inner",
++                &[r"\w+\s+(?:Holmes|Watson)\s+\w+"],
++            );
++        }
++    }
++
++    #[test]
++    fn reverse_inner_accepts_leading_disjoint_class_separator() {
++        assert_strategy("reverse inner", &[r"\s[A-Za-z]{0,12}ing\s"]);
++        assert_strategy("reverse inner", &[r"\s[A-Za-z]*ing\s"]);
++        assert_strategy("reverse inner", &[r"\b\s[A-Za-z]{0,12}ing\s"]);
++        assert_strategy("reverse inner", &[r"(\s)([A-Za-z]{0,12})ing\s"]);
++    }
++
++    #[test]
++    fn reverse_inner_leading_class_separator_is_conservative() {
++        assert_strategy("core", &[r"\s[\sA-Za-z]{0,12}ing\s"]);
++        assert_strategy("core", &[r"\s*[A-Za-z]{0,12}ing\s"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_auto_prefilter_disabled() {
++        assert_strategy_with(
++            "core",
++            &[r"\w+@\w+"],
++            Config::new().auto_prefilter(false),
++        );
++    }
++
++    #[test]
++    fn reverse_inner_rejects_non_leftmost_first() {
++        assert_strategy_with(
++            "core",
++            &[r"\w+@\w+"],
++            Config::new().match_kind(MatchKind::All),
++        );
++    }
++
++    #[test]
++    fn reverse_inner_rejects_anchored_start() {
++        assert_strategy("core", &[r"^\w+@\w+"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_without_reverse_engine() {
++        assert_strategy_with(
++            "core",
++            &[r"\w+@\w+"],
++            Config::new().dfa(false).hybrid(false),
++        );
++    }
++
++    #[test]
++    fn reverse_inner_rejects_existing_fast_prefilter() {
++        assert_strategy("core", &[r"abc\w+@\w+"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_multiple_patterns() {
++        assert_strategy("core", &[r"\w+@\w+", r"\w+#\w+"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_no_top_level_concat() {
++        assert_strategy("core", &[r"\w+"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_unsafe_overlap() {
++        assert_strategy("core", &[r"a.*@\w+"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_literal_crossing_prefix_boundary() {
++        assert_strategy("core", &[r"(?:[ac-z]{3}|[ac-z])(?:aba|baa)"]);
++    }
++
++    #[test]
++    fn reverse_inner_rejects_internal_separator_alignment() {
++        assert_strategy("core", &[r"(?:.abc)?[a]+[b]+c.*"]);
++    }
++
++    #[test]
++    fn rebar_benchmarks() {
++        assert_strategy("reverse suffix", &[r"[a-z]shing"]);
++        assert_strategy("reverse suffix", &[r"[a-q][^u-z]{23}x"]);
++    }
++}
+diff --git a/regex-automata/src/meta/wrappers.rs b/regex-automata/src/meta/wrappers.rs
+index 6651cb9076..8d6f738e4c 100644
+--- a/regex-automata/src/meta/wrappers.rs
++++ b/regex-automata/src/meta/wrappers.rs
+@@ -1253,7 +1253,7 @@ impl ReverseDFAEngine {
+                          which exceeds the heuristic limit of {}",
+                         nfarev.states().len(),
+                         state_limit,
+-					);
++                    );
+                     return None;
+                 }
+             }
+diff --git a/regex-automata/src/util/look.rs b/regex-automata/src/util/look.rs
+index 20bb8cc371..63bc97c661 100644
+--- a/regex-automata/src/util/look.rs
++++ b/regex-automata/src/util/look.rs
+@@ -1570,8 +1570,6 @@ mod is_word_char {
+     feature = "unicode-perl",
+ ))]
+ mod is_word_char {
+-    use regex_syntax::try_is_word_character;
+-
+     use crate::util::utf8;
+ 
+     pub(super) fn check() -> Result<(), super::UnicodeWordBoundaryError> {
+@@ -1585,11 +1583,7 @@ mod is_word_char {
+     ) -> Result<bool, super::UnicodeWordBoundaryError> {
+         Ok(match utf8::decode(&haystack[at..]) {
+             None | Some(Err(_)) => false,
+-            Some(Ok(ch)) => try_is_word_character(ch).expect(
+-                "since unicode-word-boundary, syntax and unicode-perl \
+-                 are all enabled, it is expected that \
+-                 try_is_word_character succeeds",
+-            ),
++            Some(Ok(ch)) => is_word_character(ch),
+         })
+     }
+ 
+@@ -1600,13 +1594,18 @@ mod is_word_char {
+     ) -> Result<bool, super::UnicodeWordBoundaryError> {
+         Ok(match utf8::decode_last(&haystack[..at]) {
+             None | Some(Err(_)) => false,
+-            Some(Ok(ch)) => try_is_word_character(ch).expect(
+-                "since unicode-word-boundary, syntax and unicode-perl \
+-                 are all enabled, it is expected that \
+-                 try_is_word_character succeeds",
+-            ),
++            Some(Ok(ch)) => is_word_character(ch),
+         })
+     }
++
++    #[cfg_attr(feature = "perf-inline", inline(always))]
++    fn is_word_character(ch: char) -> bool {
++        regex_syntax::try_is_word_character(ch).expect(
++            "since unicode-word-boundary, syntax and unicode-perl \
++             are all enabled, it is expected that \
++             try_is_word_character succeeds",
++        )
++    }
+ }
+ 
+ /// A module that looks for word codepoints using regex-automata's data tables
+diff --git a/regex-automata/src/util/prefilter/aho_corasick.rs b/regex-automata/src/util/prefilter/aho_corasick.rs
+index 7a2517fc7b..4126bb6bd6 100644
+--- a/regex-automata/src/util/prefilter/aho_corasick.rs
++++ b/regex-automata/src/util/prefilter/aho_corasick.rs
+@@ -80,6 +80,10 @@ impl AhoCorasick {
+ }
+ 
+ impl PrefilterI for AhoCorasick {
++    fn name(&self) -> &'static str {
++        "aho-corasick"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         #[cfg(not(feature = "perf-literal-multisubstring"))]
+         {
+diff --git a/regex-automata/src/util/prefilter/byteset.rs b/regex-automata/src/util/prefilter/byteset.rs
+index a669d6c9d7..31599a3f92 100644
+--- a/regex-automata/src/util/prefilter/byteset.rs
++++ b/regex-automata/src/util/prefilter/byteset.rs
+@@ -31,6 +31,10 @@ impl ByteSet {
+ }
+ 
+ impl PrefilterI for ByteSet {
++    fn name(&self) -> &'static str {
++        "byteset"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         haystack[span].iter().position(|&b| self.0[usize::from(b)]).map(|i| {
+             let start = span.start + i;
+diff --git a/regex-automata/src/util/prefilter/memchr.rs b/regex-automata/src/util/prefilter/memchr.rs
+index 3d44b83721..5b74671a9b 100644
+--- a/regex-automata/src/util/prefilter/memchr.rs
++++ b/regex-automata/src/util/prefilter/memchr.rs
+@@ -29,6 +29,10 @@ impl Memchr {
+ }
+ 
+ impl PrefilterI for Memchr {
++    fn name(&self) -> &'static str {
++        "memchr"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         #[cfg(not(feature = "perf-literal-substring"))]
+         {
+@@ -90,6 +94,10 @@ impl Memchr2 {
+ }
+ 
+ impl PrefilterI for Memchr2 {
++    fn name(&self) -> &'static str {
++        "memchr2"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         #[cfg(not(feature = "perf-literal-substring"))]
+         {
+@@ -152,6 +160,10 @@ impl Memchr3 {
+ }
+ 
+ impl PrefilterI for Memchr3 {
++    fn name(&self) -> &'static str {
++        "memchr3"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         #[cfg(not(feature = "perf-literal-substring"))]
+         {
+diff --git a/regex-automata/src/util/prefilter/memmem.rs b/regex-automata/src/util/prefilter/memmem.rs
+index deea17bd9d..63490c7ce7 100644
+--- a/regex-automata/src/util/prefilter/memmem.rs
++++ b/regex-automata/src/util/prefilter/memmem.rs
+@@ -33,6 +33,10 @@ impl Memmem {
+ }
+ 
+ impl PrefilterI for Memmem {
++    fn name(&self) -> &'static str {
++        "memmem"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         #[cfg(not(all(feature = "std", feature = "perf-literal-substring")))]
+         {
+diff --git a/regex-automata/src/util/prefilter/mod.rs b/regex-automata/src/util/prefilter/mod.rs
+index f95adff05c..3f50df2836 100644
+--- a/regex-automata/src/util/prefilter/mod.rs
++++ b/regex-automata/src/util/prefilter/mod.rs
+@@ -474,6 +474,9 @@ impl Prefilter {
+ pub(crate) trait PrefilterI:
+     Debug + Send + Sync + RefUnwindSafe + UnwindSafe + 'static
+ {
++    /// Return the name of this prefilter.
++    fn name(&self) -> &'static str;
++
+     /// Run this prefilter on `haystack[span.start..end]` and return a matching
+     /// span if one exists.
+     ///
+@@ -499,6 +502,10 @@ pub(crate) trait PrefilterI:
+ 
+ #[cfg(feature = "alloc")]
+ impl<P: PrefilterI + ?Sized> PrefilterI for Arc<P> {
++    fn name(&self) -> &'static str {
++        (**self).name()
++    }
++
+     #[cfg_attr(feature = "perf-inline", inline(always))]
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         (**self).find(haystack, span)
+diff --git a/regex-automata/src/util/prefilter/teddy.rs b/regex-automata/src/util/prefilter/teddy.rs
+index fc79f2b2f3..e0028cd5b7 100644
+--- a/regex-automata/src/util/prefilter/teddy.rs
++++ b/regex-automata/src/util/prefilter/teddy.rs
+@@ -81,6 +81,10 @@ impl Teddy {
+ }
+ 
+ impl PrefilterI for Teddy {
++    fn name(&self) -> &'static str {
++        "teddy"
++    }
++
+     fn find(&self, haystack: &[u8], span: Span) -> Option<Span> {
+         #[cfg(not(feature = "perf-literal-multisubstring"))]
+         {
+diff --git a/regex-syntax/src/hir/mod.rs b/regex-syntax/src/hir/mod.rs
+index 6d57fe3fd5..f6818fb281 100644
+--- a/regex-syntax/src/hir/mod.rs
++++ b/regex-syntax/src/hir/mod.rs
+@@ -2268,10 +2268,10 @@ impl Properties {
+     /// assert_eq!(Some(4), hir3.properties().maximum_len());
+     ///
+     /// let unioned = Properties::union([
+-    ///		hir1.properties(),
+-    ///		hir2.properties(),
+-    ///		hir3.properties(),
+-    ///	]);
++    ///     hir1.properties(),
++    ///     hir2.properties(),
++    ///     hir3.properties(),
++    /// ]);
+     /// assert_eq!(None, unioned.minimum_len());
+     /// assert_eq!(None, unioned.maximum_len());
+     ///
+@@ -2298,10 +2298,10 @@ impl Properties {
+     /// assert_eq!(Some(4), hir3.properties().maximum_len());
+     ///
+     /// let unioned = Properties::union([
+-    ///		hir1.properties(),
+-    ///		hir2.properties(),
+-    ///		hir3.properties(),
+-    ///	]);
++    ///     hir1.properties(),
++    ///     hir2.properties(),
++    ///     hir3.properties(),
++    /// ]);
+     /// assert_eq!(Some(1), unioned.minimum_len());
+     /// assert_eq!(None, unioned.maximum_len());
+     ///

@@ -1,0 +1,25 @@
+[package]
+name = "chrono"
+version = "0.4.45"
+description = "Date and time library for Rust"
+homepage = "https://github.com/chronotope/chrono"
+repository = "https://github.com/chronotope/chrono"
+keywords = ["date", "time", "calendar"]
+categories = ["date-and-time"]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+rust-version = "1.62.0"
+
+[lib]
+name = "chrono"
+
+[dependencies]
+num-traits = { version = "0.2", default-features = false }
+
+[features]
+default = ["std"]
+alloc = []
+std = ["alloc"]
+oldtime = []
+core-error = []

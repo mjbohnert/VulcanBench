@@ -16,7 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from harness.agent.loop import run_agent
+from harness.agent.providers import ProviderError
 from harness.leaderboard import aggregate_by_model, scan_leaderboard
+from harness.sandbox.docker_executor import SandboxError
 from harness.task_metadata import repo_scale
 from harness.tasks import list_task_ids, load_task
 
@@ -29,6 +31,23 @@ SUITE_ALIASES = {
     "v1-diamond": "v1",
     "v1-carbyne": "v1",
 }
+
+
+#: Failures that say nothing about the model under test: a stalled or refused
+#: provider call, a sandbox that would not start. Scoring these as a task failure
+#: (or dropping the task from the suite) attributes an infrastructure problem to
+#: the model, so they are retried instead.
+INFRASTRUCTURE_ERRORS = (ProviderError, SandboxError)
+
+
+def is_infrastructure_error(exc: BaseException) -> bool:
+    """Whether ``exc`` is an environment failure rather than a graded outcome.
+
+    A task the model genuinely fails still *returns* a result with a low score;
+    it does not raise. Anything reaching here is the harness failing to obtain a
+    verdict at all.
+    """
+    return isinstance(exc, INFRASTRUCTURE_ERRORS)
 
 
 @dataclass
@@ -117,6 +136,8 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
     max_concurrency: int = 1,
     max_cost: float | None = None,
     only_missing: bool = False,
+    *,
+    max_infra_retries: int = 2,
     **run_kwargs: Any,
 ) -> dict[str, Any]:
     """Run ``model`` against every task in the suite, ``repeat`` times each.
@@ -134,6 +155,14 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
     **fails closed**: if a completed run reports no cost (e.g. an unpriced model),
     the budget can't be guaranteed, so launching stops (``cost_unknown=True`` in
     the summary) rather than silently running the whole suite.
+
+    ``max_infra_retries`` re-queues a unit whose failure was environmental (a
+    stalled provider call, a sandbox that would not start) rather than a verdict
+    about the model — see :func:`is_infrastructure_error`. Without it a single
+    stalled request silently shrinks the denominator: the suite still reports a
+    tidy pass@1, computed over whichever tasks happened not to get unlucky, and a
+    different task drops on each run. Retries obey the spend cap like any other
+    unit and are counted in ``n_infra_retries``.
 
     Returns the suite summary (also written to ``<output_dir>/<suite_id>/suite.json``).
     Extra keyword args (judges, sandbox, image, network, max_steps, …) pass
@@ -196,6 +225,8 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
 
     task_results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    infra_retries: list[dict[str, Any]] = []
+    attempts: dict[str, int] = {}
     skipped: list[str] = []
     spent = 0.0
     cost_unknown = False  # a completed run reported no cost while a budget is set
@@ -233,7 +264,18 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
                     else:
                         spent += cost
                 except Exception as e:  # contain one unit's failure; keep the suite going
-                    errors.append({"task_id": task_id, "error": str(e)})
+                    attempts[task_id] = attempts.get(task_id, 1)
+                    retryable = (
+                        is_infrastructure_error(e) and attempts[task_id] <= max_infra_retries
+                    )
+                    if retryable and not _budget_reached():
+                        attempts[task_id] += 1
+                        infra_retries.append(
+                            {"task_id": task_id, "attempt": attempts[task_id], "error": str(e)}
+                        )
+                        pending.append(task_id)  # re-queue rather than drop the data point
+                    else:
+                        errors.append({"task_id": task_id, "error": str(e)})
 
     # Deterministic order regardless of completion order under concurrency.
     task_results.sort(key=lambda r: (r["task_id"], r["run_id"]))
@@ -258,6 +300,8 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
         "n_tasks": len(suite.task_ids),
         "n_runs": len(task_results),
         "n_skipped": len(skipped),
+        "n_infra_retries": len(infra_retries),
+        "infra_retries": infra_retries,
         "only_missing": only_missing,
         "covered_cached": covered,
         "tasks": task_results,

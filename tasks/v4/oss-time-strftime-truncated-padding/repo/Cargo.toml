@@ -1,0 +1,21 @@
+[workspace]
+default-members = ["time"]
+members = ["time", "time-core"]
+resolver = "2"
+
+[workspace.package]
+authors = ["Jacob Pratt <open-source@jhpratt.dev>", "Time contributors"]
+edition = "2024"
+rust-version = "1.88.0"
+keywords = ["date", "time", "calendar", "duration"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/time-rs/time"
+
+[workspace.lints.rust]
+unexpected_cfgs = "allow"
+
+[workspace.dependencies]
+deranged = "0.5.8"
+num-conv = "0.2.2"
+powerfmt = { version = "0.2.0", default-features = false }
+time-core = { path = "time-core", version = "=0.1.8" }

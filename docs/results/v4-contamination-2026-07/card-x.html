@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 40px 74px 28px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 18px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+
+h1 { text-align: center; font-size: 56px; font-weight: 600; margin-top: 54px; }
+
+.qs { display: grid; grid-template-columns: 1fr 1fr; gap: 66px; margin: 66px auto 0; width: 1310px; }
+.q { text-align: center; padding: 30px 22px 34px; background: #efe9dd; border-top: 4px solid #1c1a17; }
+.qtext { font-size: 27px; font-style: italic; color: #3a362f; min-height: 76px; line-height: 1.35; }
+.ans { font-size: 112px; font-weight: 700; line-height: 1; margin-top: 2px; letter-spacing: 1px; }
+.yes { color: #9c6644; }
+.no  { color: #40628c; }
+.because { font-size: 24px; margin-top: 18px; line-height: 1.4; }
+.because b { font-weight: 700; }
+
+.verdict { text-align: center; margin-top: 88px; font-size: 33px; line-height: 1.4; }
+.verdict b { font-weight: 700; }
+.verdict .fix { display: block; font-size: 24px; font-style: italic; color: #55504a; margin-top: 14px; }
+
+.foot { position: absolute; left: 74px; right: 74px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 11px; font-size: 20px;
+  color: #55504a; line-height: 1.4; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 19px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 09</span><span>Claude Opus 5 &nbsp;&middot;&nbsp; July 2026</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>Was our eval suite contaminated?</h1>
+
+  <div class="qs">
+    <div class="q">
+      <div class="qtext">Had Opus&nbsp;5 seen the answers<br>before we tested it?</div>
+      <div class="ans yes">YES</div>
+      <div class="because"><b>13 of 23 tasks</b> in Suite&nbsp;v3 were<br>published before its training cutoff</div>
+    </div>
+    <div class="q">
+      <div class="qtext">Did that make<br>its score look better?</div>
+      <div class="ans no">NO</div>
+      <div class="because">It got <b>one wrong</b> on the tasks it could<br>have seen, and <b>one</b> on the tasks it couldn&rsquo;t</div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    So: the suite <b>was</b> contaminated &mdash; and it <b>didn&rsquo;t help the model one bit</b>.
+    <span class="fix">We rebuilt it anyway. Suite v4 is 23 tasks, all published after the cutoff.</span>
+  </div>
+
+  <div class="foot">
+    <div>26 real merged pull requests &middot; Python, Rust, TypeScript, JavaScript, Go &middot; hidden tests, offline sandbox<br><i>It solves ~90% either way, so this rules out a big advantage, not a small one.</i></div>
+    <div class="brand">vulcanbench &middot; open source</div>
+  </div>
+</div>
+</body></html>

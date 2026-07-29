@@ -1,0 +1,36 @@
+{
+  "id": "oss-hono-url-param-prefix",
+  "category": "bug_fix",
+  "languages": ["typescript"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-07-24",
+  "repo_scale": "large",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:node-ts",
+  "base_commit": "67efb27f7bcba7a99cae7779b7eb71c3fcada8d8",
+  "upstream": {
+    "url": "https://github.com/honojs/hono/pull/5096",
+    "issue": "https://github.com/honojs/hono/pull/5096",
+    "commit": "67efb27f7bcba7a99cae7779b7eb71c3fcada8d8"
+  },
+  "upstream_merged": "2026-07-12",
+  "decontamination_notes": "Real bug fix from honojs/hono PR #5096, merged 2026-07-12. Labeled decontaminated: true because the fix post-dates the May 2026 training cutoff of the models this suite targets (Claude Opus 5); re-check `upstream_merged` against any newer model's cutoff before reusing. replaceUrlParam in src/client/utils.ts built a per-parameter regex with no end boundary -- new RegExp('/:' + k + '(?:{[^/]+})?\\??') -- so when one parameter name is a prefix of another (id vs idType) the shorter pattern matched inside the longer token: replaceUrlParam('/a/:idType/:id', {id:'1', idType:'slug'}) produced '/a/1Type/:id'. The fix appends a (?=/|$) lookahead. NOTE the bug only manifests when the longer parameter appears EARLIER in the URL than the shorter one -- '/posts/:id/:idType' happens to substitute correctly at the base commit because the shorter pattern's first match is the intended token -- so the tests deliberately place the longer parameter first. Repo sliced at the PR base commit (67efb27f); the slice keeps src/, package.json and tsconfig.json and drops .github, benchmarks, perf-measures, docs, runtime-tests and every in-tree *.test.ts. Hono is dependency-free at runtime, so the node-ts image runs the hidden tests with tsx and no install step. Coverage: 4 fail_to_pass tests, each verified to produce a corrupted URL at the base commit and the correct one after the gold patch, covering a plain prefix collision, one with a regexp constraint, one with an optional marker, and the reverse naming direction (userId before user). The 4 pass_to_pass guards use only parameter names where none is a prefix of another -- a single param, multiple distinct params, a regexp-constrained param and an optional param -- so they pass at the base commit.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "prefix_not_matched_inside_longer", "cmd": "tsx --test --test-name-pattern='^vb prefix param is not matched inside a longer param$' vb_url_param_prefix.test.ts"},
+      {"name": "prefix_with_regexp_constraint", "cmd": "tsx --test --test-name-pattern='^vb prefix param with a regexp constraint is not matched$' vb_url_param_prefix.test.ts"},
+      {"name": "prefix_optional_param", "cmd": "tsx --test --test-name-pattern='^vb prefix param that is optional is not matched$' vb_url_param_prefix.test.ts"},
+      {"name": "prefix_either_direction", "cmd": "tsx --test --test-name-pattern='^vb prefix relationship holds in either direction$' vb_url_param_prefix.test.ts"}
+    ],
+    "pass_to_pass": [
+      {"name": "single_param", "cmd": "tsx --test --test-name-pattern='^vb existing single param is replaced$' vb_url_param_regression.test.ts"},
+      {"name": "multiple_distinct_params", "cmd": "tsx --test --test-name-pattern='^vb existing multiple distinct params are replaced$' vb_url_param_regression.test.ts"},
+      {"name": "regexp_constrained_param", "cmd": "tsx --test --test-name-pattern='^vb existing regexp-constrained param is replaced$' vb_url_param_regression.test.ts"},
+      {"name": "optional_param", "cmd": "tsx --test --test-name-pattern='^vb existing optional param is replaced$' vb_url_param_regression.test.ts"}
+    ]
+  },
+  "test_timeout_s": 300
+}

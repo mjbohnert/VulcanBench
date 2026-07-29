@@ -641,3 +641,64 @@ def test_providers_do_not_stream_yet() -> None:
     assert ZaiProvider("glm-5.2").supports_streaming is False
     assert KimiProvider("kimi-k3").supports_streaming is False
     assert QwenProvider("qwen3.7-plus").supports_streaming is False
+
+
+# --- per-request timeout ceiling -------------------------------------------
+#
+# Regression cover for a bug where the run's *remaining budget* was used as the
+# socket timeout for a single request, and supplying a budget also disabled
+# retries. One stalled request then consumed an entire task: observed runs spent
+# 21s working and 1785s blocked on one call, scoring 0.
+
+
+def test_http_timeout_caps_a_large_budget() -> None:
+    # A generous remaining budget must not become the socket timeout.
+    assert P._http_timeout(1800.0) == P.DEFAULT_MAX_REQUEST_TIMEOUT_S
+
+
+def test_http_timeout_respects_a_smaller_budget() -> None:
+    # The budget still bounds the request when it is the tighter constraint.
+    assert P._http_timeout(30.0) == 30.0
+
+
+def test_http_timeout_honours_a_provider_specific_cap() -> None:
+    assert P._http_timeout(1800.0, 900.0) == 900.0
+
+
+def test_http_timeout_rejects_an_exhausted_budget() -> None:
+    with pytest.raises(P.ProviderError):
+        P._http_timeout(0)
+
+
+def test_budgeted_attempts_fit_the_remaining_budget() -> None:
+    assert P._budgeted_attempts(None, 300.0) == P._MAX_ATTEMPTS  # no budget: full allowance
+    assert P._budgeted_attempts(1800.0, 300.0) == P._MAX_ATTEMPTS  # room for the cap
+    assert P._budgeted_attempts(600.0, 300.0) == 2  # only two requests fit
+    assert P._budgeted_attempts(100.0, 300.0) == 1  # never fewer than one
+
+
+def test_request_ceiling_clears_the_slowest_observed_real_response() -> None:
+    # Round trips grow with context: the slowest response seen actually complete
+    # was 333s, on an xlarge repo. A ceiling at or below that aborts real work.
+    assert P.DEFAULT_MAX_REQUEST_TIMEOUT_S > 333
+
+
+def test_stalled_request_is_retried_rather_than_consuming_the_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    calls: list[float] = []
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        calls.append(timeout)
+        if len(calls) == 1:  # first attempt stalls out
+            raise P.ProviderError(f"read timeout after {timeout:.0f}s calling {url}")
+        return {"content": [{"type": "text", "text": "ok"}], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    monkeypatch.setattr(P, "_WAIT", lambda *a, **k: 0)
+    resp = AnthropicProvider("claude-opus-5").complete([], [], timeout_s=1800.0)
+
+    assert resp.content == "ok"
+    assert len(calls) == 2, "a stalled request must be retried"
+    assert all(t == P.DEFAULT_MAX_REQUEST_TIMEOUT_S for t in calls), calls

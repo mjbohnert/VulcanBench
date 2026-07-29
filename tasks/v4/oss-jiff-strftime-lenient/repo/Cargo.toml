@@ -1,0 +1,28 @@
+[package]
+name = "jiff"
+version = "0.2.33"
+authors = ["Andrew Gallant <jamslam@gmail.com>"]
+license = "Unlicense OR MIT"
+repository = "https://github.com/BurntSushi/jiff"
+description = "A date-time library that encourages you to jump into the pit of success."
+categories = ["date-and-time", "no-std"]
+keywords = ["date", "time", "calendar", "zone", "duration"]
+edition = "2021"
+rust-version = "1.70"
+autobenches = false
+autoexamples = false
+
+[workspace]
+members = ["crates/jiff-core"]
+
+[lib]
+name = "jiff"
+
+[dependencies]
+jcore = { version = "0.1.0", package = "jiff-core", path = "crates/jiff-core", default-features = false }
+
+[features]
+default = ["std"]
+std = ["alloc", "jcore/std"]
+alloc = ["jcore/alloc"]
+perf-inline = []
