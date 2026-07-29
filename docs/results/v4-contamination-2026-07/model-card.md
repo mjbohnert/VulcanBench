@@ -99,9 +99,12 @@ suites of symlinks, then run:
 
 ```python
 import json, os, shutil
+
 for name, src, key in (("v3-pre", "v3", "pre-2026-05"), ("v4-new", "v4", "new_in_v4")):
     ids = json.load(open(f"tasks/{src}/suite.json"))[key]
-    root = f"tasks/{name}"; shutil.rmtree(root, ignore_errors=True); os.makedirs(root)
+    root = f"tasks/{name}"
+    shutil.rmtree(root, ignore_errors=True)
+    os.makedirs(root)
     for t in ids:
         os.symlink(os.path.abspath(f"tasks/{src}/{t}"), os.path.join(root, t))
     json.dump({"tasks": ids, "full": ids}, open(f"{root}/suite.json", "w"), indent=2)

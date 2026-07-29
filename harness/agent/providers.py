@@ -329,8 +329,6 @@ def _with_prompt_caching(
     return system_field, converted
 
 
-
-
 class AnthropicProvider(LLMProvider):
     """Anthropic Messages API.
 
