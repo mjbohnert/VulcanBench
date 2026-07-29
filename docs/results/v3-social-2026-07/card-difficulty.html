@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+h1 { text-align: center; font-size: 40px; font-weight: 600; margin-top: 22px; letter-spacing: 0.2px; }
+.eff { font-size: 26px; font-weight: 400; font-style: italic; color: #55504a; }
+.authors { text-align: center; font-style: italic; font-size: 19px; margin-top: 9px; color: #3a362f; }
+.abstract { width: 1300px; margin: 16px auto 0; font-size: 19.5px; line-height: 1.48; text-align: center; }
+.fcap { font-size: 15px; margin: 20px 0 8px; line-height: 1.35; }
+.fcap b { font-variant: small-caps; letter-spacing: 1px; font-weight: 600; }
+.rows { }
+.row { display: flex; align-items: center; gap: 12px; padding: 2.1px 0; }
+.tname { width: 330px; font-style: italic; font-size: 14.5px; text-align: right; color: #1c1a17; }
+.track { width: 640px; height: 12px; background: #ece7db; position: relative; }
+.track i { display: block; height: 100%; }
+.cnt { width: 58px; font-size: 14px; font-variant-numeric: tabular-nums; color: #3a362f; }
+.cnt.zero { color: #6e2a1c; font-weight: 700; }
+.note { flex: 1; font-size: 13.5px; font-style: italic; color: #6f6a62; }
+.row.wall .tname { font-weight: 700; color: #6e2a1c; }
+.foot { position: absolute; left: 78px; right: 78px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 8px; font-size: 13.5px;
+  color: #55504a; line-height: 1.4; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 15px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 11 &middot; Figure Supplement</span><span>July 2026 &nbsp;&middot;&nbsp; 23 tasks &middot; 15 configurations &middot; 5 languages</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>The difficulty spectrum <span class="eff">(every task &times; every configuration)</span></h1>
+  <div class="authors">How many of the fifteen configurations we&rsquo;ve ever run solved each of the twenty-three tasks</div>
+
+  <div class="abstract">
+  <b>Fourteen tasks fall to every configuration; two fall to none.</b>
+  The seven in between are the whole benchmark &mdash; they are where six models actually separate.</div>
+
+  <div class="fcap"><b>Figure 1.</b> Configurations solving each task, of 15. Blue = solved by all; brown = the discriminating middle; rust = never solved.</div>
+  <div class="rows">
+    <div class="row"><div class="tname">chi-readfrom-tee-doublecount</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">cobra-noduplicateargs</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">hono-client-header-merge</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">hono-request-bytes</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">jiff-date-day-lt1</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">jiff-signdur-panic</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">more-itertools-interleave-empty</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">packaging-range-prerelease-policy</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">pflag-uintslice-hex</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note">&mdash; solved by everything we&rsquo;ve ever pointed at them</div></div>
+    <div class="row"><div class="tname">semver-inc-dotted-prerelease</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">semver-xrange-order</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">sqlglot-qualify-lateral-star</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">zod-invert-codec</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">zod-proto-catchall</div><div class="track"><i style="width:100%;background:#8ba3c4"></i></div><div class="cnt">15/15</div><div class="note"></div></div>
+    <div class="row"><div class="tname">jiff-strftime-negpad</div><div class="track"><i style="width:93.3%;background:#7a8ba1"></i></div><div class="cnt">14/15</div><div class="note">only Kimi&rsquo;s 30-minute budget missed it</div></div>
+    <div class="row"><div class="tname">semver-truncate</div><div class="track"><i style="width:93.3%;background:#7a8ba1"></i></div><div class="cnt">14/15</div><div class="note">only Haiku 4.5 missed it</div></div>
+    <div class="row"><div class="tname">aiohttp-upgrade-deferred</div><div class="track"><i style="width:73.3%;background:#b08968"></i></div><div class="cnt">11/15</div><div class="note">falls to low-effort runs and timeouts</div></div>
+    <div class="row"><div class="tname">sqlglot-iso8601-nanos</div><div class="track"><i style="width:73.3%;background:#b08968"></i></div><div class="cnt">11/15</div><div class="note">a magnet for partial credit &mdash; 0.67s and 0.7s litter the record</div></div>
+    <div class="row"><div class="tname">flask-teardown-robust</div><div class="track"><i style="width:66.7%;background:#9c6644"></i></div><div class="cnt">10/15</div><div class="note">Report 07&rsquo;s effort-discriminator &mdash; Opus 5 broke the pattern by solving it at low</div></div>
+    <div class="row"><div class="tname">networkx-leiden-communities</div><div class="track"><i style="width:66.7%;background:#9c6644"></i></div><div class="cnt">10/15</div><div class="note">Fable&rsquo;s blind spot; Opus 5&rsquo;s high-effort timeout</div></div>
+    <div class="row"><div class="tname">itertools-strip-prefix</div><div class="track"><i style="width:60%;background:#8a5a3a"></i></div><div class="cnt">9/15</div><div class="note">the hardest task anyone solves &mdash; Sol went 0-for-3 on it</div></div>
+    <div class="row wall"><div class="tname">sqlglot-canonicalize-internal-names</div><div class="track"><i style="width:2%;background:#6e2a1c"></i></div><div class="cnt zero">0/15</div><div class="note">never solved &mdash; best partial 0.50</div></div>
+    <div class="row wall"><div class="tname">pennylane-trotter-fragmented</div><div class="track"><i style="width:2%;background:#6e2a1c"></i></div><div class="cnt zero">0/15</div><div class="note">never solved &mdash; best partial 0.40, set by Opus 5 (low) this week</div></div>
+  </div>
+
+  <div class="foot">
+    <div><b>Method.</b> VulcanBench v3: 23 tasks from real merged post-cutoff PRs, network-isolated Docker sandboxes, deterministic hidden-test grading, one attempt per task per configuration. Solve counts span the fifteen leaderboard configurations: Grok 4.5, GPT-5.6 Sol, and Claude Fable 5 at three efforts each (Report No.&nbsp;07), Kimi K3 at two budgets and Claude Haiku 4.5 (No.&nbsp;08), and Claude Opus 5 at three efforts (No.&nbsp;10). Partial scores below 1.0 count as unsolved.</div>
+    <div class="brand">vulcanbench &middot; open source &middot; July 27, 2026</div>
+  </div>
+</div>
+</body></html>

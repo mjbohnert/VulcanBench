@@ -1,0 +1,116 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+h1 { text-align: center; font-size: 44px; font-weight: 600; margin-top: 30px; letter-spacing: 0.2px; }
+.eff { font-size: 27px; font-weight: 400; font-style: italic; color: #55504a; }
+.authors { text-align: center; font-style: italic; font-size: 19px; margin-top: 10px; color: #3a362f; }
+.abstract { width: 1330px; margin: 20px auto 0; font-size: 20px; line-height: 1.5; text-align: center; }
+.fcap { font-size: 15px; margin: 26px 0 4px; line-height: 1.35; }
+.fcap b { font-variant: small-caps; letter-spacing: 1px; font-weight: 600; }
+.foot { position: absolute; left: 78px; right: 78px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 8px; font-size: 13.5px;
+  color: #55504a; line-height: 1.4; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 15px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 11 &middot; Figure Supplement</span><span>July 2026 &nbsp;&middot;&nbsp; 23 tasks &middot; 4 models &middot; 3 effort levels each</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>One knob, four answers <span class="eff">(what paying for effort buys)</span></h1>
+  <div class="authors">Twenty-three real merged PRs across five languages, graded by deterministic hidden tests &mdash; each flagship run at low, medium, and high effort</div>
+
+  <div class="abstract">
+  <b>Every provider ships the same knob: pay more, think harder. The four flagships answer it four different ways.</b>
+  Grok buys two tasks and plateaus. Sol climbs one task per step. Fable ends where it started. Opus&nbsp;5 loses a task at every step &mdash; while its bill triples.</div>
+
+  <div class="fcap"><b>Figure 1.</b> Tasks solved (of 23) at each effort setting. Suite cost beneath each point; dots darken low &rarr; medium &rarr; high.</div>
+  <svg viewBox="0 0 1450 372" xmlns="http://www.w3.org/2000/svg" width="100%">
+<!-- panel 1: Grok ox=25 -->
+<text x="175" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">Grok 4.5</text>
+<text x="175" y="52" text-anchor="middle" font-size="14" font-style="italic" fill="#6f6a62" font-family="Georgia, serif">pays, then plateaus</text>
+<line x1="45" y1="90"  x2="305" y2="90"  stroke="#e2dccd"/><line x1="45" y1="150" x2="305" y2="150" stroke="#e2dccd"/>
+<line x1="45" y1="210" x2="305" y2="210" stroke="#e2dccd"/><line x1="45" y1="270" x2="305" y2="270" stroke="#e2dccd"/>
+<text x="40" y="94"  text-anchor="end" font-size="11" fill="#a39d91" font-family="Georgia, serif">21</text>
+<text x="40" y="154" text-anchor="end" font-size="11" fill="#a39d91" font-family="Georgia, serif">20</text>
+<text x="40" y="214" text-anchor="end" font-size="11" fill="#a39d91" font-family="Georgia, serif">19</text>
+<text x="40" y="274" text-anchor="end" font-size="11" fill="#a39d91" font-family="Georgia, serif">18</text>
+<line x1="45" y1="300" x2="305" y2="300" stroke="#1c1a17"/>
+<polyline points="75,210 175,90 275,90" fill="none" stroke="#9c6644" stroke-width="3"/>
+<circle cx="75" cy="210" r="8" fill="#c99b7a"/><circle cx="175" cy="90" r="8" fill="#9c6644"/><circle cx="275" cy="90" r="8" fill="#6e4227"/>
+<text x="75" y="236" text-anchor="middle" font-size="14" font-weight="bold" fill="#9c6644" font-family="Georgia, serif">19</text>
+<text x="175" y="72" text-anchor="middle" font-size="14" font-weight="bold" fill="#9c6644" font-family="Georgia, serif">21</text>
+<text x="275" y="72" text-anchor="middle" font-size="14" font-weight="bold" fill="#9c6644" font-family="Georgia, serif">21</text>
+<text x="75" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">low</text>
+<text x="175" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">medium</text>
+<text x="275" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">high</text>
+<text x="75" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$3.39</text>
+<text x="175" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$6.67</text>
+<text x="275" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$8.76</text>
+<!-- panel 2: Sol ox=385 -->
+<text x="535" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">GPT-5.6 Sol</text>
+<text x="535" y="52" text-anchor="middle" font-size="14" font-style="italic" fill="#6f6a62" font-family="Georgia, serif">pays a task per step</text>
+<line x1="405" y1="90"  x2="665" y2="90"  stroke="#e2dccd"/><line x1="405" y1="150" x2="665" y2="150" stroke="#e2dccd"/>
+<line x1="405" y1="210" x2="665" y2="210" stroke="#e2dccd"/><line x1="405" y1="270" x2="665" y2="270" stroke="#e2dccd"/>
+<line x1="405" y1="300" x2="665" y2="300" stroke="#1c1a17"/>
+<polyline points="435,270 535,210 635,150" fill="none" stroke="#7a8ba1" stroke-width="3"/>
+<circle cx="435" cy="270" r="8" fill="#ccd4dd" stroke="#8a99ab" stroke-width="1"/><circle cx="535" cy="210" r="8" fill="#a3b1c2"/><circle cx="635" cy="150" r="8" fill="#7a8ba1"/>
+<text x="435" y="296" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a8ba1" font-family="Georgia, serif">18</text>
+<text x="527" y="192" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a8ba1" font-family="Georgia, serif">19</text>
+<text x="635" y="132" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a8ba1" font-family="Georgia, serif">20</text>
+<text x="435" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">low</text>
+<text x="535" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">medium</text>
+<text x="635" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">high</text>
+<text x="435" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$3.85</text>
+<text x="535" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$8.83</text>
+<text x="635" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$15.90</text>
+<!-- panel 3: Fable ox=745 -->
+<text x="895" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1c1a17" font-family="Georgia, serif">Claude Fable 5</text>
+<text x="895" y="52" text-anchor="middle" font-size="14" font-style="italic" fill="#6f6a62" font-family="Georgia, serif">a round trip</text>
+<line x1="765" y1="90"  x2="1025" y2="90"  stroke="#e2dccd"/><line x1="765" y1="150" x2="1025" y2="150" stroke="#e2dccd"/>
+<line x1="765" y1="210" x2="1025" y2="210" stroke="#e2dccd"/><line x1="765" y1="270" x2="1025" y2="270" stroke="#e2dccd"/>
+<line x1="765" y1="300" x2="1025" y2="300" stroke="#1c1a17"/>
+<polyline points="795,150 895,210 995,150" fill="none" stroke="#5d7ba0" stroke-width="3"/>
+<circle cx="795" cy="150" r="8" fill="#8ba3c4"/><circle cx="895" cy="210" r="8" fill="#5d7ba0"/><circle cx="995" cy="150" r="8" fill="#27425f"/>
+<text x="795" y="132" text-anchor="middle" font-size="14" font-weight="bold" fill="#5d7ba0" font-family="Georgia, serif">20</text>
+<text x="895" y="236" text-anchor="middle" font-size="14" font-weight="bold" fill="#5d7ba0" font-family="Georgia, serif">19</text>
+<text x="995" y="132" text-anchor="middle" font-size="14" font-weight="bold" fill="#5d7ba0" font-family="Georgia, serif">20</text>
+<text x="795" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">low</text>
+<text x="895" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">medium</text>
+<text x="995" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">high</text>
+<text x="795" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$12.18</text>
+<text x="895" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$16.32</text>
+<text x="995" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$20.82</text>
+<!-- panel 4: Opus 5 ox=1105 -->
+<text x="1255" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#6e2a1c" font-family="Georgia, serif">Claude Opus 5</text>
+<text x="1255" y="52" text-anchor="middle" font-size="14" font-style="italic" fill="#a34b34" font-family="Georgia, serif">runs backwards</text>
+<line x1="1125" y1="90"  x2="1385" y2="90"  stroke="#e2dccd"/><line x1="1125" y1="150" x2="1385" y2="150" stroke="#e2dccd"/>
+<line x1="1125" y1="210" x2="1385" y2="210" stroke="#e2dccd"/><line x1="1125" y1="270" x2="1385" y2="270" stroke="#e2dccd"/>
+<line x1="1125" y1="300" x2="1385" y2="300" stroke="#1c1a17"/>
+<polyline points="1155,150 1255,210 1355,270" fill="none" stroke="#a34b34" stroke-width="3"/>
+<circle cx="1155" cy="150" r="8" fill="#c56a52"/><circle cx="1255" cy="210" r="8" fill="#a34b34"/><circle cx="1355" cy="270" r="8" fill="#6e2a1c"/>
+<text x="1155" y="132" text-anchor="middle" font-size="14" font-weight="bold" fill="#a34b34" font-family="Georgia, serif">20</text>
+<text x="1247" y="192" text-anchor="middle" font-size="14" font-weight="bold" fill="#a34b34" font-family="Georgia, serif">19</text>
+<text x="1355" y="296" text-anchor="middle" font-size="14" font-weight="bold" fill="#a34b34" font-family="Georgia, serif">18</text>
+<text x="1155" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">low</text>
+<text x="1255" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">medium</text>
+<text x="1355" y="322" text-anchor="middle" font-size="12.5" fill="#3a362f" font-family="Georgia, serif">high</text>
+<text x="1155" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$14.07</text>
+<text x="1255" y="344" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">$24.09</text>
+<text x="1355" y="344" text-anchor="middle" font-size="12" font-weight="bold" fill="#6e2a1c" font-family="Georgia, serif">$43.60</text>
+</svg>
+
+  <div class="foot">
+    <div><b>Method.</b> VulcanBench v3: 23 tasks from real merged post-cutoff PRs, network-isolated Docker sandboxes, deterministic hidden-test grading, one attempt per task per configuration. Grok, Sol, and Fable from Report No.&nbsp;07; Opus 5 from Report No.&nbsp;10. Opus 5&rsquo;s high-effort losses are budget timeouts, not wrong answers &mdash; it returns the fewest wrong answers of any configuration. Kimi K3 and Haiku 4.5 ship a single configuration and are omitted.</div>
+    <div class="brand">vulcanbench &middot; open source &middot; July 27, 2026</div>
+  </div>
+</div>
+</body></html>

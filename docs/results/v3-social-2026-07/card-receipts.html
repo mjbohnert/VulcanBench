@@ -1,0 +1,102 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+h1 { text-align: center; font-size: 42px; font-weight: 600; margin-top: 20px; letter-spacing: 0.2px; }
+.eff { font-size: 26px; font-weight: 400; font-style: italic; color: #55504a; }
+
+.stage { display: flex; justify-content: center; align-items: flex-start; gap: 90px; margin-top: 34px; }
+.receipt { width: 430px; background: #fffef9; border: 1px solid #d8d2c4;
+  box-shadow: 0 10px 26px rgba(28,26,23,0.13); padding: 26px 32px 22px;
+  font-family: "Courier New", Courier, monospace; font-size: 15.5px; line-height: 1.62; color: #2a2622; }
+.receipt.low  { transform: rotate(-1.3deg); }
+.receipt.high { transform: rotate(1.1deg); }
+.rc { text-align: center; }
+.rc.big { font-size: 17px; font-weight: 700; letter-spacing: 2px; }
+.rc.small { font-size: 12.5px; color: #6f6a62; }
+.hr { border-top: 1.5px dashed #b8b1a4; margin: 10px 0; }
+.li { display: flex; align-items: baseline; }
+.li .fill { flex: 1; border-bottom: 2px dotted #c4bdae; margin: 0 7px; transform: translateY(-3px); }
+.li b { font-weight: 700; }
+.li.total { font-size: 19px; font-weight: 700; }
+.li.bad span:last-child { color: #8a3b2f; font-weight: 700; }
+.verdict { text-align: center; font-weight: 700; margin-top: 10px; font-size: 16px; }
+.verdict.bad { color: #8a3b2f; }
+.tiny { text-align: center; font-size: 12px; color: #8a847a; margin-top: 6px; }
+.barcode { height: 36px; margin: 14px auto 4px; width: 72%;
+  background: repeating-linear-gradient(90deg, #1c1a17 0 2px, transparent 2px 5px, #1c1a17 5px 9px, transparent 9px 11px, #1c1a17 11px 12px, transparent 12px 16px); }
+.bcid { text-align: center; font-size: 12px; letter-spacing: 2.5px; color: #55504a; }
+
+.foot { position: absolute; left: 78px; right: 78px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 8px; font-size: 13.5px;
+  color: #55504a; line-height: 1.4; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 15px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Report No. 10 &middot; Figure Supplement</span><span>Claude Opus 5 &nbsp;&middot;&nbsp; v3 suite &nbsp;&middot;&nbsp; July 2026</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>Keep the receipt <span class="eff">(same model, same 23 tasks, same tests)</span></h1>
+
+  <div class="stage">
+    <div class="receipt low">
+      <div class="rc big">VULCANBENCH &middot; v3 SUITE</div>
+      <div class="rc">CLAUDE OPUS 5</div>
+      <div class="rc big">* LOW EFFORT *</div>
+      <div class="rc small">JUL 26 2026 &middot; DOCKER SANDBOX &middot; NETWORK OFF</div>
+      <div class="hr"></div>
+      <div class="li"><span>TASKS ATTEMPTED</span><span class="fill"></span><span>23</span></div>
+      <div class="li"><span>SOLVED</span><span class="fill"></span><b>20</b></div>
+      <div class="li"><span>WRONG ANSWERS</span><span class="fill"></span><span>3</span></div>
+      <div class="li"><span>TIMED OUT</span><span class="fill"></span><span>0</span></div>
+      <div class="li"><span>TOKENS / TASK</span><span class="fill"></span><span>53 K</span></div>
+      <div class="li"><span>MINUTES / TASK</span><span class="fill"></span><span>5.2</span></div>
+      <div class="hr"></div>
+      <div class="li"><span>PER SOLVED TASK</span><span class="fill"></span><span>$0.70</span></div>
+      <div class="li total"><span>TOTAL</span><span class="fill"></span><span>$14.07</span></div>
+      <div class="hr"></div>
+      <div class="verdict">&#9733; BEST OPUS 5 VALUE &#9733;</div>
+      <div class="tiny">SAVED VS HIGH EFFORT: $29.53</div>
+      <div class="tiny">NO REFUNDS &mdash; ONE ATTEMPT PER TASK</div>
+      <div class="barcode"></div>
+      <div class="bcid">V3&middot;OPUS5&middot;LOW&middot;20-23</div>
+    </div>
+
+    <div class="receipt high">
+      <div class="rc big">VULCANBENCH &middot; v3 SUITE</div>
+      <div class="rc">CLAUDE OPUS 5</div>
+      <div class="rc big">* HIGH EFFORT *</div>
+      <div class="rc small">JUL 26 2026 &middot; DOCKER SANDBOX &middot; NETWORK OFF</div>
+      <div class="hr"></div>
+      <div class="li"><span>TASKS ATTEMPTED</span><span class="fill"></span><span>23</span></div>
+      <div class="li"><span>SOLVED</span><span class="fill"></span><b>18</b></div>
+      <div class="li"><span>WRONG ANSWERS</span><span class="fill"></span><span>1</span></div>
+      <div class="li bad"><span>TIMED OUT (45&ndash;60 MIN)</span><span class="fill"></span><span>4</span></div>
+      <div class="li"><span>TOKENS / TASK</span><span class="fill"></span><span>157 K</span></div>
+      <div class="li"><span>MINUTES / TASK</span><span class="fill"></span><span>13.6</span></div>
+      <div class="hr"></div>
+      <div class="li"><span>PER SOLVED TASK</span><span class="fill"></span><span>$2.42</span></div>
+      <div class="li total"><span>TOTAL</span><span class="fill"></span><span>$43.60</span></div>
+      <div class="hr"></div>
+      <div class="verdict bad">YOU PAID $29.53 MORE</div>
+      <div class="verdict bad">FOR 2 FEWER SOLVED TASKS</div>
+      <div class="tiny">THANK YOU FOR THINKING HARDER</div>
+      <div class="barcode"></div>
+      <div class="bcid">V3&middot;OPUS5&middot;HIGH&middot;18-23</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>Method.</b> VulcanBench v3: 23 real merged post-cutoff PRs across five languages, deterministic hidden-test grading, one attempt per task per setting (Report No.&nbsp;10). High effort&rsquo;s deficit is unfinished work, not bad work &mdash; it returned the fewest wrong answers of any setting and the most wall-clock timeouts. Fine print, but it&rsquo;s on the receipt.</div>
+    <div class="brand">vulcanbench &middot; open source &middot; July 27, 2026</div>
+  </div>
+</div>
+</body></html>
