@@ -15,9 +15,11 @@ from typing import Any
 
 import pytest
 
+import harness.voice.adapters as adapters_mod
 from harness.agent.providers import ProviderError
 from harness.voice.adapters import (
     GeminiLiveModel,
+    GrokVoiceModel,
     OpenAIRealtimeModel,
     QwenOmniModel,
     _extract_realtime_final,
@@ -386,3 +388,77 @@ def test_build_report_voice_tax(tmp_path: Path) -> None:
     assert model["audio_accuracy_clean_normal"] == 0.75
     assert model["voice_tax"] == 0.25
     assert model["categories"]["arithmetic"]["tax"] == 0.25
+
+
+# --- grok-voice adapter ------------------------------------------------------
+
+
+def test_grok_voice_text_turn_scores_transcript(monkeypatch: pytest.MonkeyPatch) -> None:
+    events = [
+        {"type": "response.output_audio.delta", "delta": "QUJD"},  # audio, ignored for text
+        {"type": "response.output_audio_transcript.delta", "delta": "Otta"},
+        {"type": "response.output_audio_transcript.delta", "delta": "wa"},
+        {
+            "type": "response.done",
+            "response": {"output": [{"content": [{"transcript": "Ottawa"}]}]},
+        },
+    ]
+    ws = _FakeWS(events)
+    model = GrokVoiceModel()
+    monkeypatch.setattr(model, "_connect", lambda: ws)
+    answer = model.answer_text("Capital of Canada?")
+    assert answer.text == "Ottawa"
+    assert answer.output_modality == "audio"
+    assert answer.transcribed_by is None
+    session = ws.sent[0]["session"]
+    assert session["turn_detection"] is None
+    assert session["audio"]["input"]["format"] == {"type": "audio/pcm", "rate": 24000}
+    assert ws.sent[-1] == {"type": "response.create"}
+
+
+def test_grok_voice_audio_turn_sends_pcm_and_commit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    write_wav(tmp_path / "q.wav", _tone(0.2), MASTER_RATE_HZ)
+    ws = _FakeWS(
+        [{"type": "response.done", "response": {"output": [{"content": [{"transcript": "88"}]}]}}]
+    )
+    model = GrokVoiceModel()
+    monkeypatch.setattr(model, "_connect", lambda: ws)
+    answer = model.answer_audio(tmp_path / "q.wav")
+    assert answer.text == "88"
+    types = [m["type"] for m in ws.sent]
+    assert types == [
+        "session.update",
+        "input_audio_buffer.append",
+        "input_audio_buffer.commit",
+        "response.create",
+    ]
+
+
+def test_grok_voice_stt_fallback_when_no_transcript(monkeypatch: pytest.MonkeyPatch) -> None:
+
+    pcm_b64 = base64.b64encode(_tone(0.1)).decode()
+    events = [
+        {"type": "response.output_audio.delta", "delta": pcm_b64},
+        {"type": "response.done", "response": {"output": []}},
+    ]
+    ws = _FakeWS(events)
+    model = GrokVoiceModel()
+    monkeypatch.setattr(model, "_connect", lambda: ws)
+    seen: dict[str, Any] = {}
+
+    def fake_transcribe(wav_path: Path, model: str = "gpt-4o-transcribe") -> str:
+        seen["wav"] = wav_path.name
+        return "forty two"
+
+    monkeypatch.setattr(adapters_mod, "transcribe", fake_transcribe)
+    answer = model.answer_text("q")
+    assert answer.text == "forty two"
+    assert answer.transcribed_by == "gpt-4o-transcribe"
+    assert seen["wav"].endswith(".wav")
+
+
+def test_grok_voice_default_model_is_pinned() -> None:
+    model = get_voice_model("grok-voice")
+    assert model.model == "grok-voice-think-fast-2.0"  # not grok-voice-latest (aliases 1.0)

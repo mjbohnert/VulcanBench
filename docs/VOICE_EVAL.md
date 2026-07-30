@@ -58,14 +58,20 @@ Adapters implement `answer_text(question)` and `answer_audio(wav_path)`
 | `openai-realtime` | OpenAI Realtime (websocket) | same realtime session, text item |
 | `gemini-live` | Gemini Live (websocket) | same live session, text turn |
 | `qwen-omni` | Qwen3-Omni via DashScope (SSE) | same endpoint, text content |
+| `grok-voice` | xAI Grok Voice realtime (websocket) | same realtime session, text item |
 
-All three request **text output**, so scoring rarely needs transcription.
-When a model replies audio-only, the pinned STT fallback
-(`gpt-4o-transcribe`) transcribes it and the results row records
-`transcribed_by`.
+The first three request **text output**, so scoring rarely needs
+transcription. `grok-voice` is true speech-to-speech: it answers in audio
+in *both* modes (only the input modality differs — the quantity under
+measurement); its own transcript is scored, with the pinned STT fallback
+(`gpt-4o-transcribe`) when a transcript is absent. Any STT use is recorded
+per-row as `transcribed_by`. The grok adapter pins
+`grok-voice-think-fast-2.0` explicitly — `grok-voice-latest` aliases 1.0
+until 2026-08-05.
 
 API keys (environment, never hardcoded): `OPENAI_API_KEY` (TTS, Realtime,
-STT), `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, plus the judge provider's key.
+STT), `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `XAI_API_KEY`, plus the judge
+provider's key.
 
 ## Scoring — one scorer, both modes
 
@@ -86,7 +92,7 @@ vulcanbench voice run -m openai-realtime --dry-run
 vulcanbench voice render
 
 # 3. full run, resumable — re-invoke with --run-id to skip finished units
-vulcanbench voice run -m openai-realtime,gemini-live,qwen-omni
+vulcanbench voice run -m openai-realtime,gemini-live,qwen-omni,grok-voice
 
 # 4. report: voice tax overall / per category / per condition + latency
 vulcanbench voice report runs/voice-<id> -o report.md

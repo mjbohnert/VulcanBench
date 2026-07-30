@@ -17,6 +17,12 @@ Adapters:
   16 kHz at send time (API requirement); TEXT response modality.
 - ``qwen-omni`` — Qwen3-Omni via DashScope's OpenAI-compatible endpoint
   (audio as base64 WAV content part; streaming SSE, text modality).
+- ``grok-voice`` — xAI Grok Voice (speech-to-speech) over websocket. Pinned
+  to ``grok-voice-think-fast-2.0`` (``grok-voice-latest`` aliases 1.0 until
+  2026-08-05). Output is spoken audio plus the model's own transcript; the
+  transcript is scored, with the pinned STT as fallback when absent. Both
+  modes reply in audio — only the *input* modality differs, which is the
+  quantity under measurement.
 """
 
 from __future__ import annotations
@@ -24,6 +30,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import tempfile
 import time
 import urllib.request
 from abc import ABC, abstractmethod
@@ -35,7 +42,8 @@ from pydantic import BaseModel
 from websockets.sync.client import connect as _ws_connect
 
 from harness.agent.providers import ProviderError
-from harness.voice.audio import MASTER_RATE_HZ, read_wav, resample
+from harness.voice.audio import MASTER_RATE_HZ, read_wav, resample, write_wav
+from harness.voice.stt import STT_MODEL, transcribe
 
 #: Identical for every model and both modalities; recorded in the manifest.
 SYSTEM_PROMPT = (
@@ -345,10 +353,133 @@ class QwenOmniModel(VoiceModel):
         )
 
 
+class GrokVoiceModel(VoiceModel):
+    """xAI Grok Voice realtime API (speech-to-speech websocket).
+
+    Same event family as OpenAI Realtime. ``turn_detection: null`` puts the
+    session in manual-turn mode; input audio is 24 kHz PCM16 (the suite's
+    master format, no resampling). The model answers in audio with transcript
+    events; ``response.done`` carries the authoritative transcript. When no
+    transcript arrives, collected output audio goes through the pinned STT
+    (recorded per-row as ``transcribed_by``). ``reasoning.effort`` is left at
+    the provider default ("high") and recorded in the session payload.
+    """
+
+    min_interval_s = 1.0
+    voice = "eve"
+
+    def __init__(self, model: str = "grok-voice-think-fast-2.0") -> None:
+        self.model = model
+        self.slug = f"grok-voice:{model}"
+
+    def _connect(self) -> _WSLike:  # pragma: no cover - network seam
+        api_key = os.environ.get("XAI_API_KEY")
+        if not api_key:
+            raise ProviderError("XAI_API_KEY is not set")
+        return _ws_connect(
+            f"wss://api.x.ai/v1/realtime?model={self.model}",
+            additional_headers={"Authorization": f"Bearer {api_key}"},
+            max_size=16 * 1024 * 1024,
+        )
+
+    def _session_update(self) -> dict[str, Any]:
+        return {
+            "type": "session.update",
+            "session": {
+                "instructions": SYSTEM_PROMPT,
+                "voice": self.voice,
+                "turn_detection": None,
+                "audio": {
+                    "input": {"format": {"type": "audio/pcm", "rate": MASTER_RATE_HZ}},
+                    "output": {"format": {"type": "audio/pcm", "rate": MASTER_RATE_HZ}},
+                },
+            },
+        }
+
+    def _run_turn(self, client_events: list[dict[str, Any]]) -> VoiceAnswer:  # noqa: PLR0912
+        ws = self._connect()
+        t0 = time.monotonic()
+        t_first: float | None = None
+        transcript_parts: list[str] = []
+        audio_b64_parts: list[str] = []
+        final_text: str | None = None
+        try:
+            ws.send(json.dumps(self._session_update()))
+            for ev in client_events:
+                ws.send(json.dumps(ev))
+            ws.send(json.dumps({"type": "response.create"}))
+            while True:
+                if time.monotonic() - t0 > _TURN_TIMEOUT_S:
+                    raise ProviderError(f"{self.slug}: turn exceeded {_TURN_TIMEOUT_S:.0f}s")
+                raw = ws.recv(timeout=_RECV_TIMEOUT_S)
+                if isinstance(raw, bytes):  # binary transport not requested; skip
+                    continue
+                event = json.loads(raw)
+                etype = str(event.get("type", ""))
+                if etype == "error":
+                    raise ProviderError(f"{self.slug}: {json.dumps(event.get('error'))[:300]}")
+                if etype.endswith(".delta"):
+                    delta = event.get("delta")
+                    if not isinstance(delta, str) or not delta:
+                        continue
+                    if t_first is None:
+                        t_first = time.monotonic() - t0
+                    if "audio_transcript" in etype or "text" in etype:
+                        transcript_parts.append(delta)
+                    elif "audio" in etype:
+                        audio_b64_parts.append(delta)
+                if etype == "response.done":
+                    final_text = _extract_realtime_final(event)
+                    break
+        finally:
+            ws.close()
+        t_total = time.monotonic() - t0
+        text = final_text if final_text is not None else "".join(transcript_parts)
+        transcribed_by: str | None = None
+        if not text.strip() and audio_b64_parts:
+            text, transcribed_by = self._stt_fallback(audio_b64_parts)
+        return VoiceAnswer(
+            text=text,
+            t_first_s=t_first or t_total,
+            t_total_s=t_total,
+            output_modality="audio",
+            transcribed_by=transcribed_by,
+        )
+
+    def _stt_fallback(self, audio_b64_parts: list[str]) -> tuple[str, str]:
+        """Transcribe collected output audio when no transcript was emitted."""
+        pcm = b"".join(base64.b64decode(p) for p in audio_b64_parts)
+        with tempfile.TemporaryDirectory() as td:
+            wav = Path(td) / "grok-answer.wav"
+            write_wav(wav, pcm, MASTER_RATE_HZ)
+            return transcribe(wav), STT_MODEL
+
+    def answer_text(self, question: str) -> VoiceAnswer:
+        item = {
+            "type": "conversation.item.create",
+            "item": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": question}],
+            },
+        }
+        return self._run_turn([item])
+
+    def answer_audio(self, wav_path: Path) -> VoiceAnswer:
+        audio_b64 = _b64_wav_pcm(wav_path, MASTER_RATE_HZ)
+        return self._run_turn(
+            [
+                {"type": "input_audio_buffer.append", "audio": audio_b64},
+                {"type": "input_audio_buffer.commit"},
+            ]
+        )
+
+
 _ADAPTERS: dict[str, type[VoiceModel]] = {
     "openai-realtime": OpenAIRealtimeModel,
     "gemini-live": GeminiLiveModel,
     "qwen-omni": QwenOmniModel,
+    "grok-voice": GrokVoiceModel,
 }
 
 

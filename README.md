@@ -282,9 +282,10 @@ published until the first full run).
 export OPENAI_API_KEY=...     # TTS + Realtime + STT fallback
 export GEMINI_API_KEY=...     # Gemini Live
 export DASHSCOPE_API_KEY=...  # Qwen3-Omni
+export XAI_API_KEY=...        # Grok Voice (grok-voice-think-fast-2.0)
 
 vulcanbench voice run -m openai-realtime --dry-run     # 5-question pipeline check
-vulcanbench voice run -m openai-realtime,gemini-live,qwen-omni
+vulcanbench voice run -m openai-realtime,gemini-live,qwen-omni,grok-voice
 vulcanbench voice report runs/voice-<id> -o report.md
 ```
 
