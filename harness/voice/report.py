@@ -46,11 +46,18 @@ def _acc(rows: list[dict[str, Any]]) -> float | None:
 
 def build_report(run_dir: Path) -> dict[str, Any]:
     manifest = json.loads((run_dir / "manifest.json").read_text())
-    rows = [
+    raw_rows = [
         json.loads(line)
         for line in (run_dir / "results.jsonl").read_text().splitlines()
         if line.strip()
     ]
+    # results.jsonl is append-only and resumable runs re-attempt failed or
+    # judge-errored units, so superseded attempts linger. Only the LATEST row
+    # per (model, mode, question, condition) counts.
+    latest: dict[str, dict[str, Any]] = {}
+    for r in raw_rows:
+        latest[f"{r['model']}|{r['mode']}|{r['question_id']}|{r['condition_slug']}"] = r
+    rows = list(latest.values())
     ok_rows = [r for r in rows if r.get("error") is None]
     errors = [r for r in rows if r.get("error") is not None]
 

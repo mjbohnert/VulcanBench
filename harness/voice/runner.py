@@ -123,7 +123,10 @@ def _completed_keys(results_path: Path) -> set[str]:
         if not line.strip():
             continue
         row = json.loads(line)
-        if row.get("error") is None:
+        # A judge-error row is scored wrong only because the judge was
+        # unavailable — treat it as incomplete so a resume re-attempts it
+        # rather than freezing a non-verdict into the results.
+        if row.get("error") is None and row.get("score_method") != "judge-error":
             done.add(f"{row['model']}|{row['mode']}|{row['question_id']}|{row['condition_slug']}")
     return done
 

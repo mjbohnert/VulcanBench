@@ -116,13 +116,21 @@ class OpenAIRealtimeModel(VoiceModel):
         )
 
     def _session_update(self) -> dict[str, Any]:
+        # GA Realtime session shape: session.type is required, text output is
+        # requested via output_modalities, and audio input config (format +
+        # manual turn control) nests under audio.input.
         return {
             "type": "session.update",
             "session": {
+                "type": "realtime",
                 "instructions": SYSTEM_PROMPT,
-                "modalities": ["text"],
-                "input_audio_format": "pcm16",
-                "turn_detection": None,
+                "output_modalities": ["text"],
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": MASTER_RATE_HZ},
+                        "turn_detection": None,
+                    }
+                },
             },
         }
 
@@ -136,7 +144,7 @@ class OpenAIRealtimeModel(VoiceModel):
             ws.send(json.dumps(self._session_update()))
             for ev in client_events:
                 ws.send(json.dumps(ev))
-            ws.send(json.dumps({"type": "response.create", "response": {"modalities": ["text"]}}))
+            ws.send(json.dumps({"type": "response.create", "response": {"output_modalities": ["text"]}}))
             while True:
                 if time.monotonic() - t0 > _TURN_TIMEOUT_S:
                     raise ProviderError(f"{self.slug}: turn exceeded {_TURN_TIMEOUT_S:.0f}s")

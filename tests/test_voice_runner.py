@@ -300,3 +300,69 @@ def test_stt_missing_text_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     )
     with pytest.raises(ProviderError):
         transcribe(wav)
+
+
+def test_judge_error_rows_are_retried_on_resume(
+    offline: RunConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A row scored via judge-error is a non-verdict: resume must redo it."""
+
+    class _LongAnswerModel(_EchoModel):
+        def answer_text(self, question: str) -> VoiceAnswer:
+            return VoiceAnswer(
+                text="well now considering absolutely everything very carefully here my final answer to this question would definitely have to be 4 indeed",
+                t_first_s=0.1,
+                t_total_s=0.2,
+            )
+
+    class _BrokenJudge(_AlwaysRight):
+        def complete(self, *a: Any, **k: Any) -> LLMResponse:
+            raise ProviderError("judge down")
+
+    monkeypatch.setattr(runner_mod, "get_voice_model", lambda spec: _LongAnswerModel())
+    monkeypatch.setattr(runner_mod, "get_provider", lambda spec: _BrokenJudge())
+    run_dir = run_suite(offline)
+    rows = [json.loads(x) for x in (run_dir / "results.jsonl").read_text().splitlines()]
+    text_rows = [r for r in rows if r["mode"] == "text"]
+    assert all(r["score_method"] == "judge-error" for r in text_rows)
+
+    # Judge recovers → resume re-attempts exactly the judge-error units.
+    monkeypatch.setattr(runner_mod, "get_provider", lambda spec: _AlwaysRight())
+    run_suite(offline)
+    rows2 = [json.loads(x) for x in (run_dir / "results.jsonl").read_text().splitlines()]
+    latest: dict[str, dict[str, Any]] = {}
+    for r in rows2:
+        latest[f"{r['model']}|{r['mode']}|{r['question_id']}|{r['condition_slug']}"] = r
+    assert all(r["correct"] for r in latest.values())
+
+
+def test_report_uses_latest_row_per_unit(offline: RunConfig, tmp_path: Path) -> None:
+    """Superseded attempts in the append-only log must not dilute accuracy."""
+    run = offline.out_dir / "voice-dedup"
+    run.mkdir(parents=True)
+    manifest = {
+        "run_id": "voice-dedup", "models": ["m"], "judge_model": "j",
+        "tts": {"provider": "openai", "voices": ["onyx"]}, "seed": 1, "n_items": 1,
+    }  # fmt: skip
+    (run / "manifest.json").write_text(json.dumps(manifest))
+    base = {
+        "model": "m", "question_id": "q0", "category": "arithmetic",
+        "t_first_s": 0.1, "t_total_s": 0.2,
+    }  # fmt: skip
+    rows = [
+        # attempt 1: infra error; attempt 2: judge-error scored wrong; attempt 3: correct
+        {**base, "mode": "text", "condition_slug": "text", "condition": None,
+         "error": "boom", "correct": None, "score_method": None},
+        {**base, "mode": "text", "condition_slug": "text", "condition": None,
+         "error": None, "correct": False, "score_method": "judge-error"},
+        {**base, "mode": "text", "condition_slug": "text", "condition": None,
+         "error": None, "correct": True, "score_method": "judge"},
+        {**base, "mode": "audio", "condition_slug": "onyx_normal_clean",
+         "condition": {"voice": "onyx", "rate": "normal", "noise": "clean"},
+         "error": None, "correct": True, "score_method": "exact"},
+    ]  # fmt: skip
+    (run / "results.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    report = build_report(run)
+    assert report["models"]["m"]["text_accuracy"] == 1.0
+    assert report["models"]["m"]["voice_tax"] == 0.0
+    assert report["n_errors"] == 0  # superseded error row no longer counted
