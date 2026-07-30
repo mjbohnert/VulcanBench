@@ -1,0 +1,200 @@
+{"id": "vq-ar-001", "category": "arithmetic", "question": "What is 17 times 6, minus 14?", "answer": "88", "accept": []}
+{"id": "vq-ar-002", "category": "arithmetic", "question": "Add 348 and 267.", "answer": "615", "accept": []}
+{"id": "vq-ar-003", "category": "arithmetic", "question": "What is 91 minus 47?", "answer": "44", "accept": []}
+{"id": "vq-ar-004", "category": "arithmetic", "question": "Multiply 23 by 9.", "answer": "207", "accept": []}
+{"id": "vq-ar-005", "category": "arithmetic", "question": "What is 144 divided by 12, plus 5?", "answer": "17", "accept": []}
+{"id": "vq-ar-006", "category": "arithmetic", "question": "What is one quarter of 260?", "answer": "65", "accept": []}
+{"id": "vq-ar-007", "category": "arithmetic", "question": "What is 15 percent of 200?", "answer": "30", "accept": []}
+{"id": "vq-ar-008", "category": "arithmetic", "question": "What is 7 squared, plus 3 squared?", "answer": "58", "accept": []}
+{"id": "vq-ar-009", "category": "arithmetic", "question": "Take 1000, subtract 385.", "answer": "615", "accept": []}
+{"id": "vq-ar-010", "category": "arithmetic", "question": "What is 12 times 12, minus 12?", "answer": "132", "accept": []}
+{"id": "vq-ar-011", "category": "arithmetic", "question": "What is the remainder when 58 is divided by 7?", "answer": "2", "accept": []}
+{"id": "vq-ar-012", "category": "arithmetic", "question": "Double 47, then add 19.", "answer": "113", "accept": []}
+{"id": "vq-ar-013", "category": "arithmetic", "question": "What is 630 divided by 9?", "answer": "70", "accept": []}
+{"id": "vq-ar-014", "category": "arithmetic", "question": "Add 19, 27, and 34.", "answer": "80", "accept": []}
+{"id": "vq-ar-015", "category": "arithmetic", "question": "What is 8 times 25?", "answer": "200", "accept": []}
+{"id": "vq-ar-016", "category": "arithmetic", "question": "What is half of 178, plus 11?", "answer": "100", "accept": []}
+{"id": "vq-ar-017", "category": "arithmetic", "question": "Subtract 66 from 300, then divide by 2.", "answer": "117", "accept": []}
+{"id": "vq-ar-018", "category": "arithmetic", "question": "What is 45 plus 55, times 2?", "answer": "200", "accept": []}
+{"id": "vq-ar-019", "category": "arithmetic", "question": "What is 13 times 13?", "answer": "169", "accept": []}
+{"id": "vq-ar-020", "category": "arithmetic", "question": "What is 20 percent of 450?", "answer": "90", "accept": []}
+{"id": "vq-ar-021", "category": "arithmetic", "question": "What is 72 divided by 8, times 6?", "answer": "54", "accept": []}
+{"id": "vq-ar-022", "category": "arithmetic", "question": "What is 999 plus 1002?", "answer": "2001", "accept": []}
+{"id": "vq-ar-023", "category": "arithmetic", "question": "What is 31 times 4, minus 24?", "answer": "100", "accept": []}
+{"id": "vq-ar-024", "category": "arithmetic", "question": "What is three cubed?", "answer": "27", "accept": []}
+{"id": "vq-ar-025", "category": "arithmetic", "question": "Take 84, divide by 4, then add 39.", "answer": "60", "accept": []}
+{"id": "vq-ar-026", "category": "arithmetic", "question": "What is 250 minus 75, minus 25?", "answer": "150", "accept": []}
+{"id": "vq-ar-027", "category": "arithmetic", "question": "What is 16 times 5, plus 16?", "answer": "96", "accept": []}
+{"id": "vq-ar-028", "category": "arithmetic", "question": "What is 10 percent of 85, plus 90?", "answer": "98", "accept": []}
+{"id": "vq-ar-029", "category": "arithmetic", "question": "Add 111, 222, and 333.", "answer": "666", "accept": []}
+{"id": "vq-ar-030", "category": "arithmetic", "question": "What is 400 divided by 16?", "answer": "25", "accept": []}
+{"id": "vq-ar-031", "category": "arithmetic", "question": "What is 9 times 14, minus 26?", "answer": "100", "accept": []}
+{"id": "vq-ar-032", "category": "arithmetic", "question": "What is the sum of the first five odd numbers?", "answer": "25", "accept": []}
+{"id": "vq-ar-033", "category": "arithmetic", "question": "What is 55 plus 66, minus 21?", "answer": "100", "accept": []}
+{"id": "vq-ar-034", "category": "arithmetic", "question": "What is 18 times 3, divided by 2?", "answer": "27", "accept": []}
+{"id": "vq-ar-035", "category": "arithmetic", "question": "What is 76 plus 89?", "answer": "165", "accept": []}
+{"id": "vq-ar-036", "category": "arithmetic", "question": "What is 5 factorial?", "answer": "120", "accept": []}
+{"id": "vq-ar-037", "category": "arithmetic", "question": "What is 240 divided by 6, minus 15?", "answer": "25", "accept": []}
+{"id": "vq-ar-038", "category": "arithmetic", "question": "What is 33 times 3, plus 1?", "answer": "100", "accept": []}
+{"id": "vq-ar-039", "category": "arithmetic", "question": "Subtract 199 from 456.", "answer": "257", "accept": []}
+{"id": "vq-ar-040", "category": "arithmetic", "question": "What is 60 percent of 90?", "answer": "54", "accept": []}
+{"id": "vq-mr-001", "category": "multi-step-reasoning", "question": "Rosa is twice as old as her brother, who is 9. How old will Rosa be in 4 years?", "answer": "22", "accept": []}
+{"id": "vq-mr-002", "category": "multi-step-reasoning", "question": "A train leaves at 2:40 pm and the ride lasts 85 minutes. At what time does it arrive?", "answer": "4:05 pm", "accept": ["405 pm", "4 05 pm", "16:05", "405"]}
+{"id": "vq-mr-003", "category": "multi-step-reasoning", "question": "I buy 3 notebooks at 4 dollars each and pay with a 20 dollar bill. How much change do I get?", "answer": "8", "accept": ["8 dollars"]}
+{"id": "vq-mr-004", "category": "multi-step-reasoning", "question": "Today is Wednesday. What day of the week will it be in 10 days?", "answer": "Saturday", "accept": []}
+{"id": "vq-mr-005", "category": "multi-step-reasoning", "question": "A ribbon 96 centimeters long is cut into 4 equal pieces, and one piece is cut in half. How long is one of the smallest pieces?", "answer": "12", "accept": ["12 centimeters", "12 cm"]}
+{"id": "vq-mr-006", "category": "multi-step-reasoning", "question": "Ben reads 15 pages a night. A book has 210 pages. How many nights does he need to finish it?", "answer": "14", "accept": []}
+{"id": "vq-mr-007", "category": "multi-step-reasoning", "question": "Three friends split a 45 dollar bill equally, and each adds a 3 dollar tip. How much does each person pay?", "answer": "18", "accept": ["18 dollars"]}
+{"id": "vq-mr-008", "category": "multi-step-reasoning", "question": "If every box holds 6 mugs and I need to pack 44 mugs, how many boxes do I need?", "answer": "8", "accept": []}
+{"id": "vq-mr-009", "category": "multi-step-reasoning", "question": "Nina is standing 4th in a queue of 17 people. How many people are behind her?", "answer": "13", "accept": []}
+{"id": "vq-mr-010", "category": "multi-step-reasoning", "question": "A tank holds 60 liters and is three quarters full. How many liters are needed to fill it?", "answer": "15", "accept": ["15 liters"]}
+{"id": "vq-mr-011", "category": "multi-step-reasoning", "question": "Tom was born in March. His sister was born exactly 7 months later. In which month was she born?", "answer": "October", "accept": []}
+{"id": "vq-mr-012", "category": "multi-step-reasoning", "question": "A meeting starts at 9:15 and runs for 2 hours and 50 minutes. When does it end?", "answer": "12:05", "accept": ["1205", "12 05", "12:05 pm"]}
+{"id": "vq-mr-013", "category": "multi-step-reasoning", "question": "I walk 3 blocks north, 2 blocks east, then 3 blocks south. How many blocks am I from my starting point?", "answer": "2", "accept": ["2 blocks"]}
+{"id": "vq-mr-014", "category": "multi-step-reasoning", "question": "Apples cost 2 dollars and pears cost 3. I buy 4 apples and some pears, spending 17 dollars total. How many pears did I buy?", "answer": "3", "accept": []}
+{"id": "vq-mr-015", "category": "multi-step-reasoning", "question": "A password must repeat the word 'sun' as many times as two plus two. How many letters long is it?", "answer": "12", "accept": ["12 letters"]}
+{"id": "vq-mr-016", "category": "multi-step-reasoning", "question": "Half the students in a class of 28 play football, and half of those also play chess. How many play chess?", "answer": "7", "accept": []}
+{"id": "vq-mr-017", "category": "multi-step-reasoning", "question": "Yesterday was Sunday. What day will it be tomorrow?", "answer": "Tuesday", "accept": []}
+{"id": "vq-mr-018", "category": "multi-step-reasoning", "question": "A recipe for 2 people needs 300 grams of rice. How much rice for 5 people?", "answer": "750", "accept": ["750 grams", "750 g"]}
+{"id": "vq-mr-019", "category": "multi-step-reasoning", "question": "Ana finished the race ahead of Ben, and Ben finished ahead of Carla. Who finished last?", "answer": "Carla", "accept": []}
+{"id": "vq-mr-020", "category": "multi-step-reasoning", "question": "A shop opens at 8:30 and closes 9 and a half hours later. When does it close?", "answer": "6:00 pm", "accept": ["6 pm", "18:00", "6 oclock", "600 pm"]}
+{"id": "vq-mr-021", "category": "multi-step-reasoning", "question": "I think of a number, double it, add 6, and get 20. What was my number?", "answer": "7", "accept": []}
+{"id": "vq-mr-022", "category": "multi-step-reasoning", "question": "Socks come in packs of 5 pairs. How many packs for 35 single socks, rounding up?", "answer": "4", "accept": []}
+{"id": "vq-mr-023", "category": "multi-step-reasoning", "question": "A candle burns 2 centimeters per hour. It is 15 centimeters tall. How tall is it after 4 and a half hours?", "answer": "6", "accept": ["6 centimeters", "6 cm"]}
+{"id": "vq-mr-024", "category": "multi-step-reasoning", "question": "In a family, each of 3 children has exactly one sister. How many girls are there?", "answer": "1", "accept": ["one girl"]}
+{"id": "vq-mr-025", "category": "multi-step-reasoning", "question": "A lift starts on floor 2, goes up 7 floors, down 4, and up 1. What floor is it on?", "answer": "6", "accept": ["floor 6", "6th floor"]}
+{"id": "vq-mr-026", "category": "multi-step-reasoning", "question": "If the day after tomorrow is Friday, what day is today?", "answer": "Wednesday", "accept": []}
+{"id": "vq-mr-027", "category": "multi-step-reasoning", "question": "A farmer has 17 sheep. All but 9 wander off. How many remain?", "answer": "9", "accept": []}
+{"id": "vq-mr-028", "category": "multi-step-reasoning", "question": "Mia saves 12 dollars a week. How many weeks until she has saved at least 100 dollars?", "answer": "9", "accept": []}
+{"id": "vq-mr-029", "category": "multi-step-reasoning", "question": "Two buses leave every 15 and every 20 minutes, both leaving now. In how many minutes do they next leave together?", "answer": "60", "accept": ["60 minutes", "1 hour"]}
+{"id": "vq-mr-030", "category": "multi-step-reasoning", "question": "A book is opened and the two visible page numbers add to 33. What is the left page number?", "answer": "16", "accept": []}
+{"id": "vq-mr-031", "category": "multi-step-reasoning", "question": "There are 12 red and 8 blue marbles in a bag. How many marbles must I draw to be certain of getting a red one?", "answer": "9", "accept": []}
+{"id": "vq-mr-032", "category": "multi-step-reasoning", "question": "A clock shows 3:45. What time did it show 100 minutes ago?", "answer": "2:05", "accept": ["205", "2 05"]}
+{"id": "vq-mr-033", "category": "multi-step-reasoning", "question": "Leo is 3 years older than twice Ana's age. Ana is 10. How old is Leo?", "answer": "23", "accept": []}
+{"id": "vq-mr-034", "category": "multi-step-reasoning", "question": "A pizza is cut into 8 slices. Three people eat 2 slices each. What fraction of the pizza is left?", "answer": "one quarter", "accept": ["1/4", "a quarter", "2 slices", "0.25", "25 percent"]}
+{"id": "vq-mr-035", "category": "multi-step-reasoning", "question": "Count the letter e in the word 'seventeen'.", "answer": "4", "accept": []}
+{"id": "vq-mr-036", "category": "multi-step-reasoning", "question": "If 5 machines make 5 parts in 5 minutes, how many minutes do 100 machines need to make 100 parts?", "answer": "5", "accept": ["5 minutes"]}
+{"id": "vq-mr-037", "category": "multi-step-reasoning", "question": "A week ago it was the 12th of the month. What date is it today?", "answer": "19", "accept": ["the 19th", "19th"]}
+{"id": "vq-mr-038", "category": "multi-step-reasoning", "question": "Gia has twice as many stamps as Ivo. Together they have 36. How many does Ivo have?", "answer": "12", "accept": []}
+{"id": "vq-mr-039", "category": "multi-step-reasoning", "question": "Which is heavier: 900 grams of feathers or 1 kilogram of iron?", "answer": "iron", "accept": ["the iron", "1 kilogram of iron", "kilogram of iron"]}
+{"id": "vq-mr-040", "category": "multi-step-reasoning", "question": "A rope ladder has 11 rungs spaced 30 centimeters apart. How far is the top rung from the bottom rung, in meters?", "answer": "3", "accept": ["3 meters", "3 m"]}
+{"id": "vq-gk-001", "category": "general-knowledge", "question": "Which planet is closest to the sun?", "answer": "Mercury", "accept": []}
+{"id": "vq-gk-002", "category": "general-knowledge", "question": "What is the chemical symbol for iron?", "answer": "Fe", "accept": []}
+{"id": "vq-gk-003", "category": "general-knowledge", "question": "How many sides does a hexagon have?", "answer": "6", "accept": []}
+{"id": "vq-gk-004", "category": "general-knowledge", "question": "What is the capital city of Canada?", "answer": "Ottawa", "accept": []}
+{"id": "vq-gk-005", "category": "general-knowledge", "question": "How many minutes are in two and a half hours?", "answer": "150", "accept": []}
+{"id": "vq-gk-006", "category": "general-knowledge", "question": "Which ocean lies between Africa and Australia?", "answer": "Indian Ocean", "accept": ["the indian ocean", "indian"]}
+{"id": "vq-gk-007", "category": "general-knowledge", "question": "What gas do plants absorb from the air for photosynthesis?", "answer": "carbon dioxide", "accept": ["co2"]}
+{"id": "vq-gk-008", "category": "general-knowledge", "question": "How many continents are there?", "answer": "7", "accept": []}
+{"id": "vq-gk-009", "category": "general-knowledge", "question": "What is the largest planet in our solar system?", "answer": "Jupiter", "accept": []}
+{"id": "vq-gk-010", "category": "general-knowledge", "question": "In which country would you find the city of Osaka?", "answer": "Japan", "accept": []}
+{"id": "vq-gk-011", "category": "general-knowledge", "question": "What is the freezing point of water in degrees Celsius?", "answer": "0", "accept": ["zero degrees", "0 degrees"]}
+{"id": "vq-gk-012", "category": "general-knowledge", "question": "How many legs does a spider have?", "answer": "8", "accept": []}
+{"id": "vq-gk-013", "category": "general-knowledge", "question": "What currency is used in Japan?", "answer": "yen", "accept": ["japanese yen"]}
+{"id": "vq-gk-014", "category": "general-knowledge", "question": "Which organ pumps blood around the human body?", "answer": "heart", "accept": ["the heart"]}
+{"id": "vq-gk-015", "category": "general-knowledge", "question": "What is the capital of Australia?", "answer": "Canberra", "accept": []}
+{"id": "vq-gk-016", "category": "general-knowledge", "question": "How many strings does a standard violin have?", "answer": "4", "accept": []}
+{"id": "vq-gk-017", "category": "general-knowledge", "question": "Which metal is liquid at room temperature?", "answer": "mercury", "accept": []}
+{"id": "vq-gk-018", "category": "general-knowledge", "question": "What is the tallest mountain above sea level?", "answer": "Mount Everest", "accept": ["everest"]}
+{"id": "vq-gk-019", "category": "general-knowledge", "question": "How many days are in a leap year?", "answer": "366", "accept": []}
+{"id": "vq-gk-020", "category": "general-knowledge", "question": "Which language has the most native speakers worldwide?", "answer": "Mandarin", "accept": ["mandarin chinese", "chinese"]}
+{"id": "vq-gk-021", "category": "general-knowledge", "question": "What is the chemical symbol for gold?", "answer": "Au", "accept": []}
+{"id": "vq-gk-022", "category": "general-knowledge", "question": "Which continent is the Sahara Desert on?", "answer": "Africa", "accept": []}
+{"id": "vq-gk-023", "category": "general-knowledge", "question": "How many keys does a standard piano have?", "answer": "88", "accept": []}
+{"id": "vq-gk-024", "category": "general-knowledge", "question": "What is the longest river in South America?", "answer": "Amazon", "accept": ["the amazon", "amazon river"]}
+{"id": "vq-gk-025", "category": "general-knowledge", "question": "How many degrees are in a right angle?", "answer": "90", "accept": ["90 degrees"]}
+{"id": "vq-gk-026", "category": "general-knowledge", "question": "Which country has the largest population?", "answer": "India", "accept": []}
+{"id": "vq-gk-027", "category": "general-knowledge", "question": "What do bees collect from flowers to make honey?", "answer": "nectar", "accept": []}
+{"id": "vq-gk-028", "category": "general-knowledge", "question": "What is the capital of Kenya?", "answer": "Nairobi", "accept": []}
+{"id": "vq-gk-029", "category": "general-knowledge", "question": "How many players are on a soccer team on the field?", "answer": "11", "accept": []}
+{"id": "vq-gk-030", "category": "general-knowledge", "question": "What is the smallest prime number?", "answer": "2", "accept": []}
+{"id": "vq-gk-031", "category": "general-knowledge", "question": "Which planet is known as the red planet?", "answer": "Mars", "accept": []}
+{"id": "vq-gk-032", "category": "general-knowledge", "question": "What is the main ingredient of guacamole?", "answer": "avocado", "accept": ["avocados"]}
+{"id": "vq-gk-033", "category": "general-knowledge", "question": "How many hours are in three days?", "answer": "72", "accept": []}
+{"id": "vq-gk-034", "category": "general-knowledge", "question": "Which sea creature has eight arms?", "answer": "octopus", "accept": ["an octopus", "the octopus"]}
+{"id": "vq-gk-035", "category": "general-knowledge", "question": "What is the capital of Portugal?", "answer": "Lisbon", "accept": []}
+{"id": "vq-gk-036", "category": "general-knowledge", "question": "Which instrument has 47 strings and pedals?", "answer": "harp", "accept": ["the harp", "concert harp"]}
+{"id": "vq-gk-037", "category": "general-knowledge", "question": "What is the boiling point of water at sea level in Celsius?", "answer": "100", "accept": ["100 degrees"]}
+{"id": "vq-gk-038", "category": "general-knowledge", "question": "Which month has 28 days in a common year?", "answer": "February", "accept": []}
+{"id": "vq-gk-039", "category": "general-knowledge", "question": "What is the largest mammal?", "answer": "blue whale", "accept": ["the blue whale", "whale"]}
+{"id": "vq-gk-040", "category": "general-knowledge", "question": "In which city is the Colosseum?", "answer": "Rome", "accept": []}
+{"id": "vq-if-001", "category": "instruction-following", "question": "Say the word 'echo' exactly three times.", "answer": "echo echo echo", "accept": []}
+{"id": "vq-if-002", "category": "instruction-following", "question": "Count down from 8 to 5.", "answer": "8 7 6 5", "accept": []}
+{"id": "vq-if-003", "category": "instruction-following", "question": "Name the first three months of the year, in order.", "answer": "January February March", "accept": []}
+{"id": "vq-if-004", "category": "instruction-following", "question": "Say the days of the weekend, Saturday first.", "answer": "Saturday Sunday", "accept": []}
+{"id": "vq-if-005", "category": "instruction-following", "question": "List the even numbers between 3 and 9.", "answer": "4 6 8", "accept": []}
+{"id": "vq-if-006", "category": "instruction-following", "question": "Say 'left', then 'right', then 'left' again.", "answer": "left right left", "accept": []}
+{"id": "vq-if-007", "category": "instruction-following", "question": "Count from 11 to 14.", "answer": "11 12 13 14", "accept": []}
+{"id": "vq-if-008", "category": "instruction-following", "question": "Name the four seasons, starting with winter.", "answer": "winter spring summer autumn", "accept": ["winter spring summer fall"]}
+{"id": "vq-if-009", "category": "instruction-following", "question": "Say the vowels of the English alphabet in order.", "answer": "a e i o u", "accept": []}
+{"id": "vq-if-010", "category": "instruction-following", "question": "Repeat the phrase 'blue sky' twice.", "answer": "blue sky blue sky", "accept": []}
+{"id": "vq-if-011", "category": "instruction-following", "question": "List the odd numbers between 10 and 16.", "answer": "11 13 15", "accept": []}
+{"id": "vq-if-012", "category": "instruction-following", "question": "Say the last three letters of the English alphabet in order.", "answer": "x y z", "accept": []}
+{"id": "vq-if-013", "category": "instruction-following", "question": "Count down from 20 in steps of 5, ending at 5.", "answer": "20 15 10 5", "accept": []}
+{"id": "vq-if-014", "category": "instruction-following", "question": "Name the three primary colors of paint.", "answer": "red yellow blue", "accept": ["red blue yellow", "blue red yellow", "blue yellow red", "yellow red blue", "yellow blue red"]}
+{"id": "vq-if-015", "category": "instruction-following", "question": "Say 'go' once, then 'stop' twice.", "answer": "go stop stop", "accept": []}
+{"id": "vq-if-016", "category": "instruction-following", "question": "List the first four multiples of 3.", "answer": "3 6 9 12", "accept": []}
+{"id": "vq-if-017", "category": "instruction-following", "question": "Say the word 'north', then the word that means its opposite.", "answer": "north south", "accept": []}
+{"id": "vq-if-018", "category": "instruction-following", "question": "Count up from 97 to 100.", "answer": "97 98 99 100", "accept": []}
+{"id": "vq-if-019", "category": "instruction-following", "question": "Name the last two months of the year, in order.", "answer": "November December", "accept": []}
+{"id": "vq-if-020", "category": "instruction-following", "question": "Say only the middle word of this list: apple, banana, cherry.", "answer": "banana", "accept": []}
+{"id": "vq-if-021", "category": "instruction-following", "question": "Repeat the number 7 four times.", "answer": "7 7 7 7", "accept": []}
+{"id": "vq-if-022", "category": "instruction-following", "question": "Say the first three letters of the English alphabet, then the first three numbers, starting from 1.", "answer": "a b c 1 2 3", "accept": []}
+{"id": "vq-if-023", "category": "instruction-following", "question": "List the days of the week that start with the letter T.", "answer": "Tuesday Thursday", "accept": ["thursday tuesday"]}
+{"id": "vq-if-024", "category": "instruction-following", "question": "Count from 2 to 10 using only even numbers.", "answer": "2 4 6 8 10", "accept": []}
+{"id": "vq-if-025", "category": "instruction-following", "question": "Say 'up' if birds can fly, otherwise say 'down'.", "answer": "up", "accept": []}
+{"id": "vq-if-026", "category": "instruction-following", "question": "Give only the last word of this sentence: the quick fox jumped over the lazy dog.", "answer": "dog", "accept": []}
+{"id": "vq-if-027", "category": "instruction-following", "question": "Say the opposite of 'hot', then the opposite of 'big'.", "answer": "cold small", "accept": ["cold little"]}
+{"id": "vq-if-028", "category": "instruction-following", "question": "List the first three square numbers, starting from 1.", "answer": "1 4 9", "accept": []}
+{"id": "vq-if-029", "category": "instruction-following", "question": "Say the two words in 'good morning' in reverse order.", "answer": "morning good", "accept": []}
+{"id": "vq-if-030", "category": "instruction-following", "question": "Count backwards from 5 to 1.", "answer": "5 4 3 2 1", "accept": []}
+{"id": "vq-if-031", "category": "instruction-following", "question": "Name any month, then say the word 'done'. Which word must come second?", "answer": "done", "accept": []}
+{"id": "vq-if-032", "category": "instruction-following", "question": "Say 'yes' exactly once, no other words.", "answer": "yes", "accept": []}
+{"id": "vq-if-033", "category": "instruction-following", "question": "List the numbers from this set that are greater than 10: 4, 12, 9, 15.", "answer": "12 15", "accept": ["12 and 15"]}
+{"id": "vq-if-034", "category": "instruction-following", "question": "Spell out how many words are in the phrase 'one two three four'.", "answer": "4", "accept": ["four"]}
+{"id": "vq-if-035", "category": "instruction-following", "question": "Say the color of a clear daytime sky, then the color of grass.", "answer": "blue green", "accept": []}
+{"id": "vq-if-036", "category": "instruction-following", "question": "Repeat 'tick tock' three times.", "answer": "tick tock tick tock tick tock", "accept": []}
+{"id": "vq-if-037", "category": "instruction-following", "question": "Say the third day of the working week, assuming Monday is the first.", "answer": "Wednesday", "accept": []}
+{"id": "vq-if-038", "category": "instruction-following", "question": "List the numbers 1 to 5, skipping 3.", "answer": "1 2 4 5", "accept": []}
+{"id": "vq-if-039", "category": "instruction-following", "question": "Say the word 'quiet' in a single word answer.", "answer": "quiet", "accept": []}
+{"id": "vq-if-040", "category": "instruction-following", "question": "Give the next letter of the alphabet after m.", "answer": "n", "accept": []}
+{"id": "vq-ne-001", "category": "numeric-extraction", "question": "A recipe uses 3 eggs per batch. Marta bakes 4 batches. How many eggs does she use?", "answer": "12", "accept": []}
+{"id": "vq-ne-002", "category": "numeric-extraction", "question": "Tickets cost 12 dollars for adults and 8 dollars for children. What do one adult and two children pay in total?", "answer": "28", "accept": ["28 dollars"]}
+{"id": "vq-ne-003", "category": "numeric-extraction", "question": "A bus carries 42 passengers. At the first stop 15 get off and 9 get on. How many passengers are aboard now?", "answer": "36", "accept": []}
+{"id": "vq-ne-004", "category": "numeric-extraction", "question": "A jar holds 250 grams of coffee. Sam uses 30 grams a day for 6 days. How many grams remain?", "answer": "70", "accept": ["70 grams"]}
+{"id": "vq-ne-005", "category": "numeric-extraction", "question": "A car travels at 60 kilometers per hour for 2 and a half hours. How far does it go?", "answer": "150", "accept": ["150 kilometers", "150 km"]}
+{"id": "vq-ne-006", "category": "numeric-extraction", "question": "A library owns 380 books and lends out 145. Then 60 are returned. How many are on the shelves?", "answer": "295", "accept": []}
+{"id": "vq-ne-007", "category": "numeric-extraction", "question": "Concert doors open at 7 pm and the show starts 45 minutes later. When does the show start?", "answer": "7:45 pm", "accept": ["745 pm", "7 45 pm", "19:45", "745"]}
+{"id": "vq-ne-008", "category": "numeric-extraction", "question": "A box weighs 2 kilograms empty and holds 8 cans of 400 grams each. What is the total weight in kilograms?", "answer": "5.2", "accept": ["5.2 kilograms", "5.2 kg", "5 point 2"]}
+{"id": "vq-ne-009", "category": "numeric-extraction", "question": "Ana earns 18 dollars an hour and works 7 hours. How much does she earn?", "answer": "126", "accept": ["126 dollars"]}
+{"id": "vq-ne-010", "category": "numeric-extraction", "question": "A field is 40 meters long and 25 meters wide. What is its area in square meters?", "answer": "1000", "accept": ["1000 square meters", "1000"]}
+{"id": "vq-ne-011", "category": "numeric-extraction", "question": "A phone battery is at 80 percent and drains 15 percent per hour. What percent remains after 3 hours?", "answer": "35", "accept": ["35 percent"]}
+{"id": "vq-ne-012", "category": "numeric-extraction", "question": "A train has 6 carriages with 72 seats each. How many seats in total?", "answer": "432", "accept": []}
+{"id": "vq-ne-013", "category": "numeric-extraction", "question": "Paint covers 12 square meters per liter. A wall is 60 square meters. How many liters are needed?", "answer": "5", "accept": ["5 liters"]}
+{"id": "vq-ne-014", "category": "numeric-extraction", "question": "Nick runs 5 kilometers on Monday, 8 on Wednesday, and 12 on Friday. How many kilometers in total?", "answer": "25", "accept": ["25 kilometers", "25 km"]}
+{"id": "vq-ne-015", "category": "numeric-extraction", "question": "A hotel has 9 floors with 24 rooms each. 30 rooms are occupied. How many are free?", "answer": "186", "accept": []}
+{"id": "vq-ne-016", "category": "numeric-extraction", "question": "A tap fills 4 liters per minute. How long to fill a 100 liter tub, in minutes?", "answer": "25", "accept": ["25 minutes"]}
+{"id": "vq-ne-017", "category": "numeric-extraction", "question": "Lena buys 3 shirts at 19 dollars and returns 1. How much did she spend in the end?", "answer": "38", "accept": ["38 dollars"]}
+{"id": "vq-ne-018", "category": "numeric-extraction", "question": "A movie lasts 128 minutes. How long is that in hours and minutes?", "answer": "2 hours 8 minutes", "accept": ["2 hours and 8 minutes", "2h8m", "2 8"]}
+{"id": "vq-ne-019", "category": "numeric-extraction", "question": "A farm has 14 cows, 8 pigs, and 26 chickens. How many legs do the chickens have in total?", "answer": "52", "accept": []}
+{"id": "vq-ne-020", "category": "numeric-extraction", "question": "A printer prints 22 pages per minute. How many pages in 6 minutes?", "answer": "132", "accept": []}
+{"id": "vq-ne-021", "category": "numeric-extraction", "question": "Oranges are 4 for 3 dollars. How much do 12 oranges cost?", "answer": "9", "accept": ["9 dollars"]}
+{"id": "vq-ne-022", "category": "numeric-extraction", "question": "A marathon relay of 42 kilometers is split equally among 6 runners. How far does each run?", "answer": "7", "accept": ["7 kilometers", "7 km"]}
+{"id": "vq-ne-023", "category": "numeric-extraction", "question": "A shop sells 240 loaves a day. A third are sold by 9 am. How many loaves is that?", "answer": "80", "accept": []}
+{"id": "vq-ne-024", "category": "numeric-extraction", "question": "A parking lot has 5 rows of 18 spaces. 66 spaces are taken. How many are empty?", "answer": "24", "accept": []}
+{"id": "vq-ne-025", "category": "numeric-extraction", "question": "Ted sleeps 8 hours a night. How many hours does he sleep in two weeks?", "answer": "112", "accept": []}
+{"id": "vq-ne-026", "category": "numeric-extraction", "question": "A water bottle holds 750 milliliters. Maya drinks 3 full bottles. How many liters is that?", "answer": "2.25", "accept": ["2.25 liters", "2 point 2 5", "2250 milliliters"]}
+{"id": "vq-ne-027", "category": "numeric-extraction", "question": "A class of 30 students splits into teams of 4, and leftovers form a smaller team. How many students are in the smaller team?", "answer": "2", "accept": []}
+{"id": "vq-ne-028", "category": "numeric-extraction", "question": "A plane departs at 11:20 am and lands 3 hours 55 minutes later. What is the landing time?", "answer": "3:15 pm", "accept": ["315 pm", "3 15 pm", "15:15"]}
+{"id": "vq-ne-029", "category": "numeric-extraction", "question": "Ribbon costs 2 dollars per meter. Zoe buys 4 meters and pays with a 10 dollar note. What is her change?", "answer": "2", "accept": ["2 dollars"]}
+{"id": "vq-ne-030", "category": "numeric-extraction", "question": "A stadium holds 48,000 people and is 75 percent full. How many people are there?", "answer": "36000", "accept": ["36,000"]}
+{"id": "vq-ne-031", "category": "numeric-extraction", "question": "A worker packs 45 boxes an hour for an 8 hour shift. How many boxes is that?", "answer": "360", "accept": []}
+{"id": "vq-ne-032", "category": "numeric-extraction", "question": "A garden hose delivers 9 liters a minute for 20 minutes. How many liters is that?", "answer": "180", "accept": ["180 liters"]}
+{"id": "vq-ne-033", "category": "numeric-extraction", "question": "A shelf holds 35 kilograms. Books weigh half a kilogram each. How many books can it hold?", "answer": "70", "accept": ["70 books"]}
+{"id": "vq-ne-034", "category": "numeric-extraction", "question": "A city gets 60 millimeters of rain in June and twice as much in July. How much in July?", "answer": "120", "accept": ["120 millimeters", "120 mm"]}
+{"id": "vq-ne-035", "category": "numeric-extraction", "question": "Pens come in packs of 12 costing 6 dollars. What does one pen cost, in cents?", "answer": "50", "accept": ["50 cents", "0.50", "half a dollar"]}
+{"id": "vq-ne-036", "category": "numeric-extraction", "question": "A ferry crosses every 40 minutes starting at 6:00 am. What time is the third crossing after the first?", "answer": "8:00 am", "accept": ["8 am", "800 am", "08:00"]}
+{"id": "vq-ne-037", "category": "numeric-extraction", "question": "A team wins 14 games, loses 6, and draws 4. How many games did they play?", "answer": "24", "accept": []}
+{"id": "vq-ne-038", "category": "numeric-extraction", "question": "A baker uses 500 grams of flour per cake and has 4 kilograms. How many whole cakes can she bake?", "answer": "8", "accept": []}
+{"id": "vq-ne-039", "category": "numeric-extraction", "question": "An elevator's limit is 630 kilograms. How many 70 kilogram people can ride at once?", "answer": "9", "accept": []}
+{"id": "vq-ne-040", "category": "numeric-extraction", "question": "A podcast episode is 55 minutes. Joe listens to 4 episodes. How many hours and minutes is that?", "answer": "3 hours 40 minutes", "accept": ["3 hours and 40 minutes", "220 minutes", "3 40"]}

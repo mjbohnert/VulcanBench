@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-29
+
+### Added
+
+- **Voice Eval Suite v1** (`vulcanbench voice render|run|report`): measures the delta between a
+  model answering the same held-out question set as text vs. as TTS-rendered speech — the
+  "voice tax". 200 original questions (`tasks/voice-v1/`, 5 categories), audio matrix of
+  3 voices x 2 rates x clean/10 dB-SNR noise with a seeded subset for the expensive conditions,
+  disk-cached renders keyed by (question, voice, rate, noise), and adapters for OpenAI Realtime,
+  Gemini Live, and Qwen3-Omni behind a common `answer_text`/`answer_audio` contract. Scoring is
+  modality-blind by construction (single scorer: normalize → exact/alias → pinned LLM judge,
+  rubric in-repo); runs are resumable, rate-limited, and record a full manifest (models, TTS
+  voices, judge, STT fallback, seed, git commit, question-file hash). See `docs/VOICE_EVAL.md`.
+- New dependency: `websockets` (OpenAI Realtime + Gemini Live transports).
+
 ### Added
 
 - **Subscription-billed runs via vendor agent CLIs** (`claude-code:<model>` specs): the task is
