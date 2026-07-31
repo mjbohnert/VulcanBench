@@ -33,6 +33,7 @@ from harness.sandbox.docker_executor import SandboxError
 from harness.suite import SUITE_ALIASES, load_suite, run_suite
 from harness.tasks import list_task_ids
 from harness.validate import main as validate_main
+from harness.voice.cli import voice_app
 
 # Provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...) are read straight from
 # os.environ, so load the nearest .env first. Real environment variables win:
@@ -46,6 +47,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
+app.add_typer(voice_app, name="voice")
 
 console = Console()
 

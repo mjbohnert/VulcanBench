@@ -9,7 +9,7 @@ engineering tasks. VulcanBench measures how models perform across reasoning
 effort, language, codebase scale, and task complexity — with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
+**v0.8.0** — adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
 so Alibaba Cloud models can be benchmarked like OpenAI / Anthropic / Z.ai / Kimi.
 Builds on v0.6's frontier-hard task tier and cost-efficient reporting
 (`--max-run-cost`, `compare`, `regrade`, `--only-missing`), and on v0.5's 52
@@ -268,6 +268,28 @@ from a real MIT-licensed repo with its LICENSE preserved) is honestly labeled
 `vulcanbench report` integrity section flags every run scored against it. Scaffold
 one with `python scripts/import_oss_issues.py`. Format details:
 [docs/TASK_CONTRIBUTION.md](docs/TASK_CONTRIBUTION.md).
+
+## Voice Eval Suite
+
+Measures the **voice tax**: how many points a model loses when the same
+question arrives as speech instead of text. 200 held-out questions
+(`tasks/voice-v1/`), rendered via TTS under a voices × rate × noise matrix,
+answered through each model's realtime/audio endpoint, and scored by a
+modality-blind scorer (results have no numbers to show yet — none are
+published until the first full run).
+
+```bash
+export OPENAI_API_KEY=...     # TTS + Realtime + STT fallback
+export GEMINI_API_KEY=...     # Gemini Live
+export DASHSCOPE_API_KEY=...  # Qwen3-Omni
+export XAI_API_KEY=...        # Grok Voice (grok-voice-think-fast-2.0)
+
+vulcanbench voice run -m openai-realtime --dry-run     # 5-question pipeline check
+vulcanbench voice run -m openai-realtime,gemini-live,qwen-omni,grok-voice
+vulcanbench voice report runs/voice-<id> -o report.md
+```
+
+Full methodology: [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md).
 
 ## Architecture & Reproducibility
 

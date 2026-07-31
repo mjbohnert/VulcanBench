@@ -1,0 +1,22 @@
+{
+  "_note": "Voice Eval Suite v1: 200 held-out short-form questions measuring the text-vs-audio delta ('voice tax'). Questions are original to this suite (written 2026-07, after all current model cutoffs; never copied from public benchmarks — TTS-rendered public evals are trivially trainable). Unlike SWE suites, items live in questions.jsonl rather than one directory per task: they are single-turn Q&A with no repo snapshot. Audio matrix: 3 voices (onyx/shimmer/fable) x rate (1.0/1.25x) x noise (clean / 10 dB SNR ambient). Full set runs on clean/normal per voice; a seeded subset (n=60, seed 20260729) runs the fast and noise conditions. Scoring is modality-blind: normalize -> exact/alias -> pinned LLM judge (RUBRIC.md). See docs/VOICE_EVAL.md.",
+  "suite": "voice-v1",
+  "tasks": 200,
+  "full": 200,
+  "arithmetic": 40,
+  "multi-step-reasoning": 40,
+  "general-knowledge": 40,
+  "instruction-following": 40,
+  "numeric-extraction": 40,
+  "created": "2026-07-29",
+  "decontamination_notes": "All questions written for this suite in July 2026. Facts referenced are common knowledge, but phrasings and numbers are original; no item is drawn from any public benchmark or quiz dataset.",
+  "audio": {
+    "master_format": "24 kHz mono PCM16 WAV",
+    "snr_db": 10.0,
+    "noise_clips": ["street.wav", "crowd.wav"],
+    "voices": ["onyx", "shimmer", "fable"],
+    "rates": { "normal": 1.0, "fast": 1.25 },
+    "subset_n": 60,
+    "seed": 20260729
+  }
+}
