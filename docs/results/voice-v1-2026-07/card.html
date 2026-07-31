@@ -1,0 +1,126 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; height: 900px; }
+body { font-family: "Times New Roman", Times, Georgia, serif; background: #f7f5f0; color: #1c1a17; }
+.page { width: 1600px; height: 900px; padding: 44px 78px 30px; position: relative; }
+.masthead { display: flex; justify-content: space-between; align-items: baseline;
+  font-variant: small-caps; letter-spacing: 2.5px; font-size: 17px; color: #6f6a62; }
+.masthead b { color: #1c1a17; font-weight: 600; }
+.rule2 { border-top: 2.5px solid #1c1a17; margin-top: 8px; }
+.rule1 { border-top: 1px solid #1c1a17; margin-top: 2.5px; }
+h1 { text-align: center; font-size: 37px; font-weight: 600; margin-top: 20px; letter-spacing: 0.2px; }
+.eff { font-size: 24px; font-weight: 400; font-style: italic; color: #55504a; }
+.authors { text-align: center; font-style: italic; font-size: 19px; margin-top: 9px; color: #3a362f; }
+.abstract { width: 1300px; margin: 16px auto 0; font-size: 19px; line-height: 1.48; text-align: center; }
+.cols { display: grid; grid-template-columns: 730px 670px; gap: 42px; margin-top: 20px; }
+.tcap, .fcap { font-size: 15px; margin-bottom: 7px; line-height: 1.35; }
+.tcap b, .fcap b { font-variant: small-caps; letter-spacing: 1px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+thead th { border-top: 2px solid #1c1a17; border-bottom: 1px solid #1c1a17;
+  padding: 5.5px 5px; font-weight: 600; text-align: right; font-size: 14.5px; }
+thead th:first-child { text-align: left; }
+tbody td { padding: 5px 5px; text-align: right; font-variant-numeric: tabular-nums; }
+tbody td:first-child { text-align: left; }
+tbody tr:last-child td { border-bottom: 2px solid #1c1a17; }
+tbody tr.win td { font-weight: 700; }
+.model { font-style: italic; }
+.legend { display: flex; flex-wrap: wrap; gap: 22px 28px; justify-content: center; font-size: 14px; margin-top: 6px; color: #3a362f; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend .note { width: 100%; text-align: center; font-size: 12.5px; color: #6f6a62; font-style: italic; }
+.sw { width: 14px; height: 14px; display: inline-block; }
+.findings { margin-top: 9px; font-size: 14.5px; line-height: 1.38; }
+.findings p { margin-top: 6px; }
+.findings .n { font-weight: 700; }
+.foot { position: absolute; left: 78px; right: 78px; bottom: 24px;
+  border-top: 1px solid #1c1a17; padding-top: 8px; font-size: 13px;
+  color: #55504a; line-height: 1.38; display: flex; justify-content: space-between; gap: 40px; }
+.foot .brand { white-space: nowrap; text-align: right; font-variant: small-caps;
+  letter-spacing: 1.5px; color: #1c1a17; font-size: 15px; }
+</style></head><body>
+<div class="page">
+  <div class="masthead"><span><b>VulcanBench</b> &nbsp;Technical Report No. 11</span><span>July 2026 &nbsp;&middot;&nbsp; voice-v1 suite &middot; 200 questions &middot; 2 models &middot; 1,840 units</span></div>
+  <div class="rule2"></div><div class="rule1"></div>
+
+  <h1>The Voice Tax <span class="eff">(what a model loses when it hears the question instead of reading it)</span></h1>
+  <div class="authors">Two hundred held-out questions delivered twice &mdash; typed, and spoken via TTS under three voices, 1.25x speech, and 10 dB ambient noise &mdash; scored by one modality-blind scorer</div>
+
+  <div class="abstract">
+  <b>Both flagship voice models lose real accuracy when the question is spoken instead of typed &mdash; but not much, and not evenly.</b>
+  Grok Voice Think Fast 2.0 leads on text (99.0%), on audio (95.7%), and pays the smaller tax (+3.3 vs +4.0 pp). The tax concentrates in spoken arithmetic (~10 pp for both models); on numeric extraction, Grok&rsquo;s goes negative.</div>
+
+  <div class="cols">
+    <div>
+      <div class="tcap"><b>Table 1.</b> Text vs audio accuracy (clean audio, normal rate, paired items) and median audio-mode latency. Zero STT fallbacks: every answer carried the model&rsquo;s own transcript.</div>
+      <table>
+        <thead><tr><th>Model</th><th>Text</th><th>Audio</th><th>Voice tax</th><th>First token</th><th>Turn total</th></tr></thead>
+        <tbody>
+          <tr class="win"><td class="model">Grok Voice Think Fast 2.0</td><td>99.0%</td><td>95.7%</td><td>+3.3 pp</td><td>1.22 s</td><td>1.43 s</td></tr>
+          <tr><td class="model">GPT Realtime</td><td>97.5%</td><td>93.5%</td><td>+4.0 pp</td><td>0.53 s</td><td>2.70 s</td></tr>
+        </tbody>
+      </table>
+
+      <div class="tcap" style="margin-top:13px"><b>Table 2.</b> Voice tax by audio condition (pp; text baseline on the same items). Fast and noise conditions: seeded n=60 subset.</div>
+      <table>
+        <thead><tr><th>Condition</th><th>Grok TF 2.0</th><th>GPT Realtime</th></tr></thead>
+        <tbody>
+          <tr><td class="model">onyx &middot; normal &middot; clean</td><td>+4.5</td><td>+2.5</td></tr>
+          <tr><td class="model">shimmer &middot; normal &middot; clean</td><td>+3.0</td><td>+5.0</td></tr>
+          <tr><td class="model">fable &middot; normal &middot; clean</td><td>+2.5</td><td>+4.5</td></tr>
+          <tr><td class="model">onyx &middot; 1.25x &middot; clean</td><td>+1.7</td><td>+1.7</td></tr>
+          <tr><td class="model">onyx &middot; normal &middot; 10 dB noise</td><td>+5.0</td><td>+0.0</td></tr>
+        </tbody>
+      </table>
+
+      <div class="findings">
+        <p><span class="n">1.</span> The tax lives in arithmetic: both models drop ~10 pp on spoken mental math &mdash; operands you can&rsquo;t re-read. Every other category taxes &le;6 pp, and Grok is slightly <i>better</i> at extracting numbers from speech than text (&minus;1.7 pp).</p>
+        <p><span class="n">2.</span> Latency profiles are opposites: GPT Realtime speaks first (0.53 s vs 1.22 s to first token) but Grok finishes first (1.43 s vs 2.70 s per turn) &mdash; its reason-while-speaking design in one row of numbers.</p>
+        <p><span class="n">3.</span> The models disagree on which voice is hard (Grok hears <i>fable</i> best; GPT&rsquo;s worst is <i>shimmer</i>), and 10 dB of noise costs Grok 5 pp, GPT nothing (n=60).</p>
+      </div>
+    </div>
+    <div>
+      <div class="fcap"><b>Figure 1.</b> Left: accuracy, text (light) vs audio (dark). Right: voice tax by category &mdash; bars below zero mean audio <i>beat</i> text.</div>
+      <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" width="100%">
+<line x1="30" y1="270" x2="330" y2="270" stroke="#1c1a17" stroke-width="1"/>
+<rect x="82" y="87" width="36" height="183" fill="#c99b7a"/><text x="100" y="81" text-anchor="middle" font-size="12" fill="#1c1a17" font-family="Georgia, serif">99.0</text>
+<rect x="126" y="142" width="36" height="128" fill="#9c6644"/><text x="144" y="136" text-anchor="middle" font-size="12" fill="#1c1a17" font-family="Georgia, serif">95.7</text>
+<rect x="204" y="112" width="36" height="158" fill="#a3b1c2"/><text x="222" y="106" text-anchor="middle" font-size="12" fill="#1c1a17" font-family="Georgia, serif">97.5</text>
+<rect x="248" y="178" width="36" height="92" fill="#5d7ba0"/><text x="266" y="172" text-anchor="middle" font-size="12" fill="#1c1a17" font-family="Georgia, serif">93.5</text>
+<text x="122" y="290" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">Grok TF 2.0</text>
+<text x="244" y="290" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">GPT Realtime</text>
+<text x="180" y="316" text-anchor="middle" font-size="14.5" fill="#1c1a17" font-family="Georgia, serif" font-style="italic">Accuracy</text>
+<text x="180" y="333" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">pass rate (%), clean/normal &middot; axis truncated at 88%</text>
+<line x1="386" y1="190" x2="698" y2="190" stroke="#1c1a17" stroke-width="1"/>
+<rect x="403" y="104" width="16" height="86" fill="#9c6644"/><text x="411" y="98" text-anchor="middle" font-size="10.5" fill="#1c1a17" font-family="Georgia, serif">10.8</text>
+<rect x="421" y="116" width="16" height="74" fill="#5d7ba0"/><text x="429" y="110" text-anchor="middle" font-size="10.5" fill="#5d7ba0" font-family="Georgia, serif"></text>
+<rect x="463" y="144" width="16" height="46" fill="#9c6644"/><text x="471" y="138" text-anchor="middle" font-size="10.5" fill="#1c1a17" font-family="Georgia, serif">5.8</text>
+<rect x="481" y="144" width="16" height="46" fill="#5d7ba0"/>
+<rect x="523" y="176" width="16" height="14" fill="#9c6644"/><text x="531" y="170" text-anchor="middle" font-size="10.5" fill="#1c1a17" font-family="Georgia, serif">1.7</text>
+<rect x="541" y="184" width="16" height="6" fill="#5d7ba0"/>
+<rect x="583" y="188" width="16" height="2" fill="#9c6644"/><text x="591" y="182" text-anchor="middle" font-size="10.5" fill="#1c1a17" font-family="Georgia, serif">0.0</text>
+<rect x="601" y="170" width="16" height="20" fill="#5d7ba0"/>
+<rect x="643" y="190" width="16" height="14" fill="#9c6644"/><text x="651" y="216" text-anchor="middle" font-size="10.5" fill="#6e2a1c" font-family="Georgia, serif">&minus;1.7</text>
+<rect x="661" y="176" width="16" height="14" fill="#5d7ba0"/>
+<text x="420" y="290" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">arithmetic</text>
+<text x="480" y="290" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">instruction</text>
+<text x="540" y="290" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">knowledge</text>
+<text x="600" y="290" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">multi-step</text>
+<text x="660" y="290" text-anchor="middle" font-size="11.5" fill="#6f6a62" font-family="Georgia, serif" font-style="italic">extraction</text>
+<text x="542" y="316" text-anchor="middle" font-size="14.5" fill="#1c1a17" font-family="Georgia, serif" font-style="italic">Voice tax by category</text>
+<text x="542" y="333" text-anchor="middle" font-size="12" fill="#6f6a62" font-family="Georgia, serif">text &minus; audio, percentage points</text>
+</svg>
+      <div class="legend">
+        <span><span class="sw" style="background:#9c6644"></span>Grok Voice Think Fast 2.0</span>
+        <span><span class="sw" style="background:#5d7ba0"></span>GPT Realtime</span>
+        <span class="note">Light shades = text mode. A bar below the axis means the model scored higher on audio than on text.</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>Method.</b> Voice Eval Suite v1: 200 original held-out questions (never from public benchmarks), TTS-rendered (tts-1: onyx, shimmer, fable), one attempt per unit, one modality-blind scorer (normalize &rarr; exact/alias &rarr; judge anthropic:claude-opus-5), text baselines through the same realtime sessions as audio. <b>Caveats:</b> single attempts (&plusmn;1 item &asymp; 0.5 pp); fast/noise on the n=60 seeded subset; first-token here is first <i>transcript</i> delta &mdash; not comparable to xAI&rsquo;s advertised time-to-first-audio.</div>
+    <div class="brand">vulcanbench &middot; open source &middot; July 31, 2026</div>
+  </div>
+</div>
+</body></html>

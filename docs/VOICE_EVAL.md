@@ -8,9 +8,12 @@ condition, over paired items.
 > **Framing note.** This suite measures a delta between input modalities for
 > the same model. It makes no claim about the validity of other benchmarks.
 
-> **No results yet.** This document describes the method. Result numbers
-> will appear in a published report after the first full run.
-> `<!-- PLACEHOLDER: link Report No. NN here after the first run -->`
+> **First results** (July 31, 2026, Report No. 11 — see
+> `docs/results/voice-v1-2026-07/`): Grok Voice Think Fast 2.0 scores
+> 99.0% text / 95.7% audio (voice tax **+3.3 pp**); GPT Realtime 97.5% /
+> 93.5% (**+4.0 pp**). Both models lose ~10 pp on spoken arithmetic; Grok
+> gains 1.7 pp on numeric extraction. 1,840 units, 0 errors, 0 STT
+> fallbacks. Gemini Live and Qwen3-Omni have not yet run.
 
 ## Question set
 
