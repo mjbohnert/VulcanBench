@@ -62,6 +62,11 @@ PRICES: dict[str, dict[str, float]] = {
     "qwen:qwen3-max": {"input": 1.20, "output": 6.00},
     "qwen:qwen3.5-plus": {"input": 0.40, "output": 2.40},
     "qwen:qwen-plus": {"input": 0.40, "output": 1.20},
+    # DeepSeek V4 public-beta list prices. A peak/off-peak policy (2x during
+    # Beijing peak hours) has been announced but is not yet in effect and is
+    # not modeled — override with VULCANBENCH_PRICING if/when it lands.
+    "deepseek:deepseek-v4-flash": {"input": 0.14, "output": 0.28},
+    "deepseek:deepseek-v4-pro": {"input": 0.435, "output": 0.87},
     # Free / offline.
     "mock:": {"input": 0.0, "output": 0.0},
 }

@@ -15,6 +15,7 @@ Providers implemented:
 - ``kimi:<model>``     Moonshot AI (Kimi) OpenAI-compatible Chat Completions API.
 - ``qwen:<model>``     Alibaba Cloud DashScope OpenAI-compatible Chat Completions
                        API (Qwen).
+- ``deepseek:<model>`` DeepSeek OpenAI-compatible Chat Completions API.
 
 Only the Python standard library is used for HTTP so the harness stays
 dependency-light; ``tenacity`` provides retry/backoff.
@@ -645,6 +646,63 @@ class QwenProvider(LLMProvider):
         return _chat_completions_complete(base, api_key, self.model, messages, tools, timeout)
 
 
+class DeepSeekProvider(LLMProvider):
+    """DeepSeek OpenAI-compatible Chat Completions API.
+
+    Uses ``/chat/completions`` on ``https://api.deepseek.com`` (override with
+    ``DEEPSEEK_BASE_URL``). ``low``/``medium``/``high`` effort maps to the
+    API's ``reasoning_effort`` field; ``extra-high`` is recorded as metadata
+    only (DeepSeek exposes no level above ``high`` today).
+    """
+
+    @property
+    def name(self) -> str:
+        return "deepseek"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        timeout = _http_timeout(timeout_s)
+        if timeout_s is not None:
+            return self._complete_once(messages, tools, timeout, effort)
+        return self._complete_with_retry(messages, tools, timeout, effort)
+
+    @_RETRY
+    def _complete_with_retry(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+        effort: str | None,
+    ) -> LLMResponse:
+        return self._complete_once(messages, tools, timeout, effort)
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+        effort: str | None,
+    ) -> LLMResponse:
+        api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
+            raise ProviderError("DEEPSEEK_API_KEY is not set")
+        base = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
+        return _chat_completions_complete(
+            base,
+            api_key,
+            self.model,
+            messages,
+            tools,
+            timeout,
+            extra_payload={"reasoning_effort": effort} if effort else None,
+        )
+
+
 def _loads_args(raw: Any) -> dict[str, Any]:
     if isinstance(raw, dict):
         return raw
@@ -872,6 +930,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "zai": ZaiProvider,
     "kimi": KimiProvider,
     "qwen": QwenProvider,
+    "deepseek": DeepSeekProvider,
     "mock": MockProvider,
 }
 

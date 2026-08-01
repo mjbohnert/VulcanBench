@@ -56,6 +56,29 @@ def test_qwen_effort_is_noop_metadata() -> None:
     }
 
 
+def test_deepseek_effort_maps_low_medium_high() -> None:
+    cfg = effort_config("deepseek", "high")
+    assert cfg is not None
+    assert cfg.as_summary() == {
+        "requested": "high",
+        "provider": "deepseek",
+        "provider_value": "high",
+        "supported": True,
+    }
+
+
+def test_deepseek_extra_high_is_noop_metadata() -> None:
+    # DeepSeek's reasoning_effort has no level above "high" today.
+    cfg = effort_config("deepseek", "extra-high")
+    assert cfg is not None
+    assert cfg.as_summary() == {
+        "requested": "extra-high",
+        "provider": "deepseek",
+        "provider_value": None,
+        "supported": False,
+    }
+
+
 def test_kimi_effort_below_max_is_noop_metadata() -> None:
     # Moonshot only ships reasoning_effort="max" today; other levels are
     # recorded but not sent.

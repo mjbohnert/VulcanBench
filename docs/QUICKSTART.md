@@ -55,6 +55,7 @@ export ANTHROPIC_API_KEY=sk-ant-...    # for anthropic:* models
 export ZAI_API_KEY=...                 # for zai:* models (GLM)
 export MOONSHOT_API_KEY=...            # for kimi:* models
 export DASHSCOPE_API_KEY=sk-...        # for qwen:* models (DashScope)
+export DEEPSEEK_API_KEY=sk-...         # for deepseek:* models
 ```
 
 **3. Start small and cheap** — one task, in Docker (the default), judges off,

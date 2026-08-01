@@ -32,6 +32,14 @@ _KIMI_EFFORT_VALUES = {
     "extra-high": "max",
 }
 
+# DeepSeek `reasoning_effort` (V4 API). Accepts low/medium/high; there is no
+# level above "high" today, so extra-high falls back to recorded-but-not-sent.
+_DEEPSEEK_EFFORT_VALUES = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+}
+
 
 class EffortNotSupportedError(ValueError):
     """Raised when a provider cannot run a requested effort level."""
@@ -103,6 +111,14 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
         return EffortConfig(
             requested=effort,
             provider="kimi",
+            provider_value=provider_value,
+            supported=provider_value is not None,
+        )
+    if provider_name == "deepseek":
+        provider_value = _DEEPSEEK_EFFORT_VALUES.get(effort)
+        return EffortConfig(
+            requested=effort,
+            provider="deepseek",
             provider_value=provider_value,
             supported=provider_value is not None,
         )
