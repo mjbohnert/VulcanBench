@@ -43,15 +43,15 @@ tbody tr.win td { font-weight: 700; }
   <div class="rule2"></div><div class="rule1"></div>
 
   <h1>Grok Voice Think Fast 2.0 <span class="eff">vs.</span> GPT Realtime <span class="eff">(the voice tax, measured)</span></h1>
-  <div class="authors">Two hundred held-out questions delivered twice &mdash; typed, and spoken via TTS under three voices, 1.25x speech, and 10 dB ambient noise &mdash; scored by one modality-blind scorer</div>
+  <div class="authors">Two hundred held-out questions, asked twice: typed, then spoken via TTS. One scorer for both modes.</div>
 
   <div class="abstract">
-  <b>Both flagship voice models lose real accuracy when the question is spoken instead of typed &mdash; but not much, and not evenly.</b>
-  Grok Voice Think Fast 2.0 leads on text (99.0%), on audio (95.7%), and pays the smaller tax (+3.3 vs +4.0 pp). The tax concentrates in spoken arithmetic (~10 pp for both models); on numeric extraction, Grok&rsquo;s goes negative.</div>
+  <b>Speaking the question costs both models accuracy, but not much.</b>
+  Grok leads on text, on audio, and pays the smaller tax. Spoken arithmetic drives the loss for both.</div>
 
   <div class="cols">
     <div>
-      <div class="tcap"><b>Table 1.</b> Text vs audio accuracy (clean audio, normal rate, paired items) and median audio-mode latency. Zero STT fallbacks: every answer carried the model&rsquo;s own transcript.</div>
+      <div class="tcap"><b>Table 1.</b> Accuracy and median audio-mode latency. Clean audio, normal rate, paired items.</div>
       <table>
         <thead><tr><th>Model</th><th>Text</th><th>Audio</th><th>Voice tax</th><th>First token</th><th>Turn total</th></tr></thead>
         <tbody>
@@ -60,7 +60,7 @@ tbody tr.win td { font-weight: 700; }
         </tbody>
       </table>
 
-      <div class="tcap" style="margin-top:13px"><b>Table 2.</b> Voice tax by audio condition (pp; text baseline on the same items). Fast and noise conditions: seeded n=60 subset.</div>
+      <div class="tcap" style="margin-top:13px"><b>Table 2.</b> Voice tax by audio condition, in points. Fast and noise rows: n=60 subset.</div>
       <table>
         <thead><tr><th>Condition</th><th>Grok TF 2.0</th><th>GPT Realtime</th></tr></thead>
         <tbody>
@@ -73,13 +73,13 @@ tbody tr.win td { font-weight: 700; }
       </table>
 
       <div class="findings">
-        <p><span class="n">1.</span> The tax lives in arithmetic: both models drop ~10 pp on spoken mental math &mdash; operands you can&rsquo;t re-read. Every other category taxes &le;6 pp, and Grok is slightly <i>better</i> at extracting numbers from speech than text (&minus;1.7 pp).</p>
-        <p><span class="n">2.</span> Latency profiles are opposites: GPT Realtime speaks first (0.53 s vs 1.22 s to first token) but Grok finishes first (1.43 s vs 2.70 s per turn) &mdash; its reason-while-speaking design in one row of numbers.</p>
-        <p><span class="n">3.</span> The models disagree on which voice is hard (Grok hears <i>fable</i> best; GPT&rsquo;s worst is <i>shimmer</i>), and 10 dB of noise costs Grok 5 pp, GPT nothing (n=60).</p>
+        <p><span class="n">1.</span> Arithmetic drives the tax: about 10 points for both models. On numeric extraction, Grok scores <i>higher</i> on audio than on text.</p>
+        <p><span class="n">2.</span> GPT Realtime speaks first (0.53 s to first token). Grok finishes first (1.43 s per turn).</p>
+        <p><span class="n">3.</span> The models disagree on which voice is hard. Noise costs Grok 5 points and GPT none.</p>
       </div>
     </div>
     <div>
-      <div class="fcap"><b>Figure 1.</b> Left: accuracy, text (light) vs audio (dark). Right: voice tax by category &mdash; bars below zero mean audio <i>beat</i> text.</div>
+      <div class="fcap"><b>Figure 1.</b> Accuracy (text light, audio dark) and voice tax by category. A bar below zero means audio beat text.</div>
       <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" width="100%">
 <line x1="30" y1="270" x2="330" y2="270" stroke="#1c1a17" stroke-width="1"/>
 <rect x="82" y="87" width="36" height="183" fill="#c99b7a"/><text x="100" y="81" text-anchor="middle" font-size="12" fill="#1c1a17" font-family="Georgia, serif">99.0</text>
@@ -119,7 +119,7 @@ tbody tr.win td { font-weight: 700; }
   </div>
 
   <div class="foot">
-    <div><b>Method.</b> Voice Eval Suite v1: 200 original held-out questions (never from public benchmarks), TTS-rendered (tts-1: onyx, shimmer, fable), one attempt per unit, one modality-blind scorer (normalize &rarr; exact/alias &rarr; judge anthropic:claude-opus-5), text baselines through the same realtime sessions as audio. <b>Caveats:</b> single attempts (&plusmn;1 item &asymp; 0.5 pp); fast/noise on the n=60 seeded subset; first-token here is first <i>transcript</i> delta &mdash; not comparable to xAI&rsquo;s advertised time-to-first-audio.</div>
+    <div><b>Method.</b> Voice Eval Suite v1: 200 original held-out questions, TTS-rendered (tts-1), one attempt per unit, one scorer for both modes, text baselines through the same realtime sessions as audio. <b>Caveats:</b> single attempts; fast/noise on an n=60 subset; first-token is first transcript delta, not comparable to xAI&rsquo;s advertised time-to-first-audio.</div>
     <div class="brand">vulcanbench &middot; open source &middot; July 31, 2026</div>
   </div>
 </div>
