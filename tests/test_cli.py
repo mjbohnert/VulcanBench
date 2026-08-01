@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import docker
@@ -21,6 +24,27 @@ def test_version() -> None:
     assert result.exit_code == 0
     assert __version__ == "0.7.0"
     assert __version__ in result.output
+
+
+def test_cli_import_loads_dotenv(tmp_path: Path) -> None:
+    # load_dotenv runs at harness.cli import time, so exercise it in a fresh
+    # interpreter with a .env in cwd; an already-exported variable must win.
+    (tmp_path / ".env").write_text(
+        "VULCANBENCH_DOTENV_PROBE=from_file\nVULCANBENCH_DOTENV_SHELL=from_file\n"
+    )
+    code = (
+        "import os; import harness.cli; "
+        "print(os.environ['VULCANBENCH_DOTENV_PROBE'], os.environ['VULCANBENCH_DOTENV_SHELL'])"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=tmp_path,
+        env={**os.environ, "VULCANBENCH_DOTENV_SHELL": "from_shell"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert out.stdout.split() == ["from_file", "from_shell"]
 
 
 def test_help() -> None:

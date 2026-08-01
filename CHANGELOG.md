@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `reasoning_effort` field; `extra-high` is recorded as metadata only. Built-in pricing
   covers `deepseek-v4-flash` and `deepseek-v4-pro` (public-beta list rates; the announced
   peak/off-peak 2x policy is not yet in effect and is not modeled).
+- **CLI loads `./.env`**: the `vulcanbench` CLI now calls `load_dotenv(override=False)` at
+  import, so provider keys and harness settings in `.env` (see `.env.example`) are picked up
+  without exporting them; variables already set in the shell take precedence.
 
 - **Subscription-billed runs via vendor agent CLIs** (`claude-code:<model>` specs): the task is
   handed to Claude Code headless (`claude -p --output-format stream-json`) in the prepared

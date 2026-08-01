@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
@@ -32,6 +33,10 @@ from harness.sandbox.docker_executor import SandboxError
 from harness.suite import SUITE_ALIASES, load_suite, run_suite
 from harness.tasks import list_task_ids
 from harness.validate import main as validate_main
+
+# Load provider keys and harness settings from ./.env (see .env.example).
+# override=False: variables already exported in the shell win over the file.
+load_dotenv(override=False)
 
 app = typer.Typer(
     name="vulcanbench",
