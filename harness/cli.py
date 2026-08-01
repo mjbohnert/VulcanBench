@@ -35,14 +35,10 @@ from harness.tasks import list_task_ids
 from harness.validate import main as validate_main
 from harness.voice.cli import voice_app
 
-# Provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...) are read straight from
-# os.environ, so load the nearest .env first. Real environment variables win:
-# load_dotenv does not override anything already set in the shell.
+# Provider keys and harness settings are read straight from os.environ, so
+# load the nearest .env first (see .env.example). Real environment variables
+# win: load_dotenv does not override anything already set in the shell.
 load_dotenv()
-
-# Load provider keys and harness settings from ./.env (see .env.example).
-# override=False: variables already exported in the shell win over the file.
-load_dotenv(override=False)
 
 app = typer.Typer(
     name="vulcanbench",
