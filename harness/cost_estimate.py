@@ -35,6 +35,7 @@ _DEFAULT_PER_RUN: dict[str, float] = {
     "zai:": 0.055,
     "kimi:": 0.055,
     "qwen:": 0.03,
+    "deepseek:": 0.02,
 }
 _DEFAULT_FALLBACK = 0.08
 
@@ -44,6 +45,7 @@ _PROVIDER_ENV = {
     "zai": "ZAI_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
 }
 
 _PROVIDER_LABEL = {
@@ -52,6 +54,7 @@ _PROVIDER_LABEL = {
     "zai": "Z.ai (Zhipu)",
     "kimi": "Moonshot (Kimi)",
     "qwen": "Qwen (DashScope)",
+    "deepseek": "DeepSeek",
 }
 
 _KNOWN_TASK_SOURCES = frozenset({"exact", "prior_exact"})

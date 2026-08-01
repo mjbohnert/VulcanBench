@@ -40,6 +40,10 @@ from harness.voice.cli import voice_app
 # load_dotenv does not override anything already set in the shell.
 load_dotenv()
 
+# Load provider keys and harness settings from ./.env (see .env.example).
+# override=False: variables already exported in the shell win over the file.
+load_dotenv(override=False)
+
 app = typer.Typer(
     name="vulcanbench",
     help="VulcanBench v1 - reproducible LLM benchmarking harness for SWE tasks",

@@ -1057,6 +1057,7 @@ _JUDGE_KEY_ENV = {
     "zai": "ZAI_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
 }
 
 

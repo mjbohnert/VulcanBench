@@ -61,6 +61,12 @@ def test_qwen_plus_priced() -> None:
     assert pricing.cost_usd("qwen:qwen3.7-plus", 1_000_000, 1_000_000) == 2.0
 
 
+def test_deepseek_v4_flash_priced() -> None:
+    # Public-beta list: input 0.14/1M, output 0.28/1M -> 1M+1M = 0.42.
+    assert pricing.is_priced("deepseek:deepseek-v4-flash")
+    assert pricing.cost_usd("deepseek:deepseek-v4-flash", 1_000_000, 1_000_000) == 0.42
+
+
 def test_anthropic_frontier_models_priced() -> None:
     # Sonnet 5 standard pricing: input 3.00/1M, output 15.00/1M -> 1M+1M = 18.00.
     assert pricing.is_priced("anthropic:claude-sonnet-5")
