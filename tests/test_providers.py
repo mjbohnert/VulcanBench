@@ -703,7 +703,7 @@ def test_deepseek_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_deepseek_sends_reasoning_effort_when_given(monkeypatch: pytest.MonkeyPatch) -> None:
     # The loop only passes effort when effort_config says supported, and it
-    # passes the provider value ("low"/"medium"/"high"); sent verbatim.
+    # passes the provider value ("low"/"high"/"max"); sent verbatim.
     monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-test")
     seen: dict[str, object] = {}
 

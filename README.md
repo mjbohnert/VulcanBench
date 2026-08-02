@@ -160,8 +160,10 @@ Specify a model as `provider:model`:
   international endpoint; set `DASHSCOPE_BASE_URL` for China or another region.
   Reasoning effort is not supported; `--effort` is recorded as metadata only.
 - `deepseek:<model>` — DeepSeek OpenAI-compatible Chat Completions API. Needs
-  `DEEPSEEK_API_KEY`. `low`/`medium`/`high` map to DeepSeek's
-  `reasoning_effort` field; `extra-high` is recorded as metadata only.
+  `DEEPSEEK_API_KEY`. `low`/`high` map to DeepSeek's `reasoning_effort` field
+  and `extra-high` maps to its `max`; `medium` is recorded as metadata only
+  (DeepSeek's enum is low/high/max — it silently coerces `medium` to `high`,
+  so the harness never sends it).
 
 `--effort` accepts `low`, `medium`, `high`, or `extra-high`. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the

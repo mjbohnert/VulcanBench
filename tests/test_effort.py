@@ -56,23 +56,26 @@ def test_qwen_effort_is_noop_metadata() -> None:
     }
 
 
-def test_deepseek_effort_maps_low_medium_high() -> None:
-    cfg = effort_config("deepseek", "high")
-    assert cfg is not None
-    assert cfg.as_summary() == {
-        "requested": "high",
-        "provider": "deepseek",
-        "provider_value": "high",
-        "supported": True,
-    }
+def test_deepseek_effort_maps_low_high_and_max() -> None:
+    for requested, sent in (("low", "low"), ("high", "high"), ("extra-high", "max")):
+        cfg = effort_config("deepseek", requested)
+        assert cfg is not None
+        assert cfg.as_summary() == {
+            "requested": requested,
+            "provider": "deepseek",
+            "provider_value": sent,
+            "supported": True,
+        }
 
 
-def test_deepseek_extra_high_is_noop_metadata() -> None:
-    # DeepSeek's reasoning_effort has no level above "high" today.
-    cfg = effort_config("deepseek", "extra-high")
+def test_deepseek_medium_is_noop_metadata() -> None:
+    # DeepSeek's enum is low/high/max: "medium" does not exist and the API
+    # silently coerces it to "high", so the harness must not send it (the run
+    # then executes at the default and the metadata says supported=False).
+    cfg = effort_config("deepseek", "medium")
     assert cfg is not None
     assert cfg.as_summary() == {
-        "requested": "extra-high",
+        "requested": "medium",
         "provider": "deepseek",
         "provider_value": None,
         "supported": False,

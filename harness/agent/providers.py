@@ -678,9 +678,11 @@ class DeepSeekProvider(LLMProvider):
     """DeepSeek OpenAI-compatible Chat Completions API.
 
     Uses ``/chat/completions`` on ``https://api.deepseek.com`` (override with
-    ``DEEPSEEK_BASE_URL``). ``low``/``medium``/``high`` effort maps to the
-    API's ``reasoning_effort`` field; ``extra-high`` is recorded as metadata
-    only (DeepSeek exposes no level above ``high`` today).
+    ``DEEPSEEK_BASE_URL``). ``low``/``high`` effort maps straight to the API's
+    ``reasoning_effort`` field and ``extra-high`` maps to ``max`` (DeepSeek's
+    documented enum is low/high/max, default high). ``medium`` is recorded as
+    metadata only — DeepSeek has no medium level and silently coerces it to
+    ``high``, so the harness never sends it.
     """
 
     @property
