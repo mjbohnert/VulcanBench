@@ -81,7 +81,7 @@ rows.sort(key=lambda r: (-r["pass1"], r["cost"]))
 
 fig = plt.figure(figsize=(16, 21), facecolor=SURFACE)
 gs = fig.add_gridspec(
-    3, 1, height_ratios=[1.1, 0.72, 1.0], hspace=0.62, left=0.065, right=0.955,
+    3, 1, height_ratios=[1.1, 0.72, 1.0], hspace=0.78, left=0.065, right=0.955,
     top=0.884, bottom=0.062
 )
 
@@ -169,13 +169,13 @@ labels1 = []
 for r in rows:
     disp, _ = NAME[r["model"]]
     partial = "*" if r["n_tasks"] < 23 else ""
-    labels1.append(f"{disp}\n({eff_display(r['model'], r['effort'])}){partial}\n"
-                   f"${r['cost']:.2f} · n={r['n_runs']}")
+    labels1.append(f"{disp} ({eff_display(r['model'], r['effort'])}){partial}"
+                   f"  ·  ${r['cost']:.2f}  ·  n={r['n_runs']}")
 draw_bars(ax1, rows, [r["pass1"] * 100 for r in rows],
           lambda v: f"{v:.0f}", 108, 20, "pass@1 (%)",
           errs=[(r.get("se") or 0) * 100 for r in rows])
-ax1.set_xticklabels(labels1, rotation=55, ha="right", fontsize=9.5, color=INK2,
-                    family=SANS, linespacing=1.45)
+ax1.set_xticklabels(labels1, rotation=42, ha="right", rotation_mode="anchor",
+                    fontsize=9.5, color=INK2, family=SANS)
 
 seen = dict.fromkeys(NAME[r["model"]][1] for r in rows)
 handles = [plt.Rectangle((0, 0), 1, 1, color=LAB_COLOR[lab]) for lab in seen]
@@ -194,12 +194,12 @@ labels2 = []
 for r in trows:
     disp, _ = NAME[r["model"]]
     partial = "*" if r["n_tasks"] < 23 else ""
-    labels2.append(f"{disp}\n({eff_display(r['model'], r['effort'])}){partial}")
+    labels2.append(f"{disp} ({eff_display(r['model'], r['effort'])}){partial}")
 tmax = max(tvals) * 1.22
 draw_bars(ax2, trows, tvals,
           lambda v: f"{v:.1f}m" if v < 10 else f"{v:.0f}m", tmax, 5, "min / task")
-ax2.set_xticklabels(labels2, rotation=55, ha="right", fontsize=9.5, color=INK2,
-                    family=SANS, linespacing=1.45)
+ax2.set_xticklabels(labels2, rotation=42, ha="right", rotation_mode="anchor",
+                    fontsize=9.5, color=INK2, family=SANS)
 ax2.set_title("Speed — avg wall-clock minutes per task, fastest first",
               loc="left", fontsize=16, color=INK, pad=16, family=BRAND_MED)
 
