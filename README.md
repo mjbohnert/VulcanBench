@@ -158,7 +158,10 @@ Specify a model as `provider:model`:
 - `qwen:<model>` — Alibaba Cloud DashScope (Qwen) OpenAI-compatible Chat
   Completions API. Needs `DASHSCOPE_API_KEY`. Default base URL is the
   international endpoint; set `DASHSCOPE_BASE_URL` for China or another region.
-  Reasoning effort is not supported; `--effort` is recorded as metadata only.
+  `low`/`medium` map to Qwen's `reasoning_effort` and `extra-high` maps to its
+  `xhigh` (Qwen3.8+; the documented enum is low/medium/xhigh, default xhigh).
+  `high` is recorded as metadata only — Qwen has no such level, and an unset
+  request runs at the xhigh default. Pre-3.8 models may ignore the field.
 - `deepseek:<model>` — DeepSeek OpenAI-compatible Chat Completions API. Needs
   `DEEPSEEK_API_KEY`. `low`/`high` map to DeepSeek's `reasoning_effort` field
   and `extra-high` maps to its `max`; `medium` is recorded as metadata only

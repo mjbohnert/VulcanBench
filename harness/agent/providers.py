@@ -626,10 +626,11 @@ class QwenProvider(LLMProvider):
     Uses ``/compatible-mode/v1/chat/completions``. Default base URL is the
     international endpoint; set ``DASHSCOPE_BASE_URL`` for China
     (``https://dashscope.aliyuncs.com/compatible-mode/v1``) or another region.
-    Reasoning effort is not supported on this path (``reasoning_effort`` is
-    silently ignored by DashScope; Qwen's ``enable_thinking`` needs streaming
-    on some models, which this harness does not use yet) — ``--effort`` is
-    recorded as metadata only.
+    Effort maps to the API's ``reasoning_effort`` field, supported on
+    non-streaming calls since the Qwen3.8 series. The documented enum is
+    low/medium/xhigh (default xhigh) — there is no ``high``, so ``--effort
+    high`` is recorded as metadata only and the run executes at the model
+    default. Pre-3.8 models may ignore the field.
     """
 
     @property
@@ -643,11 +644,10 @@ class QwenProvider(LLMProvider):
         timeout_s: float | None = None,
         effort: str | None = None,
     ) -> LLMResponse:
-        del effort
         timeout = _http_timeout(timeout_s)
         if timeout_s is not None:
-            return self._complete_once(messages, tools, timeout)
-        return self._complete_with_retry(messages, tools, timeout)
+            return self._complete_once(messages, tools, timeout, effort)
+        return self._complete_with_retry(messages, tools, timeout, effort)
 
     @_RETRY
     def _complete_with_retry(
@@ -655,14 +655,16 @@ class QwenProvider(LLMProvider):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         timeout: float,
+        effort: str | None,
     ) -> LLMResponse:
-        return self._complete_once(messages, tools, timeout)
+        return self._complete_once(messages, tools, timeout, effort)
 
     def _complete_once(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         timeout: float,
+        effort: str | None,
     ) -> LLMResponse:
         api_key = os.environ.get("DASHSCOPE_API_KEY")
         if not api_key:
@@ -671,7 +673,15 @@ class QwenProvider(LLMProvider):
             "DASHSCOPE_BASE_URL",
             "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         ).rstrip("/")
-        return _chat_completions_complete(base, api_key, self.model, messages, tools, timeout)
+        return _chat_completions_complete(
+            base,
+            api_key,
+            self.model,
+            messages,
+            tools,
+            timeout,
+            extra_payload={"reasoning_effort": effort} if effort else None,
+        )
 
 
 class DeepSeekProvider(LLMProvider):

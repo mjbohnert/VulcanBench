@@ -56,6 +56,7 @@ PRICES: dict[str, dict[str, float]] = {
     # DashScope international list prices (≤256K / ≤32K tier as applicable).
     # Long-context tiers and promo discounts are not modeled — override with
     # VULCANBENCH_PRICING for exact numbers.
+    "qwen:qwen3.8-max": {"input": 2.00, "output": 6.00},
     "qwen:qwen3.7-plus": {"input": 0.40, "output": 1.60},
     "qwen:qwen3.7-max": {"input": 2.50, "output": 7.50},
     "qwen:qwen3.6-flash": {"input": 0.25, "output": 1.50},
