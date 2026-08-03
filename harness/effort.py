@@ -32,12 +32,16 @@ _KIMI_EFFORT_VALUES = {
     "extra-high": "max",
 }
 
-# DeepSeek `reasoning_effort` (V4 API). Accepts low/medium/high; there is no
-# level above "high" today, so extra-high falls back to recorded-but-not-sent.
+# DeepSeek `reasoning_effort` (V4 API). The documented enum is low/high/max
+# (default high). "medium" does not exist — the API silently coerces it to
+# "high" — so medium is absent from this map and falls back to
+# recorded-but-not-sent (the run then executes at the default, which is also
+# high; the metadata honestly says supported=False rather than pretending a
+# medium level ran).
 _DEEPSEEK_EFFORT_VALUES = {
     "low": "low",
-    "medium": "medium",
     "high": "high",
+    "extra-high": "max",
 }
 
 
