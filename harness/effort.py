@@ -44,6 +44,23 @@ _DEEPSEEK_EFFORT_VALUES = {
     "extra-high": "max",
 }
 
+# Qwen `reasoning_effort` (DashScope compatible-mode, Qwen3.8+). The documented
+# enum is low/medium/xhigh with xhigh as the DEFAULT — there is no "high", so
+# "high" is absent from this map and falls back to recorded-but-not-sent (the
+# run then executes at the model default, which is xhigh; the metadata says
+# supported=False rather than pretending a distinct high level ran).
+_QWEN_EFFORT_VALUES = {
+    "low": "low",
+    "medium": "medium",
+    "extra-high": "xhigh",
+}
+
+_PROVIDER_EFFORT_MAPS = {
+    "kimi": _KIMI_EFFORT_VALUES,
+    "deepseek": _DEEPSEEK_EFFORT_VALUES,
+    "qwen": _QWEN_EFFORT_VALUES,
+}
+
 
 class EffortNotSupportedError(ValueError):
     """Raised when a provider cannot run a requested effort level."""
@@ -107,28 +124,19 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
             provider_value=_OPENAI_EFFORT_VALUES[effort],
             supported=True,
         )
-    # kimi: K3 always thinks; its reasoning_effort currently accepts only "max"
-    # (Moonshot has announced more levels — extend this map when they ship).
-    # Other levels are recorded on the run but not sent.
-    if provider_name == "kimi":
-        provider_value = _KIMI_EFFORT_VALUES.get(effort)
+    # Map-driven providers: each API's documented reasoning_effort enum lives
+    # in its map above; levels absent from a map are recorded-but-not-sent.
+    if provider_name in _PROVIDER_EFFORT_MAPS:
+        provider_value = _PROVIDER_EFFORT_MAPS[provider_name].get(effort)
         return EffortConfig(
             requested=effort,
-            provider="kimi",
-            provider_value=provider_value,
-            supported=provider_value is not None,
-        )
-    if provider_name == "deepseek":
-        provider_value = _DEEPSEEK_EFFORT_VALUES.get(effort)
-        return EffortConfig(
-            requested=effort,
-            provider="deepseek",
+            provider=provider_name,
             provider_value=provider_value,
             supported=provider_value is not None,
         )
     # claude-code: headless Claude Code has no per-request effort control;
     # the requested level is recorded on the run but not sent.
-    if provider_name in {"mock", "zai", "qwen", "claude-code"}:
+    if provider_name in {"mock", "zai", "claude-code"}:
         return EffortConfig(
             requested=effort,
             provider=provider_name,

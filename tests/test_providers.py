@@ -628,7 +628,9 @@ def test_qwen_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
         QwenProvider("qwen3.7-plus").complete([], [])
 
 
-def test_qwen_ignores_effort(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_qwen_sends_reasoning_effort_when_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The loop only passes effort when effort_config says supported, and it
+    # passes the provider value ("low"/"medium"/"xhigh"); sent verbatim.
     monkeypatch.setenv("DASHSCOPE_API_KEY", "qwen-test")
     seen: dict[str, object] = {}
 
@@ -637,10 +639,11 @@ def test_qwen_ignores_effort(monkeypatch: pytest.MonkeyPatch) -> None:
         return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
 
     monkeypatch.setattr(P, "_http_post_json", fake_post)
-    resp = QwenProvider("qwen3.7-plus").complete([], [], effort="high")
-    assert "enable_thinking" not in seen["payload"]  # type: ignore[operator]
+    QwenProvider("qwen3.8-max").complete([], [], effort="xhigh")
+    assert seen["payload"]["reasoning_effort"] == "xhigh"  # type: ignore[index]
+    QwenProvider("qwen3.8-max").complete([], [])
     assert "reasoning_effort" not in seen["payload"]  # type: ignore[operator]
-    assert resp.content == "ok"
+    assert "enable_thinking" not in seen["payload"]  # type: ignore[operator]
 
 
 def test_deepseek_complete_parses_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:

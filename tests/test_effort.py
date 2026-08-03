@@ -45,7 +45,22 @@ def test_zai_effort_is_noop_metadata() -> None:
     }
 
 
-def test_qwen_effort_is_noop_metadata() -> None:
+def test_qwen_effort_maps_low_medium_and_xhigh() -> None:
+    for requested, sent in (("low", "low"), ("medium", "medium"), ("extra-high", "xhigh")):
+        cfg = effort_config("qwen", requested)
+        assert cfg is not None
+        assert cfg.as_summary() == {
+            "requested": requested,
+            "provider": "qwen",
+            "provider_value": sent,
+            "supported": True,
+        }
+
+
+def test_qwen_high_is_noop_metadata() -> None:
+    # Qwen's enum is low/medium/xhigh with xhigh as the default: "high" does
+    # not exist, so it must never be sent (the run executes at the default and
+    # the metadata says supported=False).
     cfg = effort_config("qwen", "high")
     assert cfg is not None
     assert cfg.as_summary() == {
