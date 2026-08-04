@@ -89,7 +89,7 @@ with open(HERE / "v3_rankings.json") as f:
 rows = [r for r in rows if r["model"] != "anthropic:claude-opus-4-8"]
 rows.sort(key=lambda r: (-r["pass1"], r["cost"]))
 
-fig = plt.figure(figsize=(16, 21), facecolor=SURFACE)
+fig = plt.figure(figsize=(16, 22.5), facecolor=SURFACE)
 gs = fig.add_gridspec(
     3,
     1,
@@ -98,7 +98,7 @@ gs = fig.add_gridspec(
     left=0.065,
     right=0.955,
     top=0.884,
-    bottom=0.062,
+    bottom=0.108,
 )
 
 LOGOS = {lab: plt.imread(str(HERE / f"logos/{lab}.png")) for lab in LAB_COLOR}
@@ -336,9 +336,11 @@ CARD_EDGE = "#e8e6df"
 # Cards share one y-scale so their shapes stay comparable; the floor follows
 # the lowest point (with room for its whisker) instead of clipping it.
 _card_lows = [(e["pass1"] - (e.get("se") or 0)) * 100 for m in swept for e in by_model[m].values()]
+_card_highs = [(e["pass1"] + (e.get("se") or 0)) * 100 for m in swept for e in by_model[m].values()]
 Y0 = min(73, 5 * math.floor((min(_card_lows) - 2) / 5))
-Y1 = 97
-_card_ticks = list(range(int(math.ceil(Y0 / 5) * 5), 96, 5))
+# Keep the top point under ~85% of the card so the header row stays clear.
+Y1 = max(97, Y0 + (max(_card_highs) - Y0) / 0.84)
+_card_ticks = list(range(int(math.ceil(Y0 / 5) * 5), int(max(_card_highs)) + 1, 5))
 first_card = None
 for k, model in enumerate(swept):
     axc = fig.add_subplot(gs2[k])
@@ -494,7 +496,7 @@ fig.text(
 # ---------------- Footnote ----------------
 fig.text(
     0.065,
-    0.044,
+    0.062,
     "* partial coverage — Claude Fable 5 excludes tasks refused by safety filters "
     "(low 19/23, medium 21/23, high 20/23); Kimi K3 19/23; Claude Haiku 4.5 21/23. "
     "Claude Opus 4.8 omitted (5/23 tasks).\n"
@@ -503,8 +505,10 @@ fig.text(
     "Haiku 4.5 (default) and Kimi K3 (extra-high) have no effort sweep.\n"
     "DeepSeek's effort scale is low/high/max per its API; an accidental duplicate "
     "high run (its API coerces 'medium' to high) is excluded. Qwen's scale is "
-    "low/medium/xhigh (no 'high'). DeepSeek, Grok 4.5, and Qwen3.8-Max columns "
-    "aggregate 3 runs/task (repeat sweeps).\n"
+    "low/medium/xhigh (no 'high').\n"
+    "DeepSeek, Grok 4.5, and Qwen3.8-Max columns aggregate 3 runs/task (repeat "
+    "sweeps); 5 Qwen xhigh runs on 3 tasks were lost to 600s API read timeouts "
+    "and are excluded rather than scored 0.\n"
     "Whiskers are ±1 stderr — single-pass columns (n=23 runs or fewer) carry wider "
     "uncertainty than repeat-swept ones (n=52-71). Cost = total spend at list API "
     "prices across a column's runs. Time = sandbox wall-clock. "
