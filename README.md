@@ -168,11 +168,13 @@ Specify a model as `provider:model`:
   (DeepSeek's enum is low/high/max — it silently coerces `medium` to `high`,
   so the harness never sends it).
 
-`--effort` accepts `low`, `medium`, `high`, or `extra-high`. OpenAI runs map it
+`--effort` accepts `low`, `medium`, `high`, `extra-high`, or `max`. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the
 Messages API `output_config.effort` field. `extra-high` maps to `xhigh` on both
 providers and is opt-in for sweeps because support is model-dependent (e.g.
-Claude Opus 4.7+). Mock, Z.ai, and Qwen runs accept the field as no-op metadata.
+Claude Opus 4.7+). `max` is a distinct OpenAI-only level and is also opt-in;
+other providers record it as unsupported metadata rather than sending it.
+Mock, Z.ai, and Qwen runs accept the field as no-op metadata.
 Effort labels are each provider's own scale — a cross-provider comparison at the
 same label compares each model at its own setting, not a calibrated equivalence.
 

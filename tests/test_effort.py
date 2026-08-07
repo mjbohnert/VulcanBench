@@ -23,6 +23,17 @@ def test_openai_extra_high_maps_to_xhigh() -> None:
     }
 
 
+def test_openai_max_maps_to_distinct_max_value() -> None:
+    cfg = effort_config("openai", "max")
+    assert cfg is not None
+    assert cfg.as_summary() == {
+        "requested": "max",
+        "provider": "openai",
+        "provider_value": "max",
+        "supported": True,
+    }
+
+
 def test_mock_effort_is_noop_metadata() -> None:
     cfg = effort_config("mock", "low")
     assert cfg is not None
@@ -133,6 +144,17 @@ def test_anthropic_effort_maps_to_output_config_values() -> None:
     xhigh = effort_config("anthropic", "extra-high")
     assert xhigh is not None
     assert xhigh.provider_value == "xhigh"
+
+
+def test_anthropic_max_is_noop_metadata() -> None:
+    cfg = effort_config("anthropic", "max")
+    assert cfg is not None
+    assert cfg.as_summary() == {
+        "requested": "max",
+        "provider": "anthropic",
+        "provider_value": None,
+        "supported": False,
+    }
 
 
 def test_unknown_provider_effort_rejected() -> None:

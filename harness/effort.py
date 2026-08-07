@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-EFFORT_LEVELS = frozenset({"low", "medium", "high", "extra-high"})
+EFFORT_LEVELS = frozenset({"low", "medium", "high", "extra-high", "max"})
 DEFAULT_SWEEP_EFFORTS = ("low", "medium", "high")
 
 _OPENAI_EFFORT_VALUES = {
@@ -13,6 +13,7 @@ _OPENAI_EFFORT_VALUES = {
     "medium": "medium",
     "high": "high",
     "extra-high": "xhigh",
+    "max": "max",
 }
 
 # Anthropic Messages API `output_config.effort`. `xhigh` is model-dependent
@@ -144,10 +145,11 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
             supported=False,
         )
     if provider_name == "anthropic":
+        provider_value = _ANTHROPIC_EFFORT_VALUES.get(effort)
         return EffortConfig(
             requested=effort,
             provider="anthropic",
-            provider_value=_ANTHROPIC_EFFORT_VALUES[effort],
-            supported=True,
+            provider_value=provider_value,
+            supported=provider_value is not None,
         )
     raise EffortNotSupportedError(f"reasoning effort is not supported for provider {provider!r}")

@@ -259,6 +259,27 @@ def test_openai_effort_uses_responses_payload(monkeypatch: pytest.MonkeyPatch) -
     assert resp.usage.total == 14
 
 
+def test_openai_max_effort_uses_distinct_responses_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen["payload"] = payload
+        return {
+            "output": [{"type": "message", "content": [{"type": "output_text", "text": "ok"}]}],
+            "usage": {},
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    OpenAIProvider("gpt-5.6-terra").complete([], [], effort="max")
+
+    payload = seen["payload"]
+    assert isinstance(payload, dict)
+    assert payload["reasoning"] == {"effort": "max"}
+
+
 def test_openai_responses_discounts_cached_prompt_tokens(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
