@@ -167,6 +167,13 @@ Specify a model as `provider:model`:
   and `extra-high` maps to its `max`; `medium` is recorded as metadata only
   (DeepSeek's enum is low/high/max — it silently coerces `medium` to `high`,
   so the harness never sends it).
+- `meta:<model>` — Meta Model API Responses endpoint for Muse Spark. Needs
+  `MODEL_API_KEY`; set `META_BASE_URL` to override the default
+  `https://api.meta.ai/v1`. `low`/`medium`/`high` map directly and
+  `extra-high` maps to `xhigh`. The direct API request runs host-side while
+  model-authored tools and hidden verification remain in Docker, avoiding the
+  Muse Code CLI's container sign-in path. Built-in pricing covers both
+  `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
 
 `--effort` accepts `low`, `medium`, `high`, `extra-high`, or `max`. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the

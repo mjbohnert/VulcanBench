@@ -56,10 +56,20 @@ _QWEN_EFFORT_VALUES = {
     "extra-high": "xhigh",
 }
 
+# Meta Model API `reasoning.effort` values for Muse Spark.  Meta also supports
+# `minimal`, which is outside VulcanBench's normalized cross-provider scale.
+_META_EFFORT_VALUES = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "extra-high": "xhigh",
+}
+
 _PROVIDER_EFFORT_MAPS = {
     "kimi": _KIMI_EFFORT_VALUES,
     "deepseek": _DEEPSEEK_EFFORT_VALUES,
     "qwen": _QWEN_EFFORT_VALUES,
+    "meta": _META_EFFORT_VALUES,
 }
 
 
