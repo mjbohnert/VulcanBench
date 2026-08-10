@@ -34,6 +34,18 @@ def summary_to_row(s: dict[str, Any], fallback_run_id: str = "") -> dict[str, An
     scores = s.get("scores", {})
     manifest_task = (s.get("manifest") or {}).get("task", {})
     effort = s.get("effort")
+    cli_agent = s.get("cli_agent") or {}
+    economics = s.get("economics") or {}
+    execution_harness = cli_agent.get("harness") or "vulcan"
+    track = "subscription" if cli_agent else "api"
+    legacy_cost = s.get("cost_usd")
+    marginal_cash = economics.get("marginal_cash_usd")
+    api_equivalent = economics.get("api_equivalent_cost_usd")
+    if not economics and not cli_agent:
+        marginal_cash = legacy_cost
+        api_equivalent = legacy_cost
+    elif not economics and cli_agent:
+        api_equivalent = legacy_cost
     return {
         "run_id": s.get("run_id", fallback_run_id),
         "task_id": s.get("task_id"),
@@ -47,6 +59,17 @@ def summary_to_row(s: dict[str, Any], fallback_run_id: str = "") -> dict[str, An
         "steps": s.get("steps"),
         "total_tokens": s.get("total_tokens"),
         "cost_usd": s.get("cost_usd"),
+        "execution_harness": execution_harness,
+        "track": track,
+        "access_mode": economics.get("billing_mode")
+        or ("api-metered" if not cli_agent else "subscription-included"),
+        "cost_basis": economics.get("cost_basis"),
+        "marginal_cash_usd": marginal_cash,
+        "api_equivalent_cost_usd": api_equivalent,
+        "allocated_plan_cost_usd": economics.get("allocated_plan_cost_usd"),
+        "plan_name": economics.get("plan_name") or cli_agent.get("plan_name"),
+        "reported_model": cli_agent.get("reported_model"),
+        "harness_version": cli_agent.get("harness_version"),
         "duration_s": s.get("duration_s"),
         "suite": s.get("suite"),
         "suite_id": s.get("suite_id"),
@@ -177,10 +200,24 @@ def aggregate_by_model(
         n_runs = len(model_rows)
         n_tasks = len(by_task)
         costs = [r["cost_usd"] for r in model_rows if r.get("cost_usd") is not None]
+        marginal_costs = [
+            r["marginal_cash_usd"] for r in model_rows if r.get("marginal_cash_usd") is not None
+        ]
+        api_equivalent_costs = [
+            r["api_equivalent_cost_usd"]
+            for r in model_rows
+            if r.get("api_equivalent_cost_usd") is not None
+        ]
         durations = [r["duration_s"] for r in model_rows if r.get("duration_s") is not None]
+        harnesses = {str(r.get("execution_harness") or "vulcan") for r in model_rows}
+        tracks = {str(r.get("track") or "api") for r in model_rows}
+        access_modes = {str(r.get("access_mode") or "unknown") for r in model_rows}
 
         agg: dict[str, Any] = {
             "model": model,
+            "execution_harness": next(iter(harnesses)) if len(harnesses) == 1 else "mixed",
+            "track": next(iter(tracks)) if len(tracks) == 1 else "mixed",
+            "access_mode": next(iter(access_modes)) if len(access_modes) == 1 else "mixed",
             "n_tasks": n_tasks,
             "n_runs": n_runs,
             "repeats": round(n_runs / n_tasks, 2) if n_tasks else 0,
@@ -193,6 +230,12 @@ def aggregate_by_model(
             "total_tokens": sum(r.get("total_tokens") or 0 for r in model_rows),
             "total_cost": round(sum(costs), 6) if costs else None,
             "cost_known": len(costs) == n_runs,
+            "total_marginal_cash_usd": (round(sum(marginal_costs), 6) if marginal_costs else None),
+            "marginal_cash_known": len(marginal_costs) == n_runs,
+            "total_api_equivalent_cost_usd": (
+                round(sum(api_equivalent_costs), 6) if api_equivalent_costs else None
+            ),
+            "api_equivalent_known": len(api_equivalent_costs) == n_runs,
             "avg_duration_s": _mean(durations),
         }
         for key in _METRIC_KEYS:

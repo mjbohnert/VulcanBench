@@ -54,6 +54,16 @@ def build_report(
     calibration = calibrate_tasks(rows, tasks_root)
     effort_sensitivity = build_effort_sensitivity(rows, tasks_root)
     known_costs = [r["cost_usd"] for r in rows if r.get("cost_usd") is not None]
+    marginal_costs = [
+        r["marginal_cash_usd"] for r in rows if r.get("marginal_cash_usd") is not None
+    ]
+    api_equivalent_costs = [
+        r["api_equivalent_cost_usd"] for r in rows if r.get("api_equivalent_cost_usd") is not None
+    ]
+    track_counts = {
+        track: sum(1 for row in rows if row.get("track") == track)
+        for track in ("api", "subscription")
+    }
 
     return {
         "generated_at": generated_at or datetime.now(UTC).isoformat(),
@@ -63,6 +73,11 @@ def build_report(
             "n_models": len(models),
             "n_tasks": len({r.get("task_id") for r in rows}),
             "total_cost_usd": round(sum(known_costs), 6) if known_costs else None,
+            "total_marginal_cash_usd": (round(sum(marginal_costs), 6) if marginal_costs else None),
+            "total_api_equivalent_cost_usd": (
+                round(sum(api_equivalent_costs), 6) if api_equivalent_costs else None
+            ),
+            "track_counts": track_counts,
         },
         "models": models,
         "tasks": tasks,
@@ -518,8 +533,13 @@ def to_markdown(report: dict[str, Any]) -> str:
         f"_Generated {report['generated_at']}_",
         "",
         f"- **{totals['n_runs']}** runs · **{totals['n_models']}** models · "
-        f"**{totals['n_tasks']}** tasks · total cost "
-        f"{('$' + str(totals['total_cost_usd'])) if totals['total_cost_usd'] is not None else 'n/a'}",
+        f"**{totals['n_tasks']}** tasks · tracks "
+        f"API={totals.get('track_counts', {}).get('api', 0)}, "
+        f"subscription={totals.get('track_counts', {}).get('subscription', 0)} · "
+        f"marginal cash "
+        f"{('$' + str(totals['total_marginal_cash_usd'])) if totals.get('total_marginal_cash_usd') is not None else 'n/a'} · "
+        f"API-equivalent "
+        f"{('$' + str(totals['total_api_equivalent_cost_usd'])) if totals.get('total_api_equivalent_cost_usd') is not None else 'n/a'}",
     ]
 
     integ = report["integrity"]
@@ -542,15 +562,22 @@ def to_markdown(report: dict[str, Any]) -> str:
         "",
         "## Models",
         "",
-        "| Model | Tasks | Runs | pass@1 ± se | pass@k | Avg total | Cost $ | Avg time |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Track | Harness | Model | Tasks | Runs | pass@1 ± se | pass@k | Avg total | Cash $ | API-eq $ | Avg time |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for m in report["models"]:
-        cost = "?" if not m.get("cost_known") else _fmt(m.get("total_cost"))
+        cash = "?" if not m.get("marginal_cash_known") else _fmt(m.get("total_marginal_cash_usd"))
+        api_equivalent = (
+            "?"
+            if not m.get("api_equivalent_known")
+            else _fmt(m.get("total_api_equivalent_cost_usd"))
+        )
         lines.append(
-            f"| {m['model']} | {m['n_tasks']} | {m['n_runs']} | "
+            f"| {m.get('track')} | {m.get('execution_harness')} | {m['model']} | "
+            f"{m['n_tasks']} | {m['n_runs']} | "
             f"{_fmt(m['pass_at_1'])} ± {_fmt(m['pass_at_1_stderr'])} | {_fmt(m['pass_at_k'])} | "
-            f"{_fmt(m['avg_total'])} | {cost} | {_fmt(m['avg_duration_s'])} |"
+            f"{_fmt(m['avg_total'])} | {cash} | {api_equivalent} | "
+            f"{_fmt(m['avg_duration_s'])} |"
         )
 
     lines += _discrimination_markdown(report.get("discrimination") or {})

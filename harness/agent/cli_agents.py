@@ -1,9 +1,9 @@
-"""Run models inside their vendor's own agent CLI (subscription billing).
+"""Run models inside their own agent CLI (subscription billing).
 
-``claude-code:<model>`` runs a task with Claude Code headless (``claude -p``)
-in the prepared workspace instead of the VulcanBench agent loop. The CLI edits
-files directly in the workspace; everything downstream (git diff, verifier,
-evaluator, scoring) is unchanged.
+``claude-code:<model>`` and ``codex:<model>`` run a task in the product's
+headless CLI instead of the VulcanBench agent loop.  The external harness owns
+its prompts, context management, and tools; everything downstream (git diff,
+verifier, evaluator, scoring) remains under VulcanBench.
 
 Why this exists: Claude Code authenticates with a Claude subscription
 (Pro/Max), so runs bill the subscription instead of API rates — and it is also
@@ -14,11 +14,9 @@ model *through* its vendor harness. Two honesty rules follow:
   loop. A ``claude-code:claude-opus-4-8`` column is not comparable to an
   ``anthropic:claude-opus-4-8`` column; the summary records the harness so
   the leaderboard can't silently mix them.
-- ``cost_usd`` is the **hypothetical API cost** computed from the CLI's
-  reported token usage at API rates (``harness.pricing`` maps
-  ``claude-code:`` specs to ``anthropic:`` prices). The run did not pay it;
-  ``cli_agent.billing = "subscription"`` says so, and the CLI's own estimate
-  is kept alongside as ``cli_reported_cost_usd``.
+- ``cost_usd`` remains a backward-compatible API-equivalent value.  The
+  ``economics`` receipt is authoritative and separates marginal cash, plan
+  allocation, quota consumption, and API-equivalent value.
 
 Subscription plans have rolling usage limits. A limit hit raises
 :class:`~harness.agent.providers.ProviderError` so the suite records an
@@ -31,6 +29,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import threading
 from collections.abc import Iterable
@@ -41,17 +40,36 @@ from typing import Any, Protocol
 from harness.agent.providers import (
     LLMProvider,
     LLMResponse,
+    NonRetryableProviderError,
     ProviderError,
     TokenUsage,
 )
 from harness.pricing import cost_usd
 from harness.redaction import sanitize
 
-CLI_AGENT_PROVIDERS = frozenset({"claude-code"})
+CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex"})
 
 # Claude Code's headless result text when a subscription window is exhausted
 # (e.g. "Claude AI usage limit reached|...", "5-hour limit reached ∙ resets 3am").
 _LIMIT_PATTERN = re.compile(r"usage limit|rate limit|limit reached|limit will reset", re.I)
+
+_SAFE_ENV_KEYS = frozenset(
+    {
+        "PATH",
+        "HOME",
+        "SHELL",
+        "TMPDIR",
+        "LANG",
+        "TERM",
+        "USER",
+        "LOGNAME",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_DATA_HOME",
+        "CODEX_HOME",
+        "CLAUDE_CONFIG_DIR",
+    }
+)
 
 # The VulcanBench loop has no web tools, so parity default is web-off; the
 # ``--network`` flag opts back in (the CLI runs host-side, so this only gates
@@ -74,6 +92,80 @@ class _Collector(Protocol):
     def record(self, event_type: str, data: dict[str, Any]) -> None: ...
 
 
+class SubscriptionQuotaError(NonRetryableProviderError):
+    """A rolling subscription limit that should pause, not hot-loop retries."""
+
+
+@dataclass(frozen=True)
+class HarnessCapabilities:
+    """Features an external harness can prove to VulcanBench."""
+
+    harness: str
+    display_name: str
+    executable: str
+    structured_events: bool
+    reports_tokens: bool
+    reports_model: bool
+    supports_effort: bool
+    supports_live_cost_cap: bool
+    sandbox: str
+
+    def as_summary(self) -> dict[str, Any]:
+        return {
+            "harness": self.harness,
+            "display_name": self.display_name,
+            "executable": self.executable,
+            "structured_events": self.structured_events,
+            "reports_tokens": self.reports_tokens,
+            "reports_model": self.reports_model,
+            "supports_effort": self.supports_effort,
+            "supports_live_cost_cap": self.supports_live_cost_cap,
+            "sandbox": self.sandbox,
+        }
+
+
+@dataclass(frozen=True)
+class HarnessPreflight:
+    """Non-secret readiness receipt returned by ``harness doctor``."""
+
+    harness: str
+    available: bool
+    version: str | None
+    authenticated: bool
+    auth_mode: str | None
+    plan_name: str | None = None
+    detail: str | None = None
+
+    @property
+    def ready(self) -> bool:
+        return self.available and self.authenticated and self.auth_mode == "subscription"
+
+    def as_summary(self) -> dict[str, Any]:
+        return {
+            "harness": self.harness,
+            "available": self.available,
+            "version": self.version,
+            "authenticated": self.authenticated,
+            "auth_mode": self.auth_mode,
+            "plan_name": self.plan_name,
+            "ready": self.ready,
+            "detail": self.detail,
+        }
+
+
+class CliAgentAdapter(Protocol):
+    """Contract implemented by subscription-backed execution harnesses."""
+
+    @property
+    def harness_id(self) -> str: ...
+
+    def capabilities(self) -> HarnessCapabilities: ...
+
+    def preflight(self) -> HarnessPreflight: ...
+
+    def run_task(self, **kwargs: Any) -> CliAgentOutcome: ...
+
+
 def is_cli_agent_spec(spec: str) -> bool:
     """True when ``spec`` selects a vendor agent CLI (e.g. ``claude-code:...``)."""
     provider = spec.partition(":")[0].strip().lower()
@@ -85,15 +177,22 @@ def build_cli_prompt(issue: str) -> str:
     return f"# Issue\n\n{issue}{_ISSUE_SUFFIX}"
 
 
-def _subscription_env() -> dict[str, str]:
-    """Subprocess env forcing subscription auth.
+def _subscription_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """Minimal environment for a subscription CLI process.
 
-    With ``ANTHROPIC_API_KEY`` set, Claude Code bills the API — which defeats
-    the point of CLI-agent mode and silently double-spends. Strip it so the
-    CLI uses the logged-in subscription (or ``CLAUDE_CODE_OAUTH_TOKEN``).
+    Provider API keys and unrelated shell secrets are deliberately absent. The
+    CLI can still find its executable and cached browser/keychain login through
+    ``PATH`` and ``HOME``.  Test adapters may add explicit non-secret values via
+    ``extra``.
     """
-    env = dict(os.environ)
-    env.pop("ANTHROPIC_API_KEY", None)
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key in _SAFE_ENV_KEYS or key.startswith("LC_")
+    }
+    env["DISABLE_AUTOUPDATER"] = "1"
+    if extra:
+        env.update(extra)
     return env
 
 
@@ -119,12 +218,136 @@ def _fold_usage_totals(usages: Iterable[dict[str, Any]]) -> tuple[int, int]:
     return prompt, completion
 
 
+def _version(executable: str) -> str | None:
+    if shutil.which(executable) is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [executable, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=_subscription_env(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    text = (proc.stdout or proc.stderr).strip()
+    return text.splitlines()[0] if text else None
+
+
+def _claude_preflight(claude_bin: str = "claude") -> HarnessPreflight:
+    version = _version(claude_bin)
+    if version is None:
+        return HarnessPreflight(
+            harness="claude-code",
+            available=False,
+            version=None,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"{claude_bin!r} not found on PATH",
+        )
+    try:
+        proc = subprocess.run(
+            [claude_bin, "auth", "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=_subscription_env(),
+            check=False,
+        )
+        body = json.loads(proc.stdout) if proc.stdout.strip() else {}
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        return HarnessPreflight(
+            harness="claude-code",
+            available=True,
+            version=version,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"could not read Claude authentication status: {exc}",
+        )
+    logged_in = bool(body.get("loggedIn"))
+    auth_method = str(body.get("authMethod") or "").lower()
+    subscription = logged_in and auth_method == "claude.ai"
+    return HarnessPreflight(
+        harness="claude-code",
+        available=True,
+        version=version,
+        authenticated=logged_in,
+        auth_mode="subscription" if subscription else (auth_method or None),
+        plan_name=str(body.get("subscriptionType") or "") or None,
+        detail=None if subscription else "Claude Code is not using a Claude subscription login",
+    )
+
+
+def _codex_preflight(codex_bin: str = "codex") -> HarnessPreflight:
+    version = _version(codex_bin)
+    if version is None:
+        return HarnessPreflight(
+            harness="codex",
+            available=False,
+            version=None,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"{codex_bin!r} not found on PATH",
+        )
+    try:
+        proc = subprocess.run(
+            [codex_bin, "login", "status"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=_subscription_env(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return HarnessPreflight(
+            harness="codex",
+            available=True,
+            version=version,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"could not read Codex authentication status: {exc}",
+        )
+    status = f"{proc.stdout}\n{proc.stderr}".strip().lower()
+    authenticated = proc.returncode == 0 and "not logged in" not in status
+    subscription = authenticated and "chatgpt" in status
+    api_key = authenticated and ("api key" in status or "api-key" in status)
+    return HarnessPreflight(
+        harness="codex",
+        available=True,
+        version=version,
+        authenticated=authenticated,
+        auth_mode="subscription" if subscription else ("api" if api_key else None),
+        detail=None if subscription else "Codex is not using a ChatGPT subscription login",
+    )
+
+
+def _require_subscription(preflight: HarnessPreflight) -> None:
+    if preflight.ready:
+        return
+    detail = preflight.detail or "subscription authentication is not ready"
+    raise ProviderError(f"{preflight.harness} preflight failed: {detail}")
+
+
 @dataclass
 class CliAgentOutcome:
     """What a CLI-agent run produced, in the loop's accounting terms."""
 
+    harness: str = "unknown"
+    billing: str = "subscription"
+    cost_basis: str = "api-equivalent"
+    execution_boundary: str | None = None
+    requested_model: str | None = None
+    reported_model: str | None = None
+    model_identity_confidence: str = "requested-only"
+    harness_version: str | None = None
+    auth_method: str | None = None
+    plan_name: str | None = None
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    cached_input_tokens: int = 0
+    reasoning_output_tokens: int = 0
     finished: bool = False
     cost_capped: bool = False
     timed_out: bool = False
@@ -136,12 +359,21 @@ class CliAgentOutcome:
     def summary(self) -> dict[str, Any]:
         """Provenance block persisted into the run summary."""
         return {
-            "harness": "claude-code",
-            "billing": "subscription",
-            "cost_basis": "hypothetical-api-pricing",
+            "harness": self.harness,
+            "harness_version": self.harness_version,
+            "billing": self.billing,
+            "cost_basis": self.cost_basis,
+            "execution_boundary": self.execution_boundary,
+            "auth_method": self.auth_method,
+            "plan_name": self.plan_name,
+            "requested_model": self.requested_model,
+            "reported_model": self.reported_model,
+            "model_identity_confidence": self.model_identity_confidence,
             "session_id": self.session_id,
             "subtype": self.subtype,
             "num_turns": self.num_turns,
+            "cached_input_tokens": self.cached_input_tokens,
+            "reasoning_output_tokens": self.reasoning_output_tokens,
             "cli_reported_cost_usd": self.cli_reported_cost_usd,
         }
 
@@ -158,7 +390,10 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     timeout_s: float | None = None,
     network: bool = False,
     max_run_cost: float | None = None,
+    effort: str | None = None,
     claude_bin: str = "claude",
+    env_overrides: dict[str, str] | None = None,
+    preflight: HarnessPreflight | None = None,
 ) -> CliAgentOutcome:
     """Run one task with Claude Code headless in ``workspace``.
 
@@ -171,6 +406,9 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     if timeout_s is not None and timeout_s <= 0:
         raise ProviderError("run budget exhausted before CLI agent start")
 
+    checked = preflight or _claude_preflight(claude_bin)
+    _require_subscription(checked)
+
     cmd = [
         claude_bin,
         "-p",
@@ -182,12 +420,17 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         model,
         "--max-turns",
         str(max_turns),
-        "--dangerously-skip-permissions",
+        "--permission-mode",
+        "auto",
+        "--safe-mode",
+        "--no-session-persistence",
         # Hermetic runs: don't let the operator's user-level config/memory
         # leak instructions into the benchmark.
         "--setting-sources",
         "project",
     ]
+    if effort:
+        cmd += ["--effort", effort]
     if not network:
         cmd += ["--disallowedTools", _WEB_TOOLS]
 
@@ -200,7 +443,7 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         proc = subprocess.Popen(
             cmd,
             cwd=workspace,
-            env=_subscription_env(),
+            env=_subscription_env(env_overrides),
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -208,7 +451,7 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     except FileNotFoundError as e:
         raise ProviderError(
             f"{claude_bin!r} not found on PATH; install Claude Code and sign in "
-            "with your subscription (run `claude` once, or set CLAUDE_CODE_OAUTH_TOKEN)"
+            "with your subscription by running `claude` once"
         ) from e
 
     stderr_chunks: list[str] = []
@@ -221,7 +464,14 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
     stderr_thread.start()
 
-    outcome = CliAgentOutcome()
+    outcome = CliAgentOutcome(
+        harness="claude-code",
+        execution_boundary="host-workspace; permission-mode=auto; safe-mode",
+        requested_model=model,
+        harness_version=checked.version,
+        auth_method=checked.auth_mode,
+        plan_name=checked.plan_name,
+    )
     killed = {"timeout": False, "cost": False}
 
     def _kill_on_timeout() -> None:
@@ -253,9 +503,17 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
             etype = event.get("type")
             if etype == "system" and event.get("subtype") == "init":
                 outcome.session_id = event.get("session_id")
+                reported_model = event.get("model")
+                if reported_model:
+                    outcome.reported_model = str(reported_model)
+                    outcome.model_identity_confidence = "cli-reported"
                 collector.record(
                     "cli_agent_init",
-                    {"session_id": outcome.session_id, "model": event.get("model")},
+                    {
+                        "session_id": outcome.session_id,
+                        "model": reported_model,
+                        "harness_version": outcome.harness_version,
+                    },
                 )
             elif etype == "assistant":
                 msg = event.get("message") or {}
@@ -323,7 +581,7 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     if result_msg.get("is_error") or outcome.subtype != "success":
         if _LIMIT_PATTERN.search(result_text):
-            raise ProviderError(
+            raise SubscriptionQuotaError(
                 "claude code subscription limit hit — rerun after the window "
                 f"resets (use --only-missing to resume): {result_text[:300]}"
             )
@@ -351,6 +609,271 @@ def _assistant_trace_data(msg: dict[str, Any]) -> dict[str, Any]:
     return {"content": text or None, "tool_calls": tool_calls, "usage": msg.get("usage") or {}}
 
 
+def _codex_item_trace_data(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    """Translate a Codex JSONL item to a replay-compatible event."""
+    item_type = item.get("type")
+    if item_type == "agent_message":
+        return "llm_response", {
+            "content": item.get("text"),
+            "tool_calls": [],
+            "usage": {},
+        }
+    if item_type == "command_execution":
+        return "tool_observation", {
+            "tool": "command_execution",
+            "command": item.get("command"),
+            "result": item.get("aggregated_output") or item.get("output"),
+            "exit_code": item.get("exit_code"),
+            "status": item.get("status"),
+        }
+    if item_type in {"file_change", "mcp_tool_call", "web_search"}:
+        return "tool_observation", {
+            "tool": item_type,
+            "result": item,
+            "status": item.get("status"),
+        }
+    return None
+
+
+def run_codex_task(  # noqa: PLR0912, PLR0915 — linear process/stream adapter
+    *,
+    workspace: Path,
+    prompt: str,
+    model: str,
+    priced_spec: str,
+    max_turns: int,
+    collector: _Collector,
+    stream_log_path: Path | None = None,
+    timeout_s: float | None = None,
+    network: bool = False,
+    max_run_cost: float | None = None,
+    effort: str | None = None,
+    codex_bin: str = "codex",
+    env_overrides: dict[str, str] | None = None,
+    preflight: HarnessPreflight | None = None,
+) -> CliAgentOutcome:
+    """Run one task through ``codex exec --json`` using ChatGPT auth."""
+    del priced_spec, max_turns
+    if timeout_s is not None and timeout_s <= 0:
+        raise ProviderError("run budget exhausted before CLI agent start")
+    if max_run_cost is not None:
+        raise ProviderError(
+            "codex reports usage at turn completion, so --max-run-cost cannot be "
+            "enforced live; use a wall-clock --timeout for subscription runs"
+        )
+
+    checked = preflight or _codex_preflight(codex_bin)
+    _require_subscription(checked)
+    cmd = [
+        codex_bin,
+        "exec",
+        "--json",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--sandbox",
+        "workspace-write",
+        "--cd",
+        str(workspace),
+        "--model",
+        model,
+    ]
+    if effort:
+        cmd += ["--config", f'model_reasoning_effort="{effort}"']
+    if network:
+        cmd += ["--config", "sandbox_workspace_write.network_access=true"]
+    cmd.append("-")
+
+    collector.record(
+        "cli_agent_start",
+        {
+            "harness": "codex",
+            "argv": [*cmd[:-1], "<prompt via stdin>"],
+            "harness_version": checked.version,
+        },
+    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=workspace,
+            env=_subscription_env(env_overrides),
+            text=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as exc:
+        raise ProviderError(
+            f"{codex_bin!r} not found on PATH; install Codex and run `codex login` "
+            "with a ChatGPT subscription"
+        ) from exc
+
+    assert proc.stdin is not None
+    proc.stdin.write(prompt)
+    proc.stdin.close()
+    stderr_chunks: list[str] = []
+
+    def _drain_stderr() -> None:
+        assert proc.stderr is not None
+        for chunk in proc.stderr:
+            stderr_chunks.append(chunk)
+
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    stderr_thread.start()
+    outcome = CliAgentOutcome(
+        harness="codex",
+        execution_boundary="host-workspace; sandbox=workspace-write",
+        requested_model=model,
+        harness_version=checked.version,
+        auth_method=checked.auth_mode,
+        plan_name=checked.plan_name,
+    )
+    killed = {"timeout": False}
+
+    def _kill_on_timeout() -> None:
+        killed["timeout"] = True
+        proc.kill()
+
+    watchdog: threading.Timer | None = None
+    if timeout_s is not None:
+        watchdog = threading.Timer(timeout_s, _kill_on_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+
+    terminal_error: str | None = None
+    saw_turn_completed = False
+    stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
+    try:
+        assert proc.stdout is not None
+        for raw_line in proc.stdout:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if stream_f:
+                json.dump(sanitize(event), stream_f)
+                stream_f.write("\n")
+            event_type = event.get("type")
+            if event_type == "thread.started":
+                outcome.session_id = event.get("thread_id")
+                collector.record(
+                    "cli_agent_init",
+                    {
+                        "session_id": outcome.session_id,
+                        "model": model,
+                        "harness_version": outcome.harness_version,
+                    },
+                )
+            elif event_type == "item.completed":
+                translated = _codex_item_trace_data(event.get("item") or {})
+                if translated:
+                    collector.record(*translated)
+            elif event_type == "turn.completed":
+                saw_turn_completed = True
+                usage = event.get("usage") or {}
+                outcome.prompt_tokens = int(usage.get("input_tokens", 0) or 0)
+                outcome.cached_input_tokens = int(usage.get("cached_input_tokens", 0) or 0)
+                outcome.completion_tokens = int(usage.get("output_tokens", 0) or 0)
+                outcome.reasoning_output_tokens = int(usage.get("reasoning_output_tokens", 0) or 0)
+                outcome.subtype = "success"
+                outcome.finished = True
+            elif event_type in {"turn.failed", "error"}:
+                payload = event.get("error") or event.get("message") or event
+                terminal_error = str(payload)
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        if stream_f:
+            stream_f.close()
+
+    proc.wait()
+    stderr_thread.join(timeout=5)
+    outcome.timed_out = killed["timeout"]
+    if outcome.timed_out:
+        return outcome
+    if not saw_turn_completed or proc.returncode != 0:
+        detail = terminal_error or "".join(stderr_chunks)[-500:].strip() or "no error detail"
+        if _LIMIT_PATTERN.search(detail):
+            raise SubscriptionQuotaError(
+                "codex subscription limit hit — rerun after the window resets "
+                f"(use --only-missing to resume): {detail[:300]}"
+            )
+        raise ProviderError(f"codex exec failed (exit {proc.returncode}): {detail[:500]}")
+    collector.record("cli_agent_result", outcome.summary())
+    return outcome
+
+
+@dataclass(frozen=True)
+class ClaudeCodeAdapter:
+    harness_id: str = "claude-code"
+
+    def capabilities(self) -> HarnessCapabilities:
+        return HarnessCapabilities(
+            harness=self.harness_id,
+            display_name="Claude Code",
+            executable="claude",
+            structured_events=True,
+            reports_tokens=True,
+            reports_model=True,
+            supports_effort=True,
+            supports_live_cost_cap=True,
+            sandbox="native-permission-auto; host workspace",
+        )
+
+    def preflight(self) -> HarnessPreflight:
+        return _claude_preflight()
+
+    def run_task(self, **kwargs: Any) -> CliAgentOutcome:
+        return run_claude_code_task(**kwargs)
+
+
+@dataclass(frozen=True)
+class CodexAdapter:
+    harness_id: str = "codex"
+
+    def capabilities(self) -> HarnessCapabilities:
+        return HarnessCapabilities(
+            harness=self.harness_id,
+            display_name="Codex CLI",
+            executable="codex",
+            structured_events=True,
+            reports_tokens=True,
+            reports_model=False,
+            supports_effort=True,
+            supports_live_cost_cap=False,
+            sandbox="workspace-write",
+        )
+
+    def preflight(self) -> HarnessPreflight:
+        return _codex_preflight()
+
+    def run_task(self, **kwargs: Any) -> CliAgentOutcome:
+        return run_codex_task(**kwargs)
+
+
+_CLI_AGENT_ADAPTERS: dict[str, CliAgentAdapter] = {
+    "claude-code": ClaudeCodeAdapter(),
+    "codex": CodexAdapter(),
+}
+
+
+def get_cli_agent_adapter(spec_or_name: str) -> CliAgentAdapter:
+    """Resolve a harness name or ``harness:model`` spec to its adapter."""
+    name = spec_or_name.partition(":")[0].strip().lower()
+    try:
+        return _CLI_AGENT_ADAPTERS[name]
+    except KeyError as exc:
+        known = ", ".join(sorted(_CLI_AGENT_ADAPTERS))
+        raise ValueError(f"unknown execution harness {name!r}; known: {known}") from exc
+
+
+def list_cli_agent_adapters() -> list[CliAgentAdapter]:
+    """All external harness adapters in stable display order."""
+    return [_CLI_AGENT_ADAPTERS[name] for name in sorted(_CLI_AGENT_ADAPTERS)]
+
+
 class ClaudeCodeProvider(LLMProvider):
     """Single-shot completions through Claude Code headless.
 
@@ -371,6 +894,7 @@ class ClaudeCodeProvider(LLMProvider):
         effort: str | None = None,
     ) -> LLMResponse:
         del tools, effort
+        _require_subscription(_claude_preflight())
         system = "\n\n".join(
             str(m.get("content", "")) for m in messages if m.get("role") == "system"
         ).strip()
@@ -387,6 +911,10 @@ class ClaudeCodeProvider(LLMProvider):
             self.model,
             "--max-turns",
             "1",
+            "--permission-mode",
+            "auto",
+            "--safe-mode",
+            "--no-session-persistence",
             "--setting-sources",
             "project",
             "--disallowedTools",
@@ -419,7 +947,7 @@ class ClaudeCodeProvider(LLMProvider):
         text = str(body.get("result") or "")
         if body.get("is_error"):
             if _LIMIT_PATTERN.search(text):
-                raise ProviderError(f"claude code subscription limit hit: {text[:300]}")
+                raise SubscriptionQuotaError(f"claude code subscription limit hit: {text[:300]}")
             raise ProviderError(f"claude code judge call errored: {text[:300]}")
         p, c = _fold_usage(body.get("usage") or {})
         return LLMResponse(

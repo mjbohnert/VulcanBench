@@ -1063,6 +1063,6 @@ def get_provider(spec: str) -> LLMProvider:
 
         return ClaudeCodeProvider(model)
     if provider not in _PROVIDERS:
-        known = ", ".join(sorted([*_PROVIDERS, "claude-code"]))
+        known = ", ".join(sorted([*_PROVIDERS, "claude-code", "codex"]))
         raise ValueError(f"unknown provider {provider!r}; known: {known}")
     return _PROVIDERS[provider](model)

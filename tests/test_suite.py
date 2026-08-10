@@ -448,6 +448,28 @@ def test_infrastructure_retries_are_bounded(
     assert result["errors"][0]["task_id"] == "task-a"
 
 
+def test_subscription_quota_error_is_not_hot_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+    calls = 0
+
+    def quota_exhausted(**kwargs):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        raise suite_mod.NonRetryableProviderError("subscription quota exhausted")
+
+    monkeypatch.setattr(suite_mod, "run_agent", quota_exhausted)
+    result = run_suite(
+        "demo", "mock:synthetic", output_dir=tmp_path / "runs", tasks_base=base, judges=False
+    )
+
+    assert calls == 1
+    assert result["n_infra_retries"] == 0
+    assert len(result["errors"]) == 1
+
+
 def test_graded_failure_is_not_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     base = tmp_path / "tasks"
     _make_task(base / "demo", "task-a")

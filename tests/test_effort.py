@@ -34,6 +34,18 @@ def test_openai_max_maps_to_distinct_max_value() -> None:
     }
 
 
+@pytest.mark.parametrize("provider", ["codex", "claude-code"])
+def test_subscription_harness_effort_is_forwarded(provider: str) -> None:
+    cfg = effort_config(provider, "extra-high")
+    assert cfg is not None
+    assert cfg.as_summary() == {
+        "requested": "extra-high",
+        "provider": provider,
+        "provider_value": "xhigh",
+        "supported": True,
+    }
+
+
 def test_mock_effort_is_noop_metadata() -> None:
     cfg = effort_config("mock", "low")
     assert cfg is not None

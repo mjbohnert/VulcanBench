@@ -54,6 +54,51 @@ def test_help() -> None:
     assert "run" in result.output
 
 
+def test_harness_list_json() -> None:
+    result = runner.invoke(app, ["harness", "list", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert {row["harness"] for row in data} == {"claude-code", "codex"}
+    assert all(row["structured_events"] for row in data)
+
+
+def test_run_harness_options_normalize_subscription_spec() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--task",
+            "hello-world",
+            "--harness",
+            "codex",
+            "--billing",
+            "subscription",
+            "--model",
+            "gpt-5.6-sol",
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "model=codex:gpt-5.6-sol" in result.output
+
+
+def test_run_rejects_subscription_billing_without_subscription_harness() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--task",
+            "hello-world",
+            "--model",
+            "mock:synthetic",
+            "--billing",
+            "subscription",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "requires --harness" in result.output
+
+
 def test_run_unknown_task() -> None:
     result = runner.invoke(app, ["run", "--task", "does-not-exist", "--model", "mock:synthetic"])
     assert result.exit_code == 1

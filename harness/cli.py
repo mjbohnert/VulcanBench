@@ -19,6 +19,11 @@ from rich.console import Console
 from rich.table import Table
 
 from harness import __version__
+from harness.agent.cli_agents import (
+    CLI_AGENT_PROVIDERS,
+    get_cli_agent_adapter,
+    list_cli_agent_adapters,
+)
 from harness.agent.loop import run_agent
 from harness.agent.providers import ProviderError
 from harness.calibration import calibrate_tasks, calibration_to_markdown
@@ -48,8 +53,99 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(voice_app, name="voice")
+harness_app = typer.Typer(
+    name="harness",
+    help="Inspect subscription-backed execution harnesses",
+    no_args_is_help=True,
+)
+app.add_typer(harness_app, name="harness")
 
 console = Console()
+
+
+def _execution_spec(model: str, harness_name: str, billing: str) -> str:
+    """Normalize explicit harness/access options to the legacy model spec."""
+    harness_name = harness_name.strip().lower()
+    billing = billing.strip().lower()
+    if billing not in {"auto", "api", "subscription"}:
+        raise ValueError("--billing must be auto|api|subscription")
+    prefix = model.partition(":")[0].strip().lower() if ":" in model else ""
+    if harness_name == "vulcan" and prefix in CLI_AGENT_PROVIDERS:
+        harness_name = prefix
+    if harness_name == "vulcan":
+        if billing == "subscription":
+            raise ValueError("--billing subscription requires --harness claude-code|codex")
+        return model
+    if harness_name not in CLI_AGENT_PROVIDERS:
+        known = ", ".join(["vulcan", *sorted(CLI_AGENT_PROVIDERS)])
+        raise ValueError(f"unknown --harness {harness_name!r}; known: {known}")
+    if billing == "api":
+        raise ValueError(
+            f"--harness {harness_name} is subscription-backed; use --billing subscription"
+        )
+    if prefix in CLI_AGENT_PROVIDERS:
+        if prefix != harness_name:
+            raise ValueError(
+                f"model spec selects {prefix!r} but --harness selects {harness_name!r}"
+            )
+        return model
+    return f"{harness_name}:{model}"
+
+
+@harness_app.command("list")
+def harness_list(
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+) -> None:
+    """List subscription harnesses and their adapter capabilities."""
+    data = [adapter.capabilities().as_summary() for adapter in list_cli_agent_adapters()]
+    if json_output:
+        typer.echo(json.dumps(data, indent=2))
+        return
+    table = Table(title="VulcanBench subscription harnesses")
+    for column in ("Harness", "Executable", "Events", "Tokens", "Effort", "Sandbox"):
+        table.add_column(column)
+    for row in data:
+        table.add_row(
+            row["harness"],
+            row["executable"],
+            "yes" if row["structured_events"] else "no",
+            "yes" if row["reports_tokens"] else "no",
+            "yes" if row["supports_effort"] else "no",
+            row["sandbox"],
+        )
+    console.print(table)
+
+
+@harness_app.command("doctor")
+def harness_doctor(
+    name: str | None = typer.Argument(None, help="Harness name; omit to check all"),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+) -> None:
+    """Check installation and subscription auth without launching a model run."""
+    try:
+        adapters = [get_cli_agent_adapter(name)] if name else list_cli_agent_adapters()
+    except ValueError as exc:
+        console.print(f"[red]error[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    data = [adapter.preflight().as_summary() for adapter in adapters]
+    if json_output:
+        typer.echo(json.dumps(data, indent=2))
+    else:
+        table = Table(title="VulcanBench harness doctor")
+        for column in ("Harness", "Version", "Auth", "Plan", "Ready", "Detail"):
+            table.add_column(column)
+        for row in data:
+            table.add_row(
+                row["harness"],
+                str(row["version"] or "not installed"),
+                str(row["auth_mode"] or "none"),
+                str(row["plan_name"] or "—"),
+                "yes" if row["ready"] else "no",
+                str(row["detail"] or ""),
+            )
+        console.print(table)
+    if any(not row["ready"] for row in data):
+        raise typer.Exit(code=2)
 
 
 def _version_callback(value: bool) -> None:
@@ -86,9 +182,18 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
         ...,
         "--model",
         "-m",
-        help="provider:model e.g. openai:gpt-4o, anthropic:claude-opus-4-8, or "
-        "claude-code:claude-opus-4-8 (Claude Code CLI, subscription billing; "
-        "needs --sandbox local)",
+        help="Model id. Use provider:model for Vulcan's API loop, or a bare model "
+        "with --harness claude-code|codex.",
+    ),
+    harness_name: str = typer.Option(
+        "vulcan",
+        "--harness",
+        help="Execution harness: vulcan|claude-code|codex",
+    ),
+    billing: str = typer.Option(
+        "auto",
+        "--billing",
+        help="Access/billing mode: auto|api|subscription",
     ),
     output_dir: Path = typer.Option(  # noqa: B008
         Path("./runs"), "--output-dir", "-o", help="Where to write trace/replay"
@@ -123,13 +228,15 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
         1, "--max-concurrency", help="Run suite tasks in parallel (suite runs only)"
     ),
     max_cost: float | None = typer.Option(
-        None, "--max-cost", help="USD spend cap for a suite run (stops launching new runs)"
+        None,
+        "--max-cost",
+        help="Suite budget cap: metered cash for APIs, API-equivalent value for subscriptions",
     ),
     max_run_cost: float | None = typer.Option(
         None,
         "--max-run-cost",
-        help="Per-run USD ceiling: stop an individual agent run once its own spend "
-        "crosses this (records cost_capped; the partial result is still graded)",
+        help="Per-run pricing ceiling: metered cash for APIs, API-equivalent value for "
+        "subscriptions (records cost_capped; partial result is still graded)",
     ),
     only_missing: bool = typer.Option(
         False,
@@ -162,6 +269,11 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
     ),
 ) -> None:
     """Run an agent against a task or a whole suite, recording full traces."""
+    try:
+        model = _execution_spec(model, harness_name, billing)
+    except ValueError as exc:
+        console.print(f"[red]error[/red] {exc}")
+        raise typer.Exit(code=1) from exc
     if (task is None) == (suite is None):
         console.print("[red]error[/red] pass exactly one of --task or --suite")
         raise typer.Exit(code=1)
@@ -403,6 +515,16 @@ def estimate(
 def _summary_row(summary: dict[str, Any]) -> dict[str, Any]:
     """Build a leaderboard-shaped row from a run summary (for in-memory aggregation)."""
     sc = summary.get("scores", {})
+    cli_agent = summary.get("cli_agent") or {}
+    economics = summary.get("economics") or {}
+    legacy_cost = summary.get("cost_usd")
+    marginal_cash = economics.get("marginal_cash_usd")
+    api_equivalent = economics.get("api_equivalent_cost_usd")
+    if not economics and not cli_agent:
+        marginal_cash = legacy_cost
+        api_equivalent = legacy_cost
+    elif not economics and cli_agent:
+        api_equivalent = legacy_cost
     return {
         "run_id": summary.get("run_id"),
         "task_id": summary.get("task_id"),
@@ -410,6 +532,11 @@ def _summary_row(summary: dict[str, Any]) -> dict[str, Any]:
         "total": sc.get("total"),
         "functional": sc.get("functional"),
         "cost_usd": summary.get("cost_usd"),
+        "execution_harness": cli_agent.get("harness") or "vulcan",
+        "track": "subscription" if cli_agent else "api",
+        "access_mode": economics.get("billing_mode"),
+        "marginal_cash_usd": marginal_cash,
+        "api_equivalent_cost_usd": api_equivalent,
         "duration_s": summary.get("duration_s"),
         "total_tokens": summary.get("total_tokens"),
         "effort": summary.get("effort"),
@@ -439,11 +566,15 @@ def _run_single(
     agg = aggregate_by_model([_summary_row(s) for s in summaries])[0]
     if repeat == 1:
         scores = summaries[0].get("scores", {})
+        economics = summaries[0].get("economics") or {}
+        cash = economics.get("marginal_cash_usd")
+        api_equivalent = economics.get("api_equivalent_cost_usd")
         console.print(f"[green]run complete[/green] {res['run_id']}")
         console.print(
             f"functional={scores.get('functional')} quality={scores.get('quality')} "
             f"security={scores.get('security')} human_like={scores.get('human_like')} "
-            f"total={scores.get('total')} cost=${summaries[0].get('cost_usd')}"
+            f"total={scores.get('total')} marginal_cash=${cash} "
+            f"api_equivalent=${api_equivalent}"
         )
         console.print(f"replay: {res['replay']}")
     else:
@@ -500,7 +631,8 @@ def _run_suite(
         console.print(f"[yellow]{n_errors} run(s) errored[/yellow]")
     if n_skipped:
         console.print(
-            f"[yellow]budget ${result.get('max_cost')} reached after ${result.get('spent_usd')}; "
+            f"[yellow]budget ${result.get('max_cost')} reached after "
+            f"${result.get('budget_accounted_usd')} ({result.get('spend_basis')}); "
             f"skipped {n_skipped} run(s)[/yellow]"
         )
     for agg in result["aggregate"]:
@@ -556,13 +688,15 @@ def effort_sweep(  # noqa: PLR0912 — CLI entry: option validation + per-effort
         1, "--max-concurrency", help="Run suite tasks in parallel for each effort"
     ),
     max_cost: float | None = typer.Option(
-        None, "--max-cost", help="USD spend cap per effort (same semantics as run --suite)"
+        None,
+        "--max-cost",
+        help="Per-effort cap: metered cash for APIs, API-equivalent value for subscriptions",
     ),
     max_run_cost: float | None = typer.Option(
         None,
         "--max-run-cost",
-        help="Per-run USD ceiling: stop an individual agent run once its own spend "
-        "crosses this (records cost_capped; the partial result is still graded)",
+        help="Per-run pricing ceiling: metered cash for APIs, API-equivalent value for "
+        "subscriptions (records cost_capped; partial result is still graded)",
     ),
     only_missing: bool = typer.Option(
         False,
@@ -677,14 +811,20 @@ def leaderboard(  # noqa: PLR0912
     format: str = typer.Option("markdown", "--format", "-f", help="markdown|json"),
     task: str | None = typer.Option(None, "--task", help="Filter by task id (run view)"),
     suite: str | None = typer.Option(None, "--suite", help="Filter by suite"),
+    track: str = typer.Option("all", "--track", help="Result track: all|api|subscription"),
 ) -> None:
-    """Show the leaderboard: per-model aggregate (default) or per-run (--by run)."""
+    """Show API and subscription-product results without silently mixing them."""
+    if track not in {"all", "api", "subscription"}:
+        console.print(f"[red]error[/red] --track must be all|api|subscription, got {track!r}")
+        raise typer.Exit(code=1)
     rows = scan_leaderboard()
     if suite in SUITE_ALIASES:
         allowed = set(load_suite(suite).task_ids)
         rows = [r for r in rows if r.get("task_id") in allowed]
     elif suite:
         rows = [r for r in rows if r.get("suite") == suite]
+    if track != "all":
+        rows = [r for r in rows if r.get("track") == track]
     if by == "model":
         data: list[dict] = aggregate_by_model(rows)  # type: ignore[type-arg]
     else:
@@ -702,8 +842,10 @@ def leaderboard(  # noqa: PLR0912
         return
 
     if by == "model":
-        table = Table(title="VulcanBench Leaderboard — by model")
+        table = Table(title=f"VulcanBench Leaderboard — by model ({track})")
         for col in (
+            "Track",
+            "Harness",
             "Model",
             "Tasks",
             "Runs",
@@ -713,13 +855,23 @@ def leaderboard(  # noqa: PLR0912
             "Qual",
             "Sec",
             "Human",
-            "Cost $",
+            "Cash $",
+            "API-eq $",
             "AvgTime",
         ):
             table.add_column(col)
         for a in data:
-            cost = "?" if not a.get("cost_known") else f"{a.get('total_cost')}"
+            cash = (
+                "?" if not a.get("marginal_cash_known") else f"{a.get('total_marginal_cash_usd')}"
+            )
+            api_equivalent = (
+                "?"
+                if not a.get("api_equivalent_known")
+                else f"{a.get('total_api_equivalent_cost_usd')}"
+            )
             table.add_row(
+                a["track"],
+                a["execution_harness"],
                 a["model"],
                 str(a["n_tasks"]),
                 str(a["n_runs"]),
@@ -729,21 +881,36 @@ def leaderboard(  # noqa: PLR0912
                 str(a["avg_quality"]),
                 str(a["avg_security"]),
                 str(a["avg_human_like"]),
-                cost,
+                cash,
+                api_equivalent,
                 str(a["avg_duration_s"]),
             )
     else:
-        table = Table(title="VulcanBench Leaderboard — by run")
-        for col in ("Run ID", "Task", "Model", "Total", "Functional", "Cost $", "Time s"):
+        table = Table(title=f"VulcanBench Leaderboard — by run ({track})")
+        for col in (
+            "Run ID",
+            "Track",
+            "Harness",
+            "Task",
+            "Model",
+            "Total",
+            "Functional",
+            "Cash $",
+            "API-eq $",
+            "Time s",
+        ):
             table.add_column(col)
         for r in data:
             table.add_row(
                 r["run_id"],
+                str(r.get("track")),
+                str(r.get("execution_harness")),
                 r.get("task_id", "?"),
                 r.get("model", "?"),
                 str(r.get("total")),
                 str(r.get("functional")),
-                str(r.get("cost_usd")),
+                str(r.get("marginal_cash_usd")),
+                str(r.get("api_equivalent_cost_usd")),
                 str(r.get("duration_s")),
             )
     console.print(table)

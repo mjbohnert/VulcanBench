@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from harness.agent.cli_agents import is_cli_agent_spec, run_claude_code_task
+from harness.agent.cli_agents import is_cli_agent_spec, run_claude_code_task, run_codex_task
 from harness.agent.loop import run_agent
 from harness.agent.providers import ProviderError, get_provider
 from harness.pricing import cost_usd, is_priced
@@ -32,7 +32,12 @@ api_key_present = "ANTHROPIC_API_KEY" in os.environ
 usage = {"input_tokens": 150, "output_tokens": 30,
          "cache_read_input_tokens": 50, "cache_creation_input_tokens": 10}
 
-if "stream-json" in args:
+if "--version" in args:
+    print("2.1.198 (Claude Code)")
+elif args[:3] == ["auth", "status", "--json"]:
+    print(json.dumps({"loggedIn": True, "authMethod": "claude.ai",
+                      "subscriptionType": "max"}))
+elif "stream-json" in args:
     if mode == "success":
         with open("hello.py", "w") as f:
             f.write('print("hello from vulcanbench")\\n')
@@ -66,6 +71,31 @@ else:
                       "usage": usage}))
 """
 
+FAKE_CODEX = """#!/usr/bin/env python3
+import json, os, sys
+
+args = sys.argv[1:]
+if "--version" in args:
+    print("codex-cli 0.139.0")
+elif args[:2] == ["login", "status"]:
+    print("Logged in using ChatGPT")
+elif args and args[0] == "exec":
+    prompt = sys.stdin.read()
+    with open("hello.py", "w") as f:
+        f.write('print("hello from vulcanbench")\\n')
+    print(json.dumps({"type": "thread.started", "thread_id": "thread-1",
+                      "api_key_present": "OPENAI_API_KEY" in os.environ or
+                                         "CODEX_API_KEY" in os.environ}))
+    print(json.dumps({"type": "item.completed", "item": {
+        "id": "item-1", "type": "agent_message", "text": "Implemented and tested"}}))
+    print(json.dumps({"type": "turn.completed", "usage": {
+        "input_tokens": 120, "cached_input_tokens": 80,
+        "output_tokens": 30, "reasoning_output_tokens": 10}}))
+else:
+    print("unsupported", file=sys.stderr)
+    sys.exit(1)
+"""
+
 
 class _Collector:
     """Minimal TraceCollector stand-in for direct runner tests."""
@@ -90,8 +120,21 @@ def fake_claude(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.Mo
     return script
 
 
+@pytest.fixture()
+def fake_codex(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    bin_dir = tmp_path_factory.mktemp("fake-codex-bin")
+    script = bin_dir / "codex"
+    script.write_text(FAKE_CODEX, encoding="utf-8")
+    script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-should-not-reach-codex")
+    monkeypatch.setenv("CODEX_API_KEY", "sk-test-should-not-reach-codex")
+    return script
+
+
 def test_spec_detection() -> None:
     assert is_cli_agent_spec("claude-code:claude-opus-4-8")
+    assert is_cli_agent_spec("codex:gpt-5.6-sol")
     assert not is_cli_agent_spec("anthropic:claude-opus-4-8")
     assert not is_cli_agent_spec("mock:synthetic")
 
@@ -128,10 +171,15 @@ def test_run_agent_via_claude_code(tmp_path: Path, fake_claude: Path) -> None:
     cli = summary["cli_agent"]
     assert cli["harness"] == "claude-code"
     assert cli["billing"] == "subscription"
-    assert cli["cost_basis"] == "hypothetical-api-pricing"
+    assert cli["cost_basis"] == "api-equivalent"
     assert cli["cli_reported_cost_usd"] == 0.0123
     assert cli["session_id"] == "s1"
     assert cli["num_turns"] == 2
+    economics = summary["economics"]
+    assert economics["billing_mode"] == "subscription-included"
+    assert economics["marginal_cash_usd"] is None
+    assert economics["api_equivalent_cost_usd"] == summary["cost_usd"]
+    assert economics["plan_name"] == "max"
 
     # Raw stream persisted for audit — and the API key never reached the CLI.
     stream_path = tmp_path / res["run_id"] / "cli-agent-stream.jsonl"
@@ -164,6 +212,7 @@ def test_usage_limit_raises_provider_error(
             priced_spec="claude-code:claude-opus-4-8",
             max_turns=5,
             collector=_Collector(),
+            env_overrides={"FAKE_CLAUDE_MODE": "limit"},
         )
 
 
@@ -178,6 +227,7 @@ def test_max_turns_is_a_scored_outcome_not_an_error(
         priced_spec="claude-code:claude-opus-4-8",
         max_turns=5,
         collector=_Collector(),
+        env_overrides={"FAKE_CLAUDE_MODE": "max_turns"},
     )
     assert out.finished is False
     assert out.subtype == "error_max_turns"
@@ -218,3 +268,49 @@ def test_claude_code_judge_provider_single_shot(fake_claude: Path) -> None:
     assert json.loads(resp.content) == {"score": 80, "rationale": "fake judge"}
     assert resp.usage.prompt_tokens == 168
     assert resp.usage.completion_tokens == 30
+
+
+def test_run_agent_via_codex_subscription(tmp_path: Path, fake_codex: Path) -> None:
+    res = run_agent(
+        task_id="hello-world",
+        model="codex:gpt-5.6-sol",
+        output_dir=tmp_path,
+        tasks_root=Path("tasks/v1"),
+        judges=False,
+        sandbox="local",
+        effort="high",
+    )
+    summary = res["summary"]
+    assert summary["scores"]["functional"] == 1.0
+    assert summary["finished"] is True
+    assert summary["tokens"] == {
+        "prompt": 120,
+        "completion": 30,
+        "total": 150,
+        "cached_input": 80,
+        "reasoning_output": 10,
+    }
+    cli = summary["cli_agent"]
+    assert cli["harness"] == "codex"
+    assert cli["auth_method"] == "subscription"
+    assert cli["session_id"] == "thread-1"
+    assert cli["requested_model"] == "gpt-5.6-sol"
+    assert cli["reported_model"] is None
+    assert cli["execution_boundary"] == "host-workspace; sandbox=workspace-write"
+    assert summary["economics"]["billing_mode"] == "subscription-included"
+    stream_path = tmp_path / res["run_id"] / "cli-agent-stream.jsonl"
+    events = [json.loads(line) for line in stream_path.read_text().splitlines()]
+    assert events[0]["api_key_present"] is False
+
+
+def test_codex_rejects_unenforceable_live_cost_cap(tmp_path: Path, fake_codex: Path) -> None:
+    with pytest.raises(ProviderError, match="cannot be enforced live"):
+        run_codex_task(
+            workspace=tmp_path,
+            prompt="p",
+            model="gpt-5.6-sol",
+            priced_spec="codex:gpt-5.6-sol",
+            max_turns=5,
+            collector=_Collector(),
+            max_run_cost=1.0,
+        )

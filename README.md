@@ -58,6 +58,11 @@ vulcanbench run --task hello-world --model zai:glm-5.2
 vulcanbench run --task hello-world --model qwen:qwen3.7-plus
 vulcanbench run --task hello-world --model deepseek:deepseek-v4-flash
 
+# Or benchmark the product harness through an existing subscription:
+vulcanbench harness doctor codex
+vulcanbench run --task hello-world --harness codex --billing subscription \
+  --model gpt-5.6-sol --no-judges
+
 # Each run prints all five metrics + cost, e.g.:
 #   functional=1.0 quality=1.0 security=1.0 human_like=0.8 total=0.974 cost=$0.0
 # and writes ./runs/<id>/{trace.jsonl, summary.json, replay.html, final.patch}
@@ -174,13 +179,22 @@ Specify a model as `provider:model`:
   model-authored tools and hidden verification remain in Docker, avoiding the
   Muse Code CLI's container sign-in path. Built-in pricing covers both
   `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
+- `claude-code:<model>` / `--harness claude-code` — Claude Code through a
+  Claude subscription. Results measure the model plus Claude Code harness.
+- `codex:<model>` / `--harness codex` — Codex CLI through a ChatGPT
+  subscription, with JSONL traces and Codex's workspace-write sandbox.
+
+Subscription runs record marginal cash, plan allocation, quota, and
+API-equivalent value separately; they are not mixed silently with raw API runs.
+See [Subscription harness benchmarking](docs/HARNESS_BENCHMARKING.md).
 
 `--effort` accepts `low`, `medium`, `high`, `extra-high`, or `max`. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the
 Messages API `output_config.effort` field. `extra-high` maps to `xhigh` on both
 providers and is opt-in for sweeps because support is model-dependent (e.g.
-Claude Opus 4.7+). `max` is a distinct OpenAI-only level and is also opt-in;
-other providers record it as unsupported metadata rather than sending it.
+Claude Opus 4.7+). `max` is a distinct OpenAI API level and is also opt-in.
+Codex and Claude Code subscription harnesses pass supported effort labels to
+their native CLIs; other providers record unsupported labels without sending them.
 Mock, Z.ai, and Qwen runs accept the field as no-op metadata.
 Effort labels are each provider's own scale — a cross-provider comparison at the
 same label compares each model at its own setting, not a calibrated equivalence.

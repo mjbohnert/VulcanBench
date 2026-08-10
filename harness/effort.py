@@ -128,10 +128,10 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
         return None
 
     provider_name = provider.strip().lower()
-    if provider_name == "openai":
+    if provider_name in {"openai", "codex"}:
         return EffortConfig(
             requested=effort,
-            provider="openai",
+            provider=provider_name,
             provider_value=_OPENAI_EFFORT_VALUES[effort],
             supported=True,
         )
@@ -145,9 +145,14 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
             provider_value=provider_value,
             supported=provider_value is not None,
         )
-    # claude-code: headless Claude Code has no per-request effort control;
-    # the requested level is recorded on the run but not sent.
-    if provider_name in {"mock", "zai", "claude-code"}:
+    if provider_name == "claude-code":
+        return EffortConfig(
+            requested=effort,
+            provider=provider_name,
+            provider_value=_OPENAI_EFFORT_VALUES[effort],
+            supported=True,
+        )
+    if provider_name in {"mock", "zai"}:
         return EffortConfig(
             requested=effort,
             provider=provider_name,

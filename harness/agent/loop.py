@@ -28,14 +28,16 @@ from pathlib import Path
 from typing import Any
 
 from harness.agent.cli_agents import (
+    CliAgentAdapter,
     CliAgentOutcome,
     build_cli_prompt,
+    get_cli_agent_adapter,
     is_cli_agent_spec,
-    run_claude_code_task,
 )
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
 from harness.agent.providers import LLMProvider, get_provider, parse_model_spec
+from harness.economics import api_receipt, subscription_receipt
 from harness.effort import effort_config
 from harness.evaluator.evaluate import evaluate_run
 from harness.evaluator.scorer import run_verifier, score_run
@@ -157,7 +159,7 @@ def run_agent(
     summary dict (also persisted to ``<run_dir>/summary.json``).
     """
     task = load_task(task_id, tasks_root)
-    cli_agent, provider, effort_meta = _resolve_run_engine(model, provider, effort, sandbox)
+    cli_adapter, provider, effort_meta = _resolve_run_engine(model, provider, effort, sandbox)
     effective_max_steps = resolve_max_steps(task.metadata, max_steps, override=override_budgets)
     effective_timeout = resolve_agent_timeout_s(task.metadata, timeout_s, override=override_budgets)
 
@@ -188,7 +190,7 @@ def run_agent(
 
     try:
         prompt_tokens, completion_tokens, finished, cost_capped, cli_outcome = _execute_agent(
-            cli_agent=cli_agent,
+            cli_adapter=cli_adapter,
             model=model,
             provider=provider,
             task=task,
@@ -246,6 +248,18 @@ def run_agent(
     collector.record("metric_computed", scores)
 
     cost = _compute_cost(model, prompt_tokens, completion_tokens, judge_model, scores)
+    grading_uses_subscription = bool(cli_outcome and is_cli_agent_spec(judge_model or model))
+    economics = (
+        subscription_receipt(
+            api_equivalent_cost_usd=cost["total"],
+            grading_cash_usd=None if grading_uses_subscription else cost["judges"],
+            grading_api_equivalent_usd=cost["judges"],
+            plan_name=cli_outcome.plan_name,
+            cli_reported_cost_usd=cli_outcome.cli_reported_cost_usd,
+        )
+        if cli_outcome
+        else api_receipt(cost["total"], cost["judges"])
+    )
     duration_s = round(time.monotonic() - started_mono, 3)
     summary = collector.finalize(
         scores,
@@ -256,9 +270,18 @@ def run_agent(
                 "prompt": prompt_tokens,
                 "completion": completion_tokens,
                 "total": total_tokens,
+                **(
+                    {
+                        "cached_input": cli_outcome.cached_input_tokens,
+                        "reasoning_output": cli_outcome.reasoning_output_tokens,
+                    }
+                    if cli_outcome
+                    else {}
+                ),
             },
             "cost_usd": cost["total"],
             "cost_detail": cost,
+            "economics": economics.as_summary(),
             "duration_s": duration_s,
             "started_at": started_at.isoformat(),
             "finished": finished,
@@ -310,29 +333,29 @@ def _resolve_run_engine(
     provider: LLMProvider | None,
     effort: str | None,
     sandbox: str,
-) -> tuple[bool, LLMProvider | None, Any]:
+) -> tuple[CliAgentAdapter | None, LLMProvider | None, Any]:
     """Decide whether ``model`` runs as a vendor agent CLI or via a provider.
 
-    Vendor agent CLIs (``claude-code:*``) execute their own tools host-side
-    (subscription billing); the sandbox executor is only used for setup and
-    verification. Docker would verify in a different environment than the
-    agent ran in, so CLI runs require the explicit ``--sandbox local`` opt-in.
+    External harnesses execute their own tools and bill a subscription. Claude
+    Code currently uses the host workspace; Codex adds its own workspace-write
+    sandbox. Setup and verification must run against that same workspace.
     """
     if provider is None and is_cli_agent_spec(model):
-        if sandbox != "local":
+        adapter = get_cli_agent_adapter(model)
+        if adapter.harness_id == "claude-code" and sandbox != "local":
             raise SandboxError(
                 f"model spec {model!r} runs a vendor agent CLI on the host with "
                 "its own tool execution; pass --sandbox local to acknowledge "
                 "host execution"
             )
-        return True, None, effort_config("claude-code", effort)
+        return adapter, None, effort_config(adapter.harness_id, effort)
     provider = provider or get_provider(model)
-    return False, provider, effort_config(provider.name, effort)
+    return None, provider, effort_config(provider.name, effort)
 
 
 def _execute_agent(
     *,
-    cli_agent: bool,
+    cli_adapter: CliAgentAdapter | None,
     model: str,
     provider: LLMProvider | None,
     task: Task,
@@ -350,9 +373,9 @@ def _execute_agent(
     max_run_cost: float | None,
 ) -> tuple[int, int, bool, bool, CliAgentOutcome | None]:
     """Run the agent phase: the vendor CLI in the workspace, or the model loop."""
-    if cli_agent:
+    if cli_adapter is not None:
         _, cli_model = parse_model_spec(model)
-        outcome = run_claude_code_task(
+        outcome = cli_adapter.run_task(
             workspace=workspace,
             prompt=build_cli_prompt(task.issue),
             model=cli_model,
@@ -363,6 +386,7 @@ def _execute_agent(
             timeout_s=deadline.remaining_s(),
             network=network,
             max_run_cost=max_run_cost,
+            effort=effort_meta.provider_value if effort_meta and effort_meta.supported else None,
         )
         if outcome.timed_out:
             deadline.record_exceeded(collector, "cli_agent")

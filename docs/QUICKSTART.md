@@ -103,19 +103,20 @@ vulcanbench report --suite v1 -o report.md
 >   `mock:synthetic`). Override prices any time with
 >   `VULCANBENCH_PRICING=/path/to/prices.json`.
 
-## Run on your Claude subscription instead of the API (`claude-code:`)
+## Run through a Claude or ChatGPT subscription
 
-If you have a Claude Pro/Max subscription, `claude-code:<model>` specs run the
-task with **Claude Code headless** (`claude -p`) instead of the VulcanBench
-agent loop — billing your subscription, not API rates:
+Check that the product CLI is installed and using subscription authentication:
 
 ```bash
-# Requires Claude Code installed and signed in with your subscription
-# (run `claude` once interactively, or set CLAUDE_CODE_OAUTH_TOKEN).
+vulcanbench harness doctor
+
 vulcanbench run --task py-topo-sort-cycle \
-  --model claude-code:claude-opus-4-8 \
-  --judge-model claude-code:claude-opus-4-8 \
-  --sandbox local
+  --harness claude-code --billing subscription \
+  --model claude-opus-4-8 --sandbox local --no-judges
+
+vulcanbench run --task py-topo-sort-cycle \
+  --harness codex --billing subscription \
+  --model gpt-5.6-sol --no-judges
 ```
 
 What to know before using it:
@@ -126,24 +127,24 @@ What to know before using it:
   `cli_agent.harness` so they can't be silently mixed. Use it for cheap dev
   iterations, task authoring, and smoke tests; keep API runs for published
   cross-provider numbers.
-- **`cost_usd` is hypothetical.** It's what the same tokens would have cost at
-  API rates (`claude-code:` prices map to `anthropic:` prices), so you can see
-  what a run *would* have cost. `cli_agent.billing: "subscription"` and the
-  CLI's own `cli_reported_cost_usd` are recorded alongside.
+- **Cost bases stay separate.** `economics` records marginal cash, overage,
+  allocated plan cost, quota, and API-equivalent value independently. Unknown
+  values remain unknown rather than becoming a misleading `$0`.
 - **`--sandbox local` is required.** Claude Code executes its own tools on
   your host (that's the harness being benchmarked); the docker sandbox would
   verify in a different environment than the agent ran in.
 - **Subscription limits are run errors, not zeros.** If a Max 5-hour window or
   weekly cap is hit mid-suite, the run records an error instead of a 0 score;
   resume the gaps later with `--only-missing`.
-- **Judges/graders can ride the subscription too**: pass
-  `--judge-model claude-code:<model>` (single-shot `claude -p` calls). Or point
-  `--judge-model` at a cheap API model (e.g. `anthropic:claude-haiku-4-5`) —
-  judge calls are a small fraction of run cost.
-- `ANTHROPIC_API_KEY` is stripped from the CLI subprocess so a set key can
-  never silently flip the run onto API billing. `--max-run-cost` still works
-  (enforced against the hypothetical cost, mid-run); `--effort` is recorded
-  but not sent (headless Claude Code has no effort control).
+- **Use an independent judge for publication.** Prefer `--no-judges` during
+  execution, then apply one fixed judge to all saved patches. Grading cost is
+  separate in the economics receipt.
+- Provider API keys and unrelated shell secrets are absent from subscription
+  CLI subprocesses. `harness doctor` fails closed if the active login is not a
+  subscription.
+
+See [Subscription harness benchmarking](HARNESS_BENCHMARKING.md) for the full
+receipt schema, safety boundaries, cost methodology, and publication protocol.
 
 **Re-grade for free after a task changes.** Grading is deterministic, so when you
 edit a task's hidden tests or thresholds you don't need to re-run the model —
