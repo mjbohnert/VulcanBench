@@ -314,3 +314,24 @@ def test_codex_rejects_unenforceable_live_cost_cap(tmp_path: Path, fake_codex: P
             collector=_Collector(),
             max_run_cost=1.0,
         )
+
+
+def test_codex_resolves_relative_workspace_before_passing_cd(
+    tmp_path: Path,
+    fake_codex: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("workspace").mkdir()
+    collector = _Collector()
+    run_codex_task(
+        workspace=Path("workspace"),
+        prompt="p",
+        model="gpt-5.6-sol",
+        priced_spec="codex:gpt-5.6-sol",
+        max_turns=5,
+        collector=collector,
+    )
+    start = next(data for event, data in collector.events if event == "cli_agent_start")
+    cd_value = start["argv"][start["argv"].index("--cd") + 1]
+    assert Path(cd_value).is_absolute()

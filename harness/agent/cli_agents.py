@@ -654,6 +654,9 @@ def run_codex_task(  # noqa: PLR0912, PLR0915 — linear process/stream adapter
 ) -> CliAgentOutcome:
     """Run one task through ``codex exec --json`` using ChatGPT auth."""
     del priced_spec, max_turns
+    # The subprocess also uses this directory as cwd. Passing a relative path
+    # to ``--cd`` would make Codex resolve it a second time from inside itself.
+    workspace = workspace.resolve()
     if timeout_s is not None and timeout_s <= 0:
         raise ProviderError("run budget exhausted before CLI agent start")
     if max_run_cost is not None:
