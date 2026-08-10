@@ -73,6 +73,7 @@ def subscription_receipt(
     grading_api_equivalent_usd: float | None,
     plan_name: str | None,
     cli_reported_cost_usd: float | None,
+    api_equivalent_quality: str | None = None,
 ) -> EconomicsReceipt:
     """Receipt for an included-usage subscription run.
 
@@ -80,7 +81,7 @@ def subscription_receipt(
     overage receipt or the operator supplies a billing-period allocation.  The
     API-equivalent value is a counterfactual, never presented as cash paid.
     """
-    api_quality = (
+    api_quality = api_equivalent_quality or (
         "estimated-from-reported-tokens" if api_equivalent_cost_usd is not None else "unavailable"
     )
     return EconomicsReceipt(

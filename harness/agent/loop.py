@@ -42,7 +42,7 @@ from harness.effort import effort_config
 from harness.evaluator.evaluate import evaluate_run
 from harness.evaluator.scorer import run_verifier, score_run
 from harness.persistence import maybe_post_run_summary
-from harness.pricing import cost_usd, is_priced
+from harness.pricing import cost_usd, has_cached_input_price, is_priced
 from harness.redaction import sanitize
 from harness.sandbox.docker_executor import (
     DockerToolExecutor,
@@ -61,7 +61,7 @@ from harness.task_metadata import (
 )
 from harness.tasks import Task, load_task, prepare_workspace, run_setup, task_hash
 from harness.tracer.collector import TraceCollector, generate_replay_html
-from harness.verifier import DEFAULT_TIMEOUT, Runner, run_declarative_verifier
+from harness.verifier import DEFAULT_TIMEOUT, Runner, RunnerOutcome, run_declarative_verifier
 
 SYSTEM_PROMPT = (
     "You are an autonomous software engineering agent. Solve the task described "
@@ -247,7 +247,15 @@ def run_agent(
     )
     collector.record("metric_computed", scores)
 
-    cost = _compute_cost(model, prompt_tokens, completion_tokens, judge_model, scores)
+    cached_input_tokens = cli_outcome.cached_input_tokens if cli_outcome else 0
+    cost = _compute_cost(
+        model,
+        prompt_tokens,
+        completion_tokens,
+        judge_model,
+        scores,
+        cached_input_tokens=cached_input_tokens,
+    )
     grading_uses_subscription = bool(cli_outcome and is_cli_agent_spec(judge_model or model))
     economics = (
         subscription_receipt(
@@ -256,6 +264,13 @@ def run_agent(
             grading_api_equivalent_usd=cost["judges"],
             plan_name=cli_outcome.plan_name,
             cli_reported_cost_usd=cli_outcome.cli_reported_cost_usd,
+            api_equivalent_quality=(
+                "estimated-from-reported-tokens-with-cache-pricing"
+                if cached_input_tokens and has_cached_input_price(model)
+                else "estimated-from-reported-tokens-no-cache-discount"
+                if cached_input_tokens
+                else "estimated-from-reported-tokens"
+            ),
         )
         if cli_outcome
         else api_receipt(cost["total"], cost["judges"])
@@ -420,15 +435,32 @@ def _compute_cost(
     completion_tokens: int,
     judge_model: str | None,
     scores: dict[str, Any],
+    *,
+    cached_input_tokens: int = 0,
 ) -> dict[str, Any]:
     """Agent + judge cost in USD. ``total`` is ``None`` when the model is unpriced."""
-    agent = cost_usd(model, prompt_tokens, completion_tokens)
+    cached_input_tokens = min(max(0, cached_input_tokens), max(0, prompt_tokens))
+    agent = cost_usd(
+        model,
+        prompt_tokens,
+        completion_tokens,
+        cached_input_tokens=cached_input_tokens,
+    )
     human = scores.get("metric_details", {}).get("human_like", {})
     jp = int(human.get("judge_prompt_tokens", 0))
     jc = int(human.get("judge_completion_tokens", 0))
     judges = cost_usd(judge_model or model, jp, jc) if (jp or jc) else 0.0
     total = round(agent + judges, 6) if (agent is not None and judges is not None) else None
-    return {"agent": agent, "judges": judges, "total": total, "model_priced": is_priced(model)}
+    return {
+        "agent": agent,
+        "judges": judges,
+        "total": total,
+        "model_priced": is_priced(model),
+        "agent_input_tokens": prompt_tokens,
+        "agent_cached_input_tokens": cached_input_tokens,
+        "agent_uncached_input_tokens": max(0, prompt_tokens - cached_input_tokens),
+        "cache_pricing_applied": bool(cached_input_tokens and has_cached_input_price(model)),
+    }
 
 
 def _verify_with_budget(
@@ -993,13 +1025,31 @@ def _executor_runner(executor: ToolProtocol) -> Runner:
     """
 
     def run(cmd: str, _workspace: Path, timeout: int) -> int:
-        try:
-            res = executor.run_command(RunCommandArgs(cmd=cmd, timeout=timeout))
-        except Exception:
-            return 124
-        return int(res.get("exit_code", 1))
+        return _executor_runner_outcome(executor, cmd, timeout).exit_code
 
     return run
+
+
+def _capturing_executor_runner(executor: ToolProtocol) -> Runner:
+    """Verifier runner variant that preserves output for infra classification."""
+
+    def run(cmd: str, _workspace: Path, timeout: int) -> RunnerOutcome:
+        return _executor_runner_outcome(executor, cmd, timeout)
+
+    return run
+
+
+def _executor_runner_outcome(executor: ToolProtocol, cmd: str, timeout: int) -> RunnerOutcome:
+    """Execute one verifier command and retain its exit code and output."""
+    try:
+        res = executor.run_command(RunCommandArgs(cmd=cmd, timeout=timeout))
+    except Exception as exc:
+        return RunnerOutcome(124, stderr=str(exc))
+    return RunnerOutcome(
+        int(res.get("exit_code", 1)),
+        stdout=str(res.get("stdout") or res.get("result") or ""),
+        stderr=str(res.get("stderr") or ""),
+    )
 
 
 def _verify(
@@ -1011,7 +1061,7 @@ def _verify(
 ) -> tuple[float, dict[str, Any]]:
     if task.tests_spec is not None:
         payload = run_declarative_verifier(
-            task, workspace, runner=_executor_runner(executor), timeout=timeout
+            task, workspace, runner=_capturing_executor_runner(executor), timeout=timeout
         )
     elif task.verifier is not None:
         payload = run_verifier(task.verifier, workspace, timeout=timeout)

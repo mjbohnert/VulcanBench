@@ -23,6 +23,12 @@ from typing import Any
 # before publishing numbers, and use the override file for anything that must be
 # exact.
 PRICES: dict[str, dict[str, float]] = {
+    # GPT-5.6 list prices. Cached input is a cache read; cache writes and the
+    # >272K long-context tier are not exposed by every harness receipt and are
+    # therefore not inferred here.
+    "openai:gpt-5.6-sol": {"input": 5.00, "cached_input": 0.50, "output": 30.00},
+    "openai:gpt-5.6-terra": {"input": 2.50, "cached_input": 0.25, "output": 15.00},
+    "openai:gpt-5.6-luna": {"input": 1.00, "cached_input": 0.10, "output": 6.00},
     "openai:gpt-5.5": {"input": 5.00, "output": 30.00},
     "openai:gpt-5.5-pro": {"input": 30.00, "output": 180.00},
     "openai:gpt-5.4": {"input": 2.50, "output": 15.00},
@@ -104,7 +110,11 @@ def _prices() -> dict[str, dict[str, float]]:
             with open(override, encoding="utf-8") as f:
                 custom = json.load(f)
             if isinstance(custom, dict):
-                prices.update(custom)
+                for spec, override_rate in custom.items():
+                    if isinstance(override_rate, dict) and isinstance(prices.get(spec), dict):
+                        prices[spec] = {**prices[spec], **override_rate}
+                    else:
+                        prices[spec] = override_rate
         except (OSError, json.JSONDecodeError):
             pass
     return prices
@@ -119,13 +129,36 @@ def _rate(model: str) -> dict[str, float] | None:
     return prices.get(provider)
 
 
-def cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
-    """USD cost for a model call, or ``None`` if the model is not priced."""
+def cost_usd(
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    *,
+    cached_input_tokens: int = 0,
+) -> float | None:
+    """USD cost for a model call, or ``None`` if the model is not priced.
+
+    ``prompt_tokens`` is the total input count. When a provider reports cache
+    reads separately, that subset is billed at ``cached_input`` when the price
+    table provides it. Otherwise cached input conservatively uses the normal
+    input rate.
+    """
     rate = _rate(model)
     if rate is None:
         return None
-    cost = (prompt_tokens * rate["input"] + completion_tokens * rate["output"]) / _PER_MILLION
+    cached = min(max(0, cached_input_tokens), max(0, prompt_tokens))
+    uncached = max(0, prompt_tokens) - cached
+    cached_rate = rate.get("cached_input", rate["input"])
+    cost = (
+        uncached * rate["input"] + cached * cached_rate + max(0, completion_tokens) * rate["output"]
+    ) / _PER_MILLION
     return round(cost, 6)
+
+
+def has_cached_input_price(model: str) -> bool:
+    """Whether the effective model price distinguishes cache reads."""
+    rate = _rate(model)
+    return rate is not None and "cached_input" in rate
 
 
 def is_priced(model: str) -> bool:

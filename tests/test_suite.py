@@ -470,6 +470,30 @@ def test_subscription_quota_error_is_not_hot_retried(
     assert len(result["errors"]) == 1
 
 
+def test_verifier_infrastructure_error_is_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+    calls = 0
+    real_run_agent = suite_mod.run_agent
+
+    def missing_toolchain(**kwargs):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise suite_mod.VerifierInfrastructureError("pytest unavailable")
+        return real_run_agent(**kwargs)
+
+    monkeypatch.setattr(suite_mod, "run_agent", missing_toolchain)
+    result = run_suite(
+        "demo", "mock:synthetic", output_dir=tmp_path / "runs", tasks_base=base, judges=False
+    )
+    assert calls == 2
+    assert result["n_infra_retries"] == 1
+    assert result["errors"] == []
+
+
 def test_graded_failure_is_not_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     base = tmp_path / "tasks"
     _make_task(base / "demo", "task-a")

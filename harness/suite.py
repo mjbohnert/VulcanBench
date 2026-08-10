@@ -22,6 +22,7 @@ from harness.leaderboard import aggregate_by_model, scan_leaderboard
 from harness.sandbox.docker_executor import SandboxError
 from harness.task_metadata import repo_scale
 from harness.tasks import list_task_ids, load_task
+from harness.verifier import VerifierInfrastructureError
 
 DEFAULT_TASKS_BASE = Path("tasks")
 SUITE_ALIASES = {
@@ -38,7 +39,7 @@ SUITE_ALIASES = {
 #: provider call, a sandbox that would not start. Scoring these as a task failure
 #: (or dropping the task from the suite) attributes an infrastructure problem to
 #: the model, so they are retried instead.
-INFRASTRUCTURE_ERRORS = (ProviderError, SandboxError)
+INFRASTRUCTURE_ERRORS = (ProviderError, SandboxError, VerifierInfrastructureError)
 
 
 def is_infrastructure_error(exc: BaseException) -> bool:

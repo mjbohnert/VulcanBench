@@ -224,7 +224,7 @@ def install_hidden_tests(task: Task, workspace: Path) -> None:
 def run_setup(
     task: Task,
     workspace: Path,
-    runner: Callable[[str, Path, int], int] | None = None,
+    runner: Callable[[str, Path, int], Any] | None = None,
     timeout: int | None = None,
     collector: Any | None = None,
 ) -> list[dict[str, Any]]:
@@ -247,7 +247,8 @@ def run_setup(
         name = entry["name"]
         cmd = entry["cmd"]
         started = time.monotonic()
-        exit_code = runner(cmd, workspace, timeout)
+        raw_outcome = runner(cmd, workspace, timeout)
+        exit_code = int(getattr(raw_outcome, "exit_code", raw_outcome))
         duration = round(time.monotonic() - started, 3)
         result = {"name": name, "cmd": cmd, "exit_code": exit_code, "duration_s": duration}
         results.append(result)

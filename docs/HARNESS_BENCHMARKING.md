@@ -73,6 +73,12 @@ The legacy top-level `cost_usd` remains an API-equivalent compatibility field
 for existing tools. New reports and leaderboards label marginal cash and API
 equivalent separately.
 
+When the CLI reports cache reads and the price table has a `cached_input`
+rate, VulcanBench subtracts those tokens from full-price input and applies the
+cache-read rate separately. The receipt's `measurement_quality` states whether
+cache pricing was applied. Cache writes and model-specific long-context tiers
+remain unknown unless the CLI exposes enough per-request detail to price them.
+
 ```bash
 vulcanbench leaderboard --track subscription
 vulcanbench leaderboard --track api
@@ -126,3 +132,7 @@ can enforce the API-equivalent cap during a run.
 7. Publish pass@1 with uncertainty, latency, quota/cost basis, and harness
    version.
 8. Keep a small raw-API control subset to estimate the harness delta.
+
+Use Docker verification for publication runs. A missing verifier dependency is
+an infrastructure error, not a model failure; VulcanBench now surfaces and
+retries that condition instead of recording a functional zero.

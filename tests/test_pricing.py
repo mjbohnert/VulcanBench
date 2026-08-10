@@ -20,6 +20,24 @@ def test_known_model_cost() -> None:
     assert pricing.cost_usd("openai:gpt-4o", 1000, 500) == 0.0075
 
 
+def test_gpt_56_sol_cost_uses_cached_input_rate() -> None:
+    # 1M total input, 800K cache reads: 200K*$5 + 800K*$0.50 + 100K*$30.
+    assert (
+        pricing.cost_usd(
+            "openai:gpt-5.6-sol",
+            1_000_000,
+            100_000,
+            cached_input_tokens=800_000,
+        )
+        == 4.4
+    )
+    assert pricing.has_cached_input_price("codex:gpt-5.6-sol") is True
+
+
+def test_cached_count_is_clamped_to_total_input() -> None:
+    assert pricing.cost_usd("openai:gpt-5.6-sol", 100, 0, cached_input_tokens=1_000) == 0.00005
+
+
 def test_unknown_model_is_none() -> None:
     assert pricing.cost_usd("openai:does-not-exist-9000", 1000, 500) is None
     assert pricing.is_priced("foo:bar") is False
@@ -37,6 +55,19 @@ def test_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pricing.reset_cache()
     # 1M input @ $1 + 1M output @ $2 = $3
     assert pricing.cost_usd("custom:model", 1_000_000, 1_000_000) == 3.0
+
+
+def test_env_override_merges_fields_into_builtin_rate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    override = tmp_path / "prices.json"
+    override.write_text(json.dumps({"openai:gpt-5.6-sol": {"input": 6.0}}))
+    monkeypatch.setenv("VULCANBENCH_PRICING", str(override))
+    pricing.reset_cache()
+    # The local input override must not erase the official cached-input field.
+    assert (
+        pricing.cost_usd("openai:gpt-5.6-sol", 1_000_000, 0, cached_input_tokens=1_000_000) == 0.5
+    )
 
 
 def test_provider_prefix_fallback() -> None:

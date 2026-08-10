@@ -38,6 +38,7 @@ from harness.sandbox.docker_executor import SandboxError
 from harness.suite import SUITE_ALIASES, load_suite, run_suite
 from harness.tasks import list_task_ids
 from harness.validate import main as validate_main
+from harness.verifier import VerifierInfrastructureError
 from harness.voice.cli import voice_app
 
 # Provider keys and harness settings are read straight from os.environ, so
@@ -392,6 +393,9 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
     except ProviderError as e:
         console.print(f"[red]provider error[/red] {e}")
         raise typer.Exit(code=2) from e
+    except VerifierInfrastructureError as e:
+        console.print(f"[red]verifier infrastructure error[/red] {e}")
+        raise typer.Exit(code=3) from e
     except (ValueError, FileNotFoundError) as e:
         console.print(f"[red]error[/red] {e}")
         raise typer.Exit(code=1) from e
@@ -647,7 +651,7 @@ def _run_suite(
 
 
 @app.command("effort-sweep")
-def effort_sweep(  # noqa: PLR0912 — CLI entry: option validation + per-effort dispatch
+def effort_sweep(  # noqa: PLR0912, PLR0915 — CLI entry: validation + per-effort dispatch
     suite: str = typer.Option(..., "--suite", help="Suite to sweep, e.g. v1"),
     model: str = typer.Option(..., "--model", "-m", help="provider:model e.g. openai:gpt-5.1"),
     efforts: str = typer.Option(
@@ -781,6 +785,9 @@ def effort_sweep(  # noqa: PLR0912 — CLI entry: option validation + per-effort
     except ProviderError as e:
         console.print(f"[red]provider error[/red] {e}")
         raise typer.Exit(code=2) from e
+    except VerifierInfrastructureError as e:
+        console.print(f"[red]verifier infrastructure error[/red] {e}")
+        raise typer.Exit(code=3) from e
     except (ValueError, FileNotFoundError) as e:
         console.print(f"[red]error[/red] {e}")
         raise typer.Exit(code=1) from e
