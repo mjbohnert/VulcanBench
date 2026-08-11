@@ -36,7 +36,7 @@ from harness.agent.cli_agents import (
 )
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
-from harness.agent.providers import LLMProvider, get_provider, parse_model_spec
+from harness.agent.providers import LLMProvider, get_provider, parse_model_spec, route_manifest
 from harness.economics import api_receipt, subscription_receipt
 from harness.effort import effort_config
 from harness.evaluator.evaluate import evaluate_run
@@ -790,7 +790,7 @@ def _collect_manifest(
             "network": network,
         },
         "tools": tools,
-    }
+    } | _route_entry(model)
 
 
 def _minimal_manifest(
@@ -812,7 +812,14 @@ def _minimal_manifest(
             "network": network,
         },
         "tools": {tool: None for tool in _MANIFEST_TOOLS},
-    }
+    } | _route_entry(model)
+
+
+def _route_entry(model: str) -> dict[str, Any]:
+    """``{"route": ...}`` when the run did not use the provider's default API
+    endpoint, else empty so default-route manifests keep their existing shape."""
+    route = route_manifest(model)
+    return {"route": route} if route else {}
 
 
 def _remaining_timeout(default: int, remaining_s: Callable[[], float | None] | None) -> int | None:
@@ -1125,14 +1132,16 @@ def _git_changed_files(workspace: Path) -> list[str]:
 
 
 # Env var each provider needs before judging is worthwhile (mock needs none).
-_JUDGE_KEY_ENV = {
+_JUDGE_KEY_ENV: dict[str, str | tuple[str, ...]] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "zai": "ZAI_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
-    "meta": "MODEL_API_KEY",
+    # OPENROUTER_API_KEY counts: a run routed through OpenRouter has no Meta key,
+    # and omitting it here would silently drop judging rather than fail loudly.
+    "meta": ("META_MUSE_SPARK_API", "MODEL_API_KEY", "OPENROUTER_API_KEY"),
 }
 
 
@@ -1161,7 +1170,10 @@ def _build_judge_provider(
         except ValueError:
             return None
     need = _JUDGE_KEY_ENV.get(provider.name)
-    if need is not None and not os.environ.get(need):
+    if isinstance(need, tuple):
+        if not any(os.environ.get(name) for name in need):
+            return None
+    elif need is not None and not os.environ.get(need):
         return None
     return provider
 

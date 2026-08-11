@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import io
+import urllib.error
+from functools import partial
+from typing import Any, cast
+
 import pytest
 
 from harness.agent import providers as P
+from harness.agent.loop import _build_judge_provider
 from harness.agent.providers import (
     AnthropicProvider,
     DeepSeekProvider,
@@ -324,7 +330,7 @@ def test_openai_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_meta_complete_uses_responses_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MODEL_API_KEY", "meta-test")
+    monkeypatch.setenv("META_MUSE_SPARK_API", "meta-test")
     seen: dict[str, object] = {}
 
     def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
@@ -369,9 +375,179 @@ def test_meta_complete_uses_responses_api(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_meta_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("META_MUSE_SPARK_API", raising=False)
     monkeypatch.delenv("MODEL_API_KEY", raising=False)
-    with pytest.raises(P.ProviderError, match="MODEL_API_KEY"):
+    with pytest.raises(P.ProviderError, match="META_MUSE_SPARK_API or MODEL_API_KEY"):
         MetaProvider("muse-spark-1.2").complete([], [])
+
+
+def test_meta_complete_accepts_official_key_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("META_MUSE_SPARK_API", raising=False)
+    monkeypatch.setenv("MODEL_API_KEY", "official-meta-test")
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        assert headers["Authorization"] == "Bearer official-meta-test"
+        return {"output": [], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    MetaProvider("muse-spark-1.2").complete([], [])
+
+
+def _openrouter_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("META_BASE_URL", "https://openrouter.ai/api/v1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.delenv("META_MUSE_SPARK_API", raising=False)
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)
+
+
+def test_meta_via_openrouter_pins_upstream_and_namespaces_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openrouter_env(monkeypatch)
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen.update(url=url, headers=headers, payload=payload)
+        return {
+            "output": [{"type": "message", "content": [{"type": "output_text", "text": "ok"}]}],
+            "usage": {
+                "input_tokens": 1000,
+                "input_tokens_details": {"cached_tokens": 500},
+                "output_tokens": 25,
+            },
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    response = MetaProvider("muse-spark-1.2").complete(
+        [{"role": "user", "content": "fix it"}], [], effort="high"
+    )
+
+    assert seen["url"] == "https://openrouter.ai/api/v1/responses"
+    assert seen["headers"] == {  # type: ignore[comparison-overlap]
+        "Authorization": "Bearer sk-or-test",
+        "Content-Type": "application/json",
+    }
+    payload = seen["payload"]
+    assert isinstance(payload, dict)
+    # OpenRouter namespaces the id; the harness spec stays "meta:muse-spark-1.2"
+    # so pricing and compare keys match a Meta-direct run.
+    assert payload["model"] == "meta/muse-spark-1.2"
+    # Pinned so a second (re-hosted) endpoint cannot silently join a sweep.
+    assert payload["provider"] == {"order": ["meta"], "allow_fallbacks": False}
+    assert payload["reasoning"] == {"effort": "high"}
+    # Cache reads still bill at Meta's 0.12 relative rate: 500 + 500 * 0.12.
+    assert response.usage.prompt_tokens == 560
+
+
+def test_meta_via_openrouter_accepts_prompt_tokens_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openrouter_env(monkeypatch)
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        return {
+            "output": [],
+            "usage": {
+                "input_tokens": 1000,
+                # Chat-Completions-shaped details on a Responses payload.
+                "prompt_tokens_details": {"cached_tokens": 500},
+                "output_tokens": 0,
+            },
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    assert MetaProvider("muse-spark-1.2").complete([], []).usage.prompt_tokens == 560
+
+
+def test_meta_via_openrouter_falls_back_to_meta_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _openrouter_env(monkeypatch)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("META_MUSE_SPARK_API", "sk-or-in-meta-var")
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        assert headers["Authorization"] == "Bearer sk-or-in-meta-var"
+        return {"output": [], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    MetaProvider("muse-spark-1.2").complete([], [])
+
+
+def test_meta_via_openrouter_requires_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _openrouter_env(monkeypatch)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(P.ProviderError, match="OPENROUTER_API_KEY"):
+        MetaProvider("muse-spark-1.2").complete([], [])
+
+
+def test_meta_contributor_tier_rejected_on_openrouter(monkeypatch: pytest.MonkeyPatch) -> None:
+    _openrouter_env(monkeypatch)
+    # Silently routing this would bill a $0.10/$0.20 tier that OpenRouter does
+    # not sell, understating the run by an order of magnitude.
+    with pytest.raises(P.NonRetryableProviderError, match="Contributor tier"):
+        MetaProvider("muse-spark-1.2-contributor").complete([], [])
+
+
+def test_meta_direct_route_is_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("META_BASE_URL", raising=False)
+    monkeypatch.setenv("META_MUSE_SPARK_API", "meta-test")
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen.update(url=url, payload=payload)
+        return {"output": [], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    MetaProvider("muse-spark-1.2").complete([], [])
+
+    assert seen["url"] == "https://api.meta.ai/v1/responses"
+    payload = seen["payload"]
+    assert isinstance(payload, dict)
+    assert payload["model"] == "muse-spark-1.2"
+    assert "provider" not in payload
+
+
+def test_openrouter_key_enables_meta_judging(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A routed run has no Meta key; judging must not be silently skipped.
+    _openrouter_env(monkeypatch)
+    build = partial(
+        _build_judge_provider,
+        True,  # judges
+        None,  # judge_model: fall back to the run model
+        "meta:muse-spark-1.2",
+        None,  # run_provider
+        cast("Any", None),  # collector: unused on this path
+    )
+    assert build() is not None
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    assert build() is None
+
+
+def test_route_manifest_records_openrouter(monkeypatch: pytest.MonkeyPatch) -> None:
+    _openrouter_env(monkeypatch)
+    assert P.route_manifest("meta:muse-spark-1.2") == {
+        "via": "openrouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "wire_model": "meta/muse-spark-1.2",
+        "pinned_upstream": "meta",
+    }
+
+
+def test_route_manifest_flags_other_custom_bases(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("META_BASE_URL", "https://proxy.internal/v1")
+    assert P.route_manifest("meta:muse-spark-1.2") == {
+        "via": "custom",
+        "base_url": "https://proxy.internal/v1",
+        "wire_model": "muse-spark-1.2",
+    }
+
+
+@pytest.mark.parametrize("spec", ["meta:muse-spark-1.2", "openai:gpt-5.5", "not-a-spec"])
+def test_route_manifest_is_empty_on_default_routes(
+    monkeypatch: pytest.MonkeyPatch, spec: str
+) -> None:
+    monkeypatch.delenv("META_BASE_URL", raising=False)
+    assert P.route_manifest(spec) is None
 
 
 def test_anthropic_complete_parses(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -624,6 +800,55 @@ def test_http_post_json_wraps_read_timeout(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(P.urllib.request, "urlopen", fake_urlopen)
     with pytest.raises(P.ProviderError, match="read timeout"):
         P._http_post_json("https://example.invalid/v1/chat/completions", {}, {})
+
+
+def _http_error(code: int) -> Any:
+    return urllib.error.HTTPError(
+        "https://example.invalid/v1/responses", code, "err", {}, io.BytesIO(b'{"error":"nope"}')
+    )
+
+
+@pytest.mark.parametrize("code", [400, 401, 403, 404, 422])
+def test_http_post_json_fails_fast_on_client_errors(
+    monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    # These cannot succeed on retry; retrying only burns the run's time budget.
+    def fake_urlopen(req, timeout=120):  # type: ignore[no-untyped-def]
+        raise _http_error(code)
+
+    monkeypatch.setattr(P.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(P.NonRetryableProviderError, match=f"HTTP {code}"):
+        P._http_post_json("https://example.invalid/v1/responses", {}, {})
+
+
+@pytest.mark.parametrize("code", [408, 429, 500, 502, 503])
+def test_http_post_json_keeps_transient_errors_retryable(
+    monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    def fake_urlopen(req, timeout=120):  # type: ignore[no-untyped-def]
+        raise _http_error(code)
+
+    monkeypatch.setattr(P.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(P.ProviderError) as excinfo:
+        P._http_post_json("https://example.invalid/v1/responses", {}, {})
+    assert not isinstance(excinfo.value, P.NonRetryableProviderError)
+    assert P._is_retryable(excinfo.value)
+
+
+def test_client_error_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+
+    def fake_urlopen(req, timeout=120):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        raise _http_error(403)
+
+    monkeypatch.setattr(P.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setenv("META_MUSE_SPARK_API", "meta-test")
+    monkeypatch.delenv("META_BASE_URL", raising=False)
+    with pytest.raises(P.NonRetryableProviderError):
+        MetaProvider("muse-spark-1.2").complete([], [])
+    assert calls == 1
 
 
 def test_kimi_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:

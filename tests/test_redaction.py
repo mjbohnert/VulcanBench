@@ -60,7 +60,7 @@ def test_redacts_deepseek_env_value(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_redacts_meta_model_api_env_value(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MODEL_API_KEY", "meta_supersecretvalue123456")
+    monkeypatch.setenv("META_MUSE_SPARK_API", "meta_supersecretvalue123456")
     out = redact("the key is meta_supersecretvalue123456 in the log")
     assert "meta_supersecretvalue123456" not in out
     assert REDACTED in out

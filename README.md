@@ -173,12 +173,15 @@ Specify a model as `provider:model`:
   (DeepSeek's enum is low/high/max — it silently coerces `medium` to `high`,
   so the harness never sends it).
 - `meta:<model>` — Meta Model API Responses endpoint for Muse Spark. Needs
-  `MODEL_API_KEY`; set `META_BASE_URL` to override the default
+  `META_MUSE_SPARK_API` (or Meta's official `MODEL_API_KEY`); set
+  `META_BASE_URL` to override the default
   `https://api.meta.ai/v1`. `low`/`medium`/`high` map directly and
   `extra-high` maps to `xhigh`. The direct API request runs host-side while
   model-authored tools and hidden verification remain in Docker, avoiding the
   Muse Code CLI's container sign-in path. Built-in pricing covers both
   `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
+  Can also be [routed through OpenRouter](#routing-muse-spark-through-openrouter)
+  when Meta API access is unavailable.
 - `claude-code:<model>` / `--harness claude-code` — Claude Code through a
   Claude subscription. Results measure the model plus Claude Code harness.
 - `codex:<model>` / `--harness codex` — Codex CLI through a ChatGPT
@@ -198,6 +201,42 @@ their native CLIs; other providers record unsupported labels without sending the
 Mock, Z.ai, and Qwen runs accept the field as no-op metadata.
 Effort labels are each provider's own scale — a cross-provider comparison at the
 same label compares each model at its own setting, not a calibrated equivalence.
+
+### Routing Muse Spark through OpenRouter
+
+Point `META_BASE_URL` at OpenRouter to reach Muse Spark without Meta API access:
+
+```bash
+export META_BASE_URL=https://openrouter.ai/api/v1
+export OPENROUTER_API_KEY=sk-or-...
+vulcanbench run --task hello-world --model meta:muse-spark-1.2 --sandbox docker
+```
+
+The harness namespaces the id on the wire (`meta/muse-spark-1.2`) while the spec
+stays `meta:muse-spark-1.2`, so pricing keys and `compare` output line up with
+Meta-direct runs. Requests are pinned with
+`provider: {order: ["meta"], allow_fallbacks: false}`, and the manifest records a
+`route` block naming the base URL, wire id, and pinned upstream.
+
+This route is comparable to a direct run but not identical — treat it as its own
+reported column, and footnote it:
+
+- **Pass-through, not a re-host.** OpenRouter's only endpoint for this model is
+  Meta's own, so there is no third-party quantization or serving-stack variance.
+  Pinning is what keeps that true if a second endpoint ever appears; an
+  unavailable pin fails the run rather than silently substituting one.
+- **Implicit caching works, and is priced correctly.** OpenRouter's model page
+  says the endpoint has no implicit caching; measured behaviour disagrees. On a
+  `hello-world` run the endpoint reported `cached_tokens` of 1009/1019 on the
+  first turn (the cache survives across runs) and non-zero on 4 of 5 turns, and
+  billed cache reads at exactly $0.15/M — the 0.12x factor the harness folds in.
+  Summed OpenRouter billing for that run was $0.00553895 against a recorded
+  `cost_usd` of $0.005539. A fresh prefix does miss on its first call or two
+  (cache writes take time to propagate), so a one-shot A/B will understate it.
+- **Same list price, no Contributor tier.** Token prices match Meta direct
+  ($1.25/M in, $4.25/M out). The data-sharing `-contributor` tier is Meta-direct
+  only; requesting it on this route fails fast rather than billing at a rate
+  OpenRouter does not sell.
 
 ## Sandbox
 

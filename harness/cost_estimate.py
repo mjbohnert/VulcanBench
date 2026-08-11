@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from harness.agent.providers import route_manifest
 from harness.cost_priors import PriorBuckets, PriorRange, load_cost_priors
 from harness.leaderboard import load_summaries
 from harness.pricing import _rate, is_priced
@@ -47,7 +48,7 @@ _PROVIDER_ENV = {
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
-    "meta": "MODEL_API_KEY",
+    "meta": "META_MUSE_SPARK_API",
 }
 
 _PROVIDER_LABEL = {
@@ -59,6 +60,16 @@ _PROVIDER_LABEL = {
     "deepseek": "DeepSeek",
     "meta": "Meta Model API",
 }
+
+
+def _env_var_for(spec: str, provider: str) -> str:
+    """The key a run will actually read — a routed run needs a different one than
+    its provider's default (e.g. Muse Spark via OpenRouter)."""
+    route = route_manifest(spec)
+    if route and route["via"] == "openrouter":
+        return "OPENROUTER_API_KEY"
+    return _PROVIDER_ENV.get(provider, f"{provider.upper()}_API_KEY")
+
 
 _KNOWN_TASK_SOURCES = frozenset({"exact", "prior_exact"})
 _PRIOR_SOURCES = frozenset({"prior_exact", "prior_task_scaled", "prior_model_median"})
@@ -409,7 +420,7 @@ def estimate_plan(  # noqa: PLR0912
             ModelCostEstimate(
                 model=model,
                 provider=_PROVIDER_LABEL.get(prov, prov),
-                env_var=_PROVIDER_ENV.get(prov, f"{prov.upper()}_API_KEY"),
+                env_var=_env_var_for(model, prov),
                 n_runs=len(task_ids) * repeat,
                 low_usd=low,
                 mid_usd=mid,

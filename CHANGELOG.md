@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This bypasses Muse Code's container sign-in failure without weakening task
   isolation. Supports low/medium/high effort plus `extra-high` -> `xhigh`, and
   prices both the standard and data-sharing Contributor tiers.
+- **OpenRouter route for Muse Spark**: setting `META_BASE_URL=https://openrouter.ai/api/v1`
+  (with `OPENROUTER_API_KEY`) reaches the same model when Meta API access is
+  unavailable. The wire id is namespaced to `meta/muse-spark-1.2` while the harness
+  spec stays `meta:muse-spark-1.2`, so pricing keys and `compare` output still match
+  Meta-direct runs. Requests pin `provider: {order: ["meta"], allow_fallbacks: false}`
+  — OpenRouter's only endpoint for the model is Meta's own, and the pin keeps a
+  future re-hosted endpoint from silently joining a sweep. The Contributor tier is
+  rejected on this route (Meta-direct only) instead of billing at a rate OpenRouter
+  does not sell. Cache-read parsing now also accepts `prompt_tokens_details`.
+
+### Changed
+
+- **Run manifests record a `route` block** when a run did not use its provider's
+  default API endpoint (base URL, wire model, pinned upstream). Meta-direct and
+  OpenRouter-routed runs were previously indistinguishable in a results directory.
+  Default-route manifests are unchanged.
+
+### Fixed
+
+- **Client errors are no longer retried.** Any HTTP 4xx other than 408/409/425/429
+  now raises `NonRetryableProviderError`: a bad key, missing entitlement, unknown
+  model, or malformed body fails identically on every attempt, so retrying only
+  burned wall clock against the run's timeout budget — and then once more per task
+  under a suite's infra-retry policy. Found when a 403 (`missing 18+ attestation`)
+  from OpenRouter consumed its full attempt budget with backoff.
+- **Tests no longer read the developer's `.env`.** Importing `harness.cli` calls
+  `load_dotenv()` at module scope, so the first test to import it injected real
+  provider keys and base URLs into `os.environ` for the whole session; provider
+  tests then passed or failed based on the machine's configuration. A new autouse
+  fixture in `tests/conftest.py` clears provider routing and credential vars.
 - **Qwen reasoning effort** (`qwen:<model>`, Qwen3.8+): `--effort low/medium` maps to
   DashScope's `reasoning_effort` and `extra-high` maps to its `xhigh`; `high` is recorded
   as metadata only because Qwen's documented enum is low/medium/xhigh (no `high`) with

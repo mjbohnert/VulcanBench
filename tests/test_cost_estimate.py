@@ -189,7 +189,7 @@ def test_cli_estimate_meta_uses_official_env_name() -> None:
     )
     assert result.exit_code == 0
     assert "Meta Model API" in result.output
-    assert "MODEL_API_KEY" in result.output
+    assert "META_MUSE_SPARK" in result.output
 
 
 def test_run_dry_run_includes_estimate() -> None:

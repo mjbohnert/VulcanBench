@@ -16,7 +16,8 @@ Providers implemented:
 - ``qwen:<model>``     Alibaba Cloud DashScope OpenAI-compatible Chat Completions
                        API (Qwen).
 - ``deepseek:<model>`` DeepSeek OpenAI-compatible Chat Completions API.
-- ``meta:<model>``     Meta Model API Responses endpoint (Muse Spark).
+- ``meta:<model>``     Meta Model API Responses endpoint (Muse Spark), directly
+                       or routed through OpenRouter (see ``META_BASE_URL``).
 
 Only the Python standard library is used for HTTP so the harness stays
 dependency-light; ``tenacity`` provides retry/backoff.
@@ -32,9 +33,11 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -133,10 +136,24 @@ class LLMProvider(ABC):
         return False
 
 
+#: 4xx codes worth another attempt: the request is fine and the server is asking
+#: us to wait, or the conflict was momentary. Every other client error -- a bad
+#: key, a missing entitlement, an unknown model, a malformed body -- fails
+#: identically on retry, so retrying only burns wall clock against the run's
+#: timeout budget, and then once more per task under a suite's infra-retry
+#: policy. Observed: a 403 "missing 18+ attestation" from OpenRouter consumed its
+#: full attempt budget with backoff before surfacing an error it had on attempt 1.
+_RETRYABLE_CLIENT_STATUS = frozenset({408, 409, 425, 429})
+
+
 def _http_post_json(
     url: str, headers: dict[str, str], payload: dict[str, Any], timeout: float = 120
 ) -> dict[str, Any]:
-    """POST JSON and parse the JSON response using only the stdlib."""
+    """POST JSON and parse the JSON response using only the stdlib.
+
+    Raises :class:`NonRetryableProviderError` for client errors that cannot
+    succeed on retry, and plain :class:`ProviderError` for transient ones.
+    """
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
@@ -145,7 +162,10 @@ def _http_post_json(
             return parsed
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        raise ProviderError(f"HTTP {e.code} from {url}: {body[:500]}") from e
+        message = f"HTTP {e.code} from {url}: {body[:500]}"
+        if 400 <= e.code < 500 and e.code not in _RETRYABLE_CLIENT_STATUS:
+            raise NonRetryableProviderError(message) from e
+        raise ProviderError(message) from e
     except urllib.error.URLError as e:
         raise ProviderError(f"network error calling {url}: {e.reason}") from e
     except TimeoutError as e:
@@ -304,13 +324,90 @@ class OpenAIProvider(LLMProvider):
         return _parse_responses_body(body)
 
 
+META_DEFAULT_BASE_URL = "https://api.meta.ai/v1"
+_OPENROUTER_HOST = "openrouter.ai"
+
+#: OpenRouter's slug for the upstream endpoint that serves Muse Spark. Today it is
+#: the ONLY endpoint for the model -- OpenRouter passes through to Meta's own
+#: serving stack rather than re-hosting -- which is what makes the routed numbers
+#: comparable to Meta-direct ones. Pinning to it keeps that true: if OpenRouter
+#: adds a second (re-hosted, possibly requantized) endpoint mid-sweep, the run
+#: fails loudly instead of silently mixing two serving stacks into one column.
+_OPENROUTER_UPSTREAM = "meta"
+
+
+@dataclass(frozen=True)
+class MetaRoute:
+    """How a ``meta:`` run reaches Muse Spark.
+
+    ``model`` is the harness-side name and stays stable across routes so run
+    records, pricing keys, and ``compare`` output line up; ``wire_model`` is what
+    goes on the request.
+    """
+
+    base: str
+    model: str
+    wire_model: str
+    #: "meta" (direct), "openrouter", or "custom" for any other base URL.
+    via: str
+    key_envs: tuple[str, ...]
+    extra_payload: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def pinned_upstream(self) -> str | None:
+        order = self.extra_payload.get("provider", {}).get("order") or []
+        return order[0] if order else None
+
+
+def _resolve_meta_route(model: str) -> MetaRoute:
+    """Resolve ``META_BASE_URL`` into a concrete route for ``model``."""
+    base = os.environ.get("META_BASE_URL", META_DEFAULT_BASE_URL).rstrip("/")
+    host = urllib.parse.urlparse(base).netloc.lower()
+    if host != _OPENROUTER_HOST and not host.endswith(f".{_OPENROUTER_HOST}"):
+        return MetaRoute(
+            base=base,
+            model=model,
+            wire_model=model,
+            via="meta" if base == META_DEFAULT_BASE_URL else "custom",
+            key_envs=("META_MUSE_SPARK_API", "MODEL_API_KEY"),
+        )
+    if model.endswith("-contributor"):
+        # The data-sharing tier is a Meta-direct product. Routed, the namespaced
+        # id would not resolve, and billing it at contributor rates would
+        # understate the run by ~12x on input and ~21x on output.
+        raise NonRetryableProviderError(
+            f"{model!r} (Meta's data-sharing Contributor tier) is not offered through "
+            "OpenRouter; run it against META_BASE_URL=" + META_DEFAULT_BASE_URL
+        )
+    return MetaRoute(
+        base=base,
+        model=model,
+        # OpenRouter namespaces the id; the harness spec stays "meta:muse-spark-1.2".
+        wire_model=model if "/" in model else f"meta/{model}",
+        via="openrouter",
+        key_envs=("OPENROUTER_API_KEY", "META_MUSE_SPARK_API", "MODEL_API_KEY"),
+        extra_payload={"provider": {"order": [_OPENROUTER_UPSTREAM], "allow_fallbacks": False}},
+    )
+
+
 class MetaProvider(LLMProvider):
     """Meta Model API provider for Muse Spark.
 
-    Uses Meta's OpenAI-compatible Responses API directly.  The model request is
-    made by the host-side harness while tool calls still execute through the
-    selected VulcanBench executor (Docker by default), so this path does not
-    depend on Muse Code being able to authenticate from inside a container.
+    Uses Meta's OpenAI-compatible Responses API.  The model request is made by
+    the host-side harness while tool calls still execute through the selected
+    VulcanBench executor (Docker by default), so this path does not depend on
+    Muse Code being able to authenticate from inside a container.
+
+    Point ``META_BASE_URL`` at ``https://openrouter.ai/api/v1`` to reach the same
+    model through OpenRouter (needs ``OPENROUTER_API_KEY``) -- useful when Meta
+    API access is unavailable.  OpenRouter exposes a compatible Responses
+    endpoint, lists identical token prices, and the request is pinned to Meta's
+    upstream endpoint, so the run stays comparable to a direct one.  Measured on
+    a real run, the routed endpoint does report implicit cache reads (despite its
+    model page saying otherwise) and bills them at $0.15/M, so the 0.12 factor
+    below holds and recorded cost matched OpenRouter's own billing to six
+    decimals.  Runs still record the route in their manifest -- report routed and
+    direct runs as separate columns.
     """
 
     @property
@@ -335,13 +432,14 @@ class MetaProvider(LLMProvider):
         timeout: float,
         effort: str | None,
     ) -> LLMResponse:
-        api_key = os.environ.get("MODEL_API_KEY")
+        route = _resolve_meta_route(self.model)
+        api_key = next((os.environ[e] for e in route.key_envs if os.environ.get(e)), None)
         if not api_key:
-            raise ProviderError("MODEL_API_KEY is not set")
-        base = os.environ.get("META_BASE_URL", "https://api.meta.ai/v1").rstrip("/")
+            raise ProviderError(" or ".join(route.key_envs) + " is not set")
         payload: dict[str, Any] = {
-            "model": self.model,
+            "model": route.wire_model,
             "input": _to_responses_input(messages),
+            **route.extra_payload,
         }
         if effort is not None:
             payload["reasoning"] = {"effort": effort}
@@ -349,13 +447,15 @@ class MetaProvider(LLMProvider):
             payload["tools"] = [_openai_tool_to_responses(t) for t in tools]
             payload["tool_choice"] = "auto"
         body = _http_post_json(
-            f"{base}/responses",
+            f"{route.base}/responses",
             {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             payload,
             timeout=timeout,
         )
         # Meta's standard cached-input rate is 0.15/1.25 = 0.12 of uncached
-        # input.  The Contributor model is 0.002/0.10 = 0.02.
+        # input.  The Contributor model is 0.002/0.10 = 0.02.  OpenRouter lists
+        # the same $0.15/M cache-read rate, so the factor holds on both routes;
+        # what differs is how often a cache read happens at all.
         cached_factor = 0.02 if self.model.endswith("-contributor") else 0.12
         return _parse_responses_body(body, cached_input_factor=cached_factor)
 
@@ -921,13 +1021,17 @@ def _parse_responses_body(body: dict[str, Any], cached_input_factor: float = 0.1
         content_parts.append(str(body["output_text"]))
 
     usage = body.get("usage", {})
+    # Responses-API gateways are inconsistent about which of the two OpenAI usage
+    # shapes they emit; missing the cache-read count would bill reads at the full
+    # input rate and overstate the run.
+    details = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
     return LLMResponse(
         content="\n".join(part for part in content_parts if part) or None,
         tool_calls=tool_calls,
         usage=TokenUsage(
             prompt_tokens=_openai_effective_prompt_tokens(
                 usage.get("input_tokens", usage.get("prompt_tokens", 0)),
-                (usage.get("input_tokens_details") or {}).get("cached_tokens", 0),
+                details.get("cached_tokens", 0),
                 cached_input_factor,
             ),
             completion_tokens=usage.get("output_tokens", usage.get("completion_tokens", 0)),
@@ -1066,3 +1170,34 @@ def get_provider(spec: str) -> LLMProvider:
         known = ", ".join(sorted([*_PROVIDERS, "claude-code", "codex"]))
         raise ValueError(f"unknown provider {provider!r}; known: {known}")
     return _PROVIDERS[provider](model)
+
+
+def route_manifest(spec: str) -> dict[str, Any] | None:
+    """Describe a non-default API route for ``spec``, or ``None`` for the default.
+
+    A Meta-direct run and one routed through OpenRouter are otherwise
+    indistinguishable in a run record, and the two are not interchangeable for
+    reporting (different cache behaviour, and a route that could change upstream).
+    Recording the route keeps a mixed results directory auditable.
+    """
+    try:
+        provider, model = parse_model_spec(spec)
+    except ValueError:
+        return None
+    if provider != "meta":
+        return None
+    try:
+        route = _resolve_meta_route(model)
+    except ProviderError:
+        # A bad route is the run's problem to report, not the manifest's.
+        return None
+    if route.via == "meta":
+        return None
+    manifest: dict[str, Any] = {
+        "via": route.via,
+        "base_url": route.base,
+        "wire_model": route.wire_model,
+    }
+    if route.pinned_upstream:
+        manifest["pinned_upstream"] = route.pinned_upstream
+    return manifest
