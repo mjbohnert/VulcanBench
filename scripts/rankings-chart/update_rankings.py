@@ -11,14 +11,20 @@ import json
 import math
 from pathlib import Path
 
+from harness.leaderboard import current_task_hashes
+
 HERE = Path(__file__).resolve().parent
 REPO = str(HERE.parents[1])
+CURRENT_V3_HASHES = current_task_hashes(Path(REPO) / "tasks" / "v3")
 
 # Models with repeat sweeps: aggregate from individual run summaries
 # (per-task mean pass@1) instead of a single suite.json.
 REPEAT_MODELS = {
     "deepseek:deepseek-v4-flash",
+    "deepseek:deepseek-v4-pro",
     "openai:grok-4.5",
+    "openai:gpt-5.6-luna",
+    "openai:gpt-5.6-terra",
     "qwen:qwen3.8-max",
 }
 
@@ -50,17 +56,24 @@ for p in glob.glob(f"{REPO}/runs*/suite-*/suite.json"):
         best[key] = cand
 
 agg: dict[tuple, dict[str, list]] = {}
-for p in glob.glob(f"{REPO}/runs/*/summary.json"):
+repeat_summary_paths = glob.glob(f"{REPO}/runs/*/summary.json")
+repeat_summary_paths.extend(
+    glob.glob(f"{REPO}/runs/deepseek-v4-pro-high-r3/*/summary.json")
+)
+for p in repeat_summary_paths:
     with open(p) as f:
         s = json.load(f)
     model = str(s.get("model", ""))
     if model not in REPEAT_MODELS or s.get("suite") != "v3":
         continue
+    task_id = str(s.get("task_id", ""))
+    if s.get("task_hash") != CURRENT_V3_HASHES.get(task_id):
+        continue
     eff = (s.get("effort") or {}).get("requested", "—")
     # DeepSeek "medium" = duplicate high run (API coercion) — excluded.
     if model.startswith("deepseek") and eff == "medium":
         continue
-    agg.setdefault((model, eff), {}).setdefault(s["task_id"], []).append(s)
+    agg.setdefault((model, eff), {}).setdefault(task_id, []).append(s)
 
 for (model, eff), tasks in agg.items():
     per_task = []

@@ -1,7 +1,8 @@
 # Rankings chart pipeline
 
-Generates the shareable three-panel suite-v3 results PNG (pass@1 rankings,
-speed panel, per-model effort-curve cards) in VulcanBench branding.
+Generates the shareable four-panel suite-v3 results PNG (pass@1 rankings,
+speed, average API cost per task run, and per-model effort-curve cards) in
+VulcanBench branding.
 
 ## Usage
 
@@ -11,15 +12,15 @@ python scripts/rankings-chart/update_rankings.py   # aggregate ./runs data
 python scripts/rankings-chart/make_chart.py        # render the PNG
 ```
 
-Output: `vulcanbench_suite3_rankings.png` (2560×3360) next to the scripts.
+Output: `vulcanbench_suite3_rankings.png` (2560×4800) next to the scripts.
 
 ## How aggregation works
 
 - Non-repeat models: best `suite.json` aggregate per (model, effort).
 - Repeat-swept models (`REPEAT_MODELS` in `update_rankings.py`): pass@1 is the
-  mean of per-task success rates across ALL fresh runs; stderr is the std of
-  per-task means / sqrt(n_tasks). Add a model to that set after giving it
-  `--repeat 3` sweeps.
+  mean of per-task success rates across all runs whose task hashes match the
+  current frozen suite; stderr is the std of per-task means / sqrt(n_tasks).
+  Add a model to that set after giving it `--repeat 3` sweeps.
 - DeepSeek runs requested at `medium` are excluded (its API silently coerces
   `medium` to `high`; see CHANGELOG for the effort-mapping fix).
 - Claude Opus 5 rows are hardcoded from vulcanbench.com Report 10 (those runs
