@@ -5,10 +5,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-EFFORT_LEVELS = frozenset({"low", "medium", "high", "extra-high", "max"})
+EFFORT_LEVELS = frozenset({"minimal", "low", "medium", "high", "extra-high", "max"})
 DEFAULT_SWEEP_EFFORTS = ("low", "medium", "high")
 
 _OPENAI_EFFORT_VALUES = {
+    "minimal": "minimal",
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "extra-high": "xhigh",
+    "max": "max",
+}
+
+# Claude Code CLI `--effort`. Same reachable set as before `minimal` entered the
+# vocabulary: the CLI has no minimal level, so it stays recorded-but-not-sent
+# rather than being forwarded to a flag that would reject it.
+_CLAUDE_CODE_EFFORT_VALUES = {
     "low": "low",
     "medium": "medium",
     "high": "high",
@@ -56,9 +68,13 @@ _QWEN_EFFORT_VALUES = {
     "extra-high": "xhigh",
 }
 
-# Meta Model API `reasoning.effort` values for Muse Spark.  Meta also supports
-# `minimal`, which is outside VulcanBench's normalized cross-provider scale.
+# Meta Model API `reasoning.effort` values for Muse Spark. The documented enum
+# is minimal/low/medium/high/xhigh (dev.meta.ai/docs/reasoning.md); `none`
+# returns HTTP 400 and is not part of VulcanBench's vocabulary anyway. An unset
+# request reasons at "a model-determined level" — Meta does not document which,
+# so omitting --effort is not a known effort point.
 _META_EFFORT_VALUES = {
+    "minimal": "minimal",
     "low": "low",
     "medium": "medium",
     "high": "high",
@@ -146,11 +162,12 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
             supported=provider_value is not None,
         )
     if provider_name == "claude-code":
+        provider_value = _CLAUDE_CODE_EFFORT_VALUES.get(effort)
         return EffortConfig(
             requested=effort,
             provider=provider_name,
-            provider_value=_OPENAI_EFFORT_VALUES[effort],
-            supported=True,
+            provider_value=provider_value,
+            supported=provider_value is not None,
         )
     if provider_name in {"mock", "zai"}:
         return EffortConfig(

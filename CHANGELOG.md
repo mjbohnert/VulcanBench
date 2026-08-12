@@ -45,6 +45,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provider keys and base URLs into `os.environ` for the whole session; provider
   tests then passed or failed based on the machine's configuration. A new autouse
   fixture in `tests/conftest.py` clears provider routing and credential vars.
+- **`minimal` reasoning effort**: `--effort minimal` joins the normalized
+  vocabulary, completing Meta's documented enum for Muse Spark
+  (minimal/low/medium/high/xhigh) and mapping directly on OpenAI. Providers
+  without a documented minimal level (Anthropic, Claude Code, Kimi, Qwen,
+  DeepSeek) record it as metadata without sending it. The Claude Code CLI path
+  gets its own effort map so the new label is not forwarded to a `--effort`
+  flag that lacks it; its reachable set is unchanged. Verified live through the
+  OpenRouter route: accepted, echoed back, and 22 reasoning tokens against
+  ~400+ at `low` on the same prompt. Default sweeps stay low/medium/high;
+  minimal is opt-in. Meta runs with `--effort` unset reason at an undocumented
+  "model-determined level", so sweeps should always pass an explicit level.
 - **Qwen reasoning effort** (`qwen:<model>`, Qwen3.8+): `--effort low/medium` maps to
   DashScope's `reasoning_effort` and `extra-high` maps to its `xhigh`; `high` is recorded
   as metadata only because Qwen's documented enum is low/medium/xhigh (no `high`) with

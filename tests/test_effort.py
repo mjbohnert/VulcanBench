@@ -120,8 +120,9 @@ def test_deepseek_medium_is_noop_metadata() -> None:
     }
 
 
-def test_meta_effort_maps_low_through_xhigh() -> None:
+def test_meta_effort_maps_minimal_through_xhigh() -> None:
     for requested, sent in (
+        ("minimal", "minimal"),
         ("low", "low"),
         ("medium", "medium"),
         ("high", "high"),
@@ -142,6 +143,46 @@ def test_meta_max_is_noop_metadata() -> None:
     assert cfg is not None
     assert cfg.provider_value is None
     assert cfg.supported is False
+
+
+def test_openai_minimal_maps_directly() -> None:
+    cfg = effort_config("openai", "minimal")
+    assert cfg is not None
+    assert cfg.provider_value == "minimal"
+    assert cfg.supported is True
+
+
+def test_minimal_is_noop_where_undocumented() -> None:
+    # Only OpenAI and Meta document a minimal level. Everyone else records the
+    # label without sending it — including claude-code, whose CLI would reject
+    # an --effort value it does not have.
+    for provider in ("anthropic", "claude-code", "kimi", "qwen", "deepseek"):
+        cfg = effort_config(provider, "minimal")
+        assert cfg is not None, provider
+        assert cfg.provider_value is None, provider
+        assert cfg.supported is False, provider
+
+
+def test_claude_code_reachable_levels_unchanged() -> None:
+    # Guard: adding minimal to the vocabulary must not change what the Claude
+    # Code CLI is sent for the previously reachable labels.
+    for requested, sent in (
+        ("low", "low"),
+        ("medium", "medium"),
+        ("high", "high"),
+        ("extra-high", "xhigh"),
+        ("max", "max"),
+    ):
+        cfg = effort_config("claude-code", requested)
+        assert cfg is not None
+        assert cfg.provider_value == sent
+        assert cfg.supported is True
+
+
+def test_parse_efforts_accepts_minimal() -> None:
+    assert parse_efforts("minimal,low") == ["minimal", "low"]
+    # The default sweep is unchanged; minimal is opt-in.
+    assert "minimal" not in parse_efforts(None)
 
 
 def test_kimi_effort_below_max_is_noop_metadata() -> None:

@@ -175,8 +175,11 @@ Specify a model as `provider:model`:
 - `meta:<model>` — Meta Model API Responses endpoint for Muse Spark. Needs
   `META_MUSE_SPARK_API` (or Meta's official `MODEL_API_KEY`); set
   `META_BASE_URL` to override the default
-  `https://api.meta.ai/v1`. `low`/`medium`/`high` map directly and
-  `extra-high` maps to `xhigh`. The direct API request runs host-side while
+  `https://api.meta.ai/v1`. `minimal`/`low`/`medium`/`high` map directly and
+  `extra-high` maps to `xhigh` — the full documented enum. When `--effort` is
+  unset the model reasons at "a model-determined level" (Meta does not document
+  which), so an unset run is not a known effort point; sweeps should pass an
+  explicit level. The direct API request runs host-side while
   model-authored tools and hidden verification remain in Docker, avoiding the
   Muse Code CLI's container sign-in path. Built-in pricing covers both
   `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
@@ -191,7 +194,9 @@ Subscription runs record marginal cash, plan allocation, quota, and
 API-equivalent value separately; they are not mixed silently with raw API runs.
 See [Subscription harness benchmarking](docs/HARNESS_BENCHMARKING.md).
 
-`--effort` accepts `low`, `medium`, `high`, `extra-high`, or `max`. OpenAI runs map it
+`--effort` accepts `minimal`, `low`, `medium`, `high`, `extra-high`, or `max`.
+`minimal` is sent only to providers that document it (OpenAI, Meta) and is
+recorded as metadata elsewhere; it is opt-in for sweeps. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the
 Messages API `output_config.effort` field. `extra-high` maps to `xhigh` on both
 providers and is opt-in for sweeps because support is model-dependent (e.g.
