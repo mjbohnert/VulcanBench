@@ -81,11 +81,23 @@ _META_EFFORT_VALUES = {
     "extra-high": "xhigh",
 }
 
+# xAI `reasoning_effort` (Grok). Documented enum is low/medium/high/xhigh with
+# high as the DEFAULT (reasoning cannot be disabled; an unset request runs at
+# high). `xhigh` is Grok 4.6+ — pre-4.6 models silently coerce it to high, so
+# only sweep extra-high on 4.6+. No minimal/max/none levels exist.
+_XAI_EFFORT_VALUES = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "extra-high": "xhigh",
+}
+
 _PROVIDER_EFFORT_MAPS = {
     "kimi": _KIMI_EFFORT_VALUES,
     "deepseek": _DEEPSEEK_EFFORT_VALUES,
     "qwen": _QWEN_EFFORT_VALUES,
     "meta": _META_EFFORT_VALUES,
+    "xai": _XAI_EFFORT_VALUES,
 }
 
 

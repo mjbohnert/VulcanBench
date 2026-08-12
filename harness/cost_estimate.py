@@ -38,6 +38,7 @@ _DEFAULT_PER_RUN: dict[str, float] = {
     "qwen:": 0.03,
     "deepseek:": 0.02,
     "meta:": 0.04,
+    "xai:": 0.06,
 }
 _DEFAULT_FALLBACK = 0.08
 
@@ -50,6 +51,7 @@ _PROVIDER_ENV = {
     "deepseek": "DEEPSEEK_API_KEY",
     "meta": "META_MUSE_SPARK_API",
     "ollama": "OLLAMA_BASE_URL",
+    "xai": "XAI_API_KEY",
 }
 
 _PROVIDER_LABEL = {
@@ -61,6 +63,7 @@ _PROVIDER_LABEL = {
     "deepseek": "DeepSeek",
     "meta": "Meta Model API",
     "ollama": "Ollama (local)",
+    "xai": "xAI (Grok)",
 }
 
 

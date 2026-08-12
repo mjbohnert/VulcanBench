@@ -1142,6 +1142,7 @@ _JUDGE_KEY_ENV: dict[str, str | tuple[str, ...]] = {
     # OPENROUTER_API_KEY counts: a run routed through OpenRouter has no Meta key,
     # and omitting it here would silently drop judging rather than fail loudly.
     "meta": ("META_MUSE_SPARK_API", "MODEL_API_KEY", "OPENROUTER_API_KEY"),
+    "xai": "XAI_API_KEY",
 }
 
 

@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provider keys and base URLs into `os.environ` for the whole session; provider
   tests then passed or failed based on the machine's configuration. A new autouse
   fixture in `tests/conftest.py` clears provider routing and credential vars.
+- **xAI provider for Grok** (`xai:<model>`, e.g. `xai:grok-4.6`): OpenAI-compatible
+  Chat Completions with xAI's documented `reasoning_effort` enum —
+  low/medium/high map directly, `extra-high` -> `xhigh` (Grok 4.6+ only; pre-4.6
+  silently coerces xhigh to high). xAI's default is `high` and reasoning cannot
+  be disabled, so an unset `--effort` is not a neutral point. Replaces the
+  previous practice of running Grok through `openai:` with a base-URL swap,
+  which mislabeled the lab in run records. Built-in <200K-tier pricing for
+  grok-4.6/4.5/4.3; per-provider cache-read folding (0.25x/0.15x/0.16x of the
+  input rate) replaces the parser's OpenAI-specific 0.1x, which under-reported
+  xAI bills.
 - **Ollama provider for local open-weights models** (`ollama:<model>`, e.g.
   `ollama:muse-glimmer:30b`): local inference through Ollama's OpenAI-compatible
   Chat Completions API. No API key; pricing records $0 marginal cash (hardware

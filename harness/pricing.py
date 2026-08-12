@@ -52,6 +52,12 @@ PRICES: dict[str, dict[str, float]] = {
     "anthropic:claude-sonnet-5": {"input": 3.00, "output": 15.00},
     "anthropic:claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
     "anthropic:claude-haiku-4-5": {"input": 1.00, "output": 5.00},
+    # Grok list prices are the <200K-input tier; xAI doubles input/cached/output
+    # for requests with >=200K input tokens, which per-run receipts do not
+    # expose, so long-context turns are underestimated here.
+    "xai:grok-4.6": {"input": 2.00, "cached_input": 0.50, "output": 6.00},
+    "xai:grok-4.5": {"input": 2.00, "cached_input": 0.30, "output": 6.00},
+    "xai:grok-4.3": {"input": 1.25, "cached_input": 0.20, "output": 2.50},
     "zai:glm-5.2": {"input": 1.40, "output": 4.40},
     "zai:glm-5.1": {"input": 1.40, "output": 4.40},
     "zai:glm-5": {"input": 1.00, "output": 3.20},

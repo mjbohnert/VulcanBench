@@ -851,6 +851,70 @@ def test_client_error_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     assert calls == 1
 
 
+def test_xai_sends_reasoning_effort(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen.update(url=url, headers=headers, payload=payload)
+        return {
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    # The loop passes the provider value from effort_config ("xhigh" for
+    # extra-high); the provider sends it verbatim.
+    resp = get_provider("xai:grok-4.6").complete([], [], effort="xhigh")
+    assert seen["url"] == "https://api.x.ai/v1/chat/completions"
+    payload = seen["payload"]
+    assert isinstance(payload, dict)
+    assert payload["model"] == "grok-4.6"
+    assert payload["reasoning_effort"] == "xhigh"
+    assert resp.content == "ok"
+
+
+def test_xai_folds_cache_reads_at_grok46_rate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        return {
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {
+                "prompt_tokens": 1000,
+                "prompt_tokens_details": {"cached_tokens": 500},
+                "completion_tokens": 10,
+            },
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    resp = get_provider("xai:grok-4.6").complete([], [])
+    # 500 uncached + 500 cached at $0.50/$2.00 = 0.25x -> 625, not the OpenAI
+    # default 0.1x (which would under-report the bill).
+    assert resp.usage.prompt_tokens == 625
+
+
+def test_xai_omits_effort_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen.update(payload=payload)
+        return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    get_provider("xai:grok-4.6").complete([], [])
+    payload = seen["payload"]
+    assert isinstance(payload, dict)
+    assert "reasoning_effort" not in payload  # runs at xAI's default (high)
+
+
+def test_xai_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    with pytest.raises(P.ProviderError, match="XAI_API_KEY"):
+        get_provider("xai:grok-4.6").complete([], [])
+
+
 def test_ollama_complete_needs_no_key(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, object] = {}
 

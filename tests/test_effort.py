@@ -57,6 +57,29 @@ def test_mock_effort_is_noop_metadata() -> None:
     }
 
 
+def test_xai_effort_maps_low_through_xhigh() -> None:
+    for requested, sent in (
+        ("low", "low"),
+        ("medium", "medium"),
+        ("high", "high"),
+        ("extra-high", "xhigh"),
+    ):
+        cfg = effort_config("xai", requested)
+        assert cfg is not None
+        assert cfg.provider_value == sent
+        assert cfg.supported is True
+
+
+def test_xai_minimal_and_max_are_noop_metadata() -> None:
+    # xAI's enum has no minimal or max; recording them as unsupported keeps a
+    # sweep from stamping effort labels the API never saw.
+    for requested in ("minimal", "max"):
+        cfg = effort_config("xai", requested)
+        assert cfg is not None
+        assert cfg.provider_value is None
+        assert cfg.supported is False
+
+
 def test_ollama_effort_is_noop_metadata() -> None:
     cfg = effort_config("ollama", "high")
     assert cfg is not None

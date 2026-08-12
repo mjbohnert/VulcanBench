@@ -98,6 +98,13 @@ def test_deepseek_v4_flash_priced() -> None:
     assert pricing.cost_usd("deepseek:deepseek-v4-flash", 1_000_000, 1_000_000) == 0.42
 
 
+def test_grok_46_priced_with_cached_input() -> None:
+    # 1M in + 1M out at the <200K tier: $2 + $6.
+    assert pricing.cost_usd("xai:grok-4.6", 1_000_000, 1_000_000) == 8.00
+    # Cache reads bill at $0.50/M.
+    assert pricing.cost_usd("xai:grok-4.6", 1_000_000, 0, cached_input_tokens=1_000_000) == 0.50
+
+
 def test_ollama_local_runs_are_free_not_unknown() -> None:
     # $0 (a real, known cost) — not None (cost unknown), which would exclude
     # local runs from cost reporting entirely.

@@ -185,6 +185,15 @@ Specify a model as `provider:model`:
   `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
   Can also be [routed through OpenRouter](#routing-muse-spark-through-openrouter)
   when Meta API access is unavailable.
+- `xai:<model>` — xAI (Grok) OpenAI-compatible Chat Completions API. Needs
+  `XAI_API_KEY`; set `XAI_BASE_URL` to override `https://api.x.ai/v1`.
+  `low`/`medium`/`high` map to Grok's `reasoning_effort` and `extra-high` maps
+  to its `xhigh` (Grok 4.6+ only — pre-4.6 models silently coerce `xhigh` to
+  `high`, so don't sweep extra-high below 4.6). xAI's DEFAULT is `high` and
+  reasoning cannot be disabled, so an unset `--effort` runs at high — sweeps
+  should always pass an explicit level. Built-in pricing covers grok-4.6/4.5/4.3
+  at the <200K-input tier (xAI doubles rates at ≥200K input, which receipts
+  don't expose — long-context runs are underestimated).
 - `ollama:<model>` — local inference through Ollama's OpenAI-compatible API
   (e.g. `ollama:muse-glimmer:30b`). No API key; recorded cost is $0 (marginal
   cash — hardware and electricity are not modeled). `OLLAMA_BASE_URL` overrides

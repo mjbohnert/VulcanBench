@@ -20,6 +20,7 @@ Providers implemented:
                        or routed through OpenRouter (see ``META_BASE_URL``).
 - ``ollama:<model>``   Local inference via Ollama's OpenAI-compatible API
                        (open-weights models, no key, $0 recorded cost).
+- ``xai:<model>``      xAI (Grok) OpenAI-compatible Chat Completions API.
 
 Only the Python standard library is used for HTTP so the harness stays
 dependency-light; ``tenacity`` provides retry/backoff.
@@ -904,6 +905,60 @@ class QwenProvider(LLMProvider):
         )
 
 
+class XaiProvider(LLMProvider):
+    """xAI (Grok) OpenAI-compatible Chat Completions API.
+
+    Uses ``/chat/completions`` on ``https://api.x.ai/v1`` (override with
+    ``XAI_BASE_URL``). ``low``/``medium``/``high`` map straight to the API's
+    ``reasoning_effort`` field and ``extra-high`` maps to ``xhigh`` (Grok 4.6+;
+    the documented enum is low/medium/high/xhigh with ``high`` as the DEFAULT,
+    and reasoning cannot be disabled). Two caveats the benchmark relies on:
+    an unset ``--effort`` runs at the ``high`` default, not a neutral level;
+    and pre-4.6 models silently coerce ``xhigh`` to ``high``, so an
+    ``extra-high`` sweep column is only meaningful on 4.6+.
+    """
+
+    @property
+    def name(self) -> str:
+        return "xai"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout, effort)
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+        effort: str | None,
+    ) -> LLMResponse:
+        api_key = os.environ.get("XAI_API_KEY")
+        if not api_key:
+            raise ProviderError("XAI_API_KEY is not set")
+        base = os.environ.get("XAI_BASE_URL", "https://api.x.ai/v1").rstrip("/")
+        # Cache reads as a fraction of the uncached input rate, per xAI's list
+        # prices: 4.6 is 0.50/2.00, 4.5 is 0.30/2.00, 4.3 is 0.20/1.25.
+        cached_factor = {"grok-4.5": 0.15, "grok-4.3": 0.16}.get(self.model, 0.25)
+        return _chat_completions_complete(
+            base,
+            api_key,
+            self.model,
+            messages,
+            tools,
+            timeout,
+            extra_payload={"reasoning_effort": effort} if effort else None,
+            cached_input_factor=cached_factor,
+        )
+
+
 class DeepSeekProvider(LLMProvider):
     """DeepSeek OpenAI-compatible Chat Completions API.
 
@@ -1120,7 +1175,9 @@ def _openai_effective_prompt_tokens(
     return round(uncached + cached * cached_input_factor)
 
 
-def _parse_chat_completions_response(body: dict[str, Any]) -> LLMResponse:
+def _parse_chat_completions_response(
+    body: dict[str, Any], cached_input_factor: float = 0.1
+) -> LLMResponse:
     choice = (body.get("choices") or [{}])[0]
     msg = choice.get("message", {})
     tool_calls = [
@@ -1139,6 +1196,7 @@ def _parse_chat_completions_response(body: dict[str, Any]) -> LLMResponse:
             prompt_tokens=_openai_effective_prompt_tokens(
                 usage.get("prompt_tokens", 0),
                 (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
+                cached_input_factor,
             ),
             completion_tokens=usage.get("completion_tokens", 0),
         ),
@@ -1161,6 +1219,7 @@ def _chat_completions_complete(
     timeout: float,
     temperature: float | None = 0,
     extra_payload: dict[str, Any] | None = None,
+    cached_input_factor: float = 0.1,
 ) -> LLMResponse:
     payload: dict[str, Any] = {
         "model": model,
@@ -1179,7 +1238,7 @@ def _chat_completions_complete(
         payload,
         timeout=timeout,
     )
-    return _parse_chat_completions_response(body)
+    return _parse_chat_completions_response(body, cached_input_factor)
 
 
 def _openai_tool_to_anthropic(tool: dict[str, Any]) -> dict[str, Any]:
@@ -1200,6 +1259,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "deepseek": DeepSeekProvider,
     "meta": MetaProvider,
     "ollama": OllamaProvider,
+    "xai": XaiProvider,
     "mock": MockProvider,
 }
 
