@@ -57,6 +57,13 @@ def test_mock_effort_is_noop_metadata() -> None:
     }
 
 
+def test_ollama_effort_is_noop_metadata() -> None:
+    cfg = effort_config("ollama", "high")
+    assert cfg is not None
+    assert cfg.provider_value is None
+    assert cfg.supported is False
+
+
 def test_zai_effort_is_noop_metadata() -> None:
     cfg = effort_config("zai", "low")
     assert cfg is not None

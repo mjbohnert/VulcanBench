@@ -27,7 +27,7 @@ from harness.task_metadata import repo_scale
 from harness.tasks import load_task
 
 # Ignore free/offline runs when building the index.
-_SKIP_MODEL_PREFIXES = ("mock:",)
+_SKIP_MODEL_PREFIXES = ("mock:", "ollama:")
 
 # When we have no history at all for a priced model, assume this per run (USD).
 _DEFAULT_PER_RUN: dict[str, float] = {
@@ -49,6 +49,7 @@ _PROVIDER_ENV = {
     "qwen": "DASHSCOPE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "meta": "META_MUSE_SPARK_API",
+    "ollama": "OLLAMA_BASE_URL",
 }
 
 _PROVIDER_LABEL = {
@@ -59,6 +60,7 @@ _PROVIDER_LABEL = {
     "qwen": "Qwen (DashScope)",
     "deepseek": "DeepSeek",
     "meta": "Meta Model API",
+    "ollama": "Ollama (local)",
 }
 
 

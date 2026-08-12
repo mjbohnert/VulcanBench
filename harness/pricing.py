@@ -80,6 +80,9 @@ PRICES: dict[str, dict[str, float]] = {
     "meta:muse-spark-1.2-contributor": {"input": 0.10, "output": 0.20},
     # Free / offline.
     "mock:": {"input": 0.0, "output": 0.0},
+    # Local inference: no marginal per-token cost. $0 is the marginal cash truth;
+    # hardware and electricity are not modeled.
+    "ollama:": {"input": 0.0, "output": 0.0},
 }
 
 _PER_MILLION = 1_000_000.0

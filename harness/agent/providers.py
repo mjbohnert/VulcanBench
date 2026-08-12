@@ -18,6 +18,8 @@ Providers implemented:
 - ``deepseek:<model>`` DeepSeek OpenAI-compatible Chat Completions API.
 - ``meta:<model>``     Meta Model API Responses endpoint (Muse Spark), directly
                        or routed through OpenRouter (see ``META_BASE_URL``).
+- ``ollama:<model>``   Local inference via Ollama's OpenAI-compatible API
+                       (open-weights models, no key, $0 recorded cost).
 
 Only the Python standard library is used for HTTP so the harness stays
 dependency-light; ``tenacity`` provides retry/backoff.
@@ -725,6 +727,67 @@ class ZaiProvider(LLMProvider):
         return _chat_completions_complete(base, api_key, self.model, messages, tools, timeout)
 
 
+class OllamaProvider(LLMProvider):
+    """Local inference through Ollama's OpenAI-compatible Chat Completions API.
+
+    Runs open-weights models (e.g. ``ollama:muse-glimmer:30b``) on the host with
+    no API key and no per-token cost; pricing records $0. ``OLLAMA_BASE_URL``
+    overrides the default ``http://localhost:11434/v1`` and works for any
+    OpenAI-compatible local server (LM Studio, llama.cpp, vLLM). Reasoning
+    effort is recorded as metadata but not sent.
+
+    Local runs measure the model *on this machine's hardware*: keep
+    ``--max-concurrency 1`` (a second in-flight request just splits the same
+    GPU), and exclude duration-based metrics from cross-column comparisons.
+    """
+
+    # Prompt processing on long agentic transcripts is compute-bound on local
+    # hardware; a large-context call that would take seconds on a hosted API can
+    # legitimately run many minutes on an M-series GPU.
+    MAX_REQUEST_TIMEOUT_S = 1800
+
+    @property
+    def name(self) -> str:
+        return "ollama"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        del effort
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout)
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+    ) -> LLMResponse:
+        base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1").rstrip("/")
+        # Ollama ignores auth; the placeholder keeps the shared helper's header
+        # shape (and real keys work for remote OpenAI-compatible servers).
+        api_key = os.environ.get("OLLAMA_API_KEY", "ollama")
+        try:
+            return _chat_completions_complete(base, api_key, self.model, messages, tools, timeout)
+        except NonRetryableProviderError as e:
+            if "HTTP 404" in str(e):
+                raise NonRetryableProviderError(
+                    f"{e} — is the model pulled? try: ollama pull {self.model}"
+                ) from e
+            raise
+        except ProviderError as e:
+            if "network error" in str(e).lower():
+                raise ProviderError(
+                    f"{e} — is the Ollama server running? (base URL: {base})"
+                ) from e
+            raise
+
+
 class KimiProvider(LLMProvider):
     """Moonshot AI (Kimi) OpenAI-compatible Chat Completions API.
 
@@ -1136,6 +1199,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "qwen": QwenProvider,
     "deepseek": DeepSeekProvider,
     "meta": MetaProvider,
+    "ollama": OllamaProvider,
     "mock": MockProvider,
 }
 

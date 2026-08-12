@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provider keys and base URLs into `os.environ` for the whole session; provider
   tests then passed or failed based on the machine's configuration. A new autouse
   fixture in `tests/conftest.py` clears provider routing and credential vars.
+- **Ollama provider for local open-weights models** (`ollama:<model>`, e.g.
+  `ollama:muse-glimmer:30b`): local inference through Ollama's OpenAI-compatible
+  Chat Completions API. No API key; pricing records $0 marginal cash (hardware
+  and electricity are not modeled) rather than "cost unknown", and local runs
+  are excluded from the cost-estimate index. `OLLAMA_BASE_URL` overrides the
+  default `http://localhost:11434/v1` and accepts any OpenAI-compatible local
+  server. Request timeout ceiling is 1800s (long-context prompt processing is
+  compute-bound on local hardware); 404s hint at `ollama pull`, connection
+  failures hint at the server not running. Reasoning effort is recorded as
+  metadata only.
 - **`minimal` reasoning effort**: `--effort minimal` joins the normalized
   vocabulary, completing Meta's documented enum for Muse Spark
   (minimal/low/medium/high/xhigh) and mapping directly on OpenAI. Providers

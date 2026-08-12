@@ -169,7 +169,7 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
             provider_value=provider_value,
             supported=provider_value is not None,
         )
-    if provider_name in {"mock", "zai"}:
+    if provider_name in {"mock", "zai", "ollama"}:
         return EffortConfig(
             requested=effort,
             provider=provider_name,

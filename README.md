@@ -185,6 +185,14 @@ Specify a model as `provider:model`:
   `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
   Can also be [routed through OpenRouter](#routing-muse-spark-through-openrouter)
   when Meta API access is unavailable.
+- `ollama:<model>` — local inference through Ollama's OpenAI-compatible API
+  (e.g. `ollama:muse-glimmer:30b`). No API key; recorded cost is $0 (marginal
+  cash — hardware and electricity are not modeled). `OLLAMA_BASE_URL` overrides
+  the default `http://localhost:11434/v1` and accepts any OpenAI-compatible
+  local server (LM Studio, llama.cpp, vLLM). Reasoning effort is recorded as
+  metadata only. Local runs measure the model *and your hardware*: use
+  `--max-concurrency 1`, and keep duration-based metrics out of cross-column
+  comparisons with hosted APIs.
 - `claude-code:<model>` / `--harness claude-code` — Claude Code through a
   Claude subscription. Results measure the model plus Claude Code harness.
 - `codex:<model>` / `--harness codex` — Codex CLI through a ChatGPT

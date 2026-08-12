@@ -851,6 +851,47 @@ def test_client_error_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     assert calls == 1
 
 
+def test_ollama_complete_needs_no_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen.update(url=url, headers=headers, payload=payload)
+        return {
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    resp = get_provider("ollama:muse-glimmer:30b").complete([], [])
+    assert seen["url"] == "http://localhost:11434/v1/chat/completions"
+    headers = seen["headers"]
+    assert isinstance(headers, dict)
+    assert headers["Authorization"] == "Bearer ollama"  # placeholder, no real key
+    payload = seen["payload"]
+    assert isinstance(payload, dict)
+    # The model id keeps its own colon: only the first splits provider from model.
+    assert payload["model"] == "muse-glimmer:30b"
+    assert resp.content == "ok"
+
+
+def test_ollama_missing_model_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_urlopen(req, timeout=120):  # type: ignore[no-untyped-def]
+        raise _http_error(404)
+
+    monkeypatch.setattr(P.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(P.NonRetryableProviderError, match="ollama pull muse-glimmer:30b"):
+        get_provider("ollama:muse-glimmer:30b").complete([], [])
+
+
+def test_ollama_server_down_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_urlopen(req, timeout=120):  # type: ignore[no-untyped-def]
+        raise urllib.error.URLError("Connection refused")
+
+    monkeypatch.setattr(P.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(P.ProviderError, match="is the Ollama server running"):
+        get_provider("ollama:muse-glimmer:30b").complete([], [])
+
+
 def test_kimi_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MOONSHOT_API_KEY", raising=False)
     with pytest.raises(P.ProviderError, match="MOONSHOT_API_KEY"):

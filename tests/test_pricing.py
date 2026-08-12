@@ -98,6 +98,13 @@ def test_deepseek_v4_flash_priced() -> None:
     assert pricing.cost_usd("deepseek:deepseek-v4-flash", 1_000_000, 1_000_000) == 0.42
 
 
+def test_ollama_local_runs_are_free_not_unknown() -> None:
+    # $0 (a real, known cost) — not None (cost unknown), which would exclude
+    # local runs from cost reporting entirely.
+    assert pricing.cost_usd("ollama:muse-glimmer:30b", 1_000_000, 1_000_000) == 0.0
+    assert pricing.is_priced("ollama:muse-glimmer:30b")
+
+
 def test_muse_spark_12_tiers_priced() -> None:
     assert pricing.cost_usd("meta:muse-spark-1.2", 1_000_000, 1_000_000) == 5.50
     assert pricing.cost_usd("meta:muse-spark-1.2-contributor", 1_000_000, 1_000_000) == 0.30
