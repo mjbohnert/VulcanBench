@@ -15,7 +15,13 @@ from typing import Any
 
 import pytest
 
-from harness.agent.cli_agents import is_cli_agent_spec, run_claude_code_task, run_codex_task
+from harness.agent.cli_agents import (
+    SubscriptionQuotaError,
+    is_cli_agent_spec,
+    run_claude_code_task,
+    run_codex_task,
+    run_cursor_task,
+)
 from harness.agent.loop import run_agent
 from harness.agent.providers import ProviderError, get_provider
 from harness.pricing import cost_usd, is_priced
@@ -97,6 +103,42 @@ else:
 """
 
 
+FAKE_CURSOR = """#!/usr/bin/env python3
+import json, os, sys
+
+args = sys.argv[1:]
+mode = os.environ.get("FAKE_CURSOR_MODE", "success")
+if "--version" in args or "-v" in args:
+    print("2026.06.19-fake")
+elif args[:1] == ["status"]:
+    if mode == "logged_out":
+        print("Not logged in")
+    else:
+        print("Logged in as morgan@example.com")
+        print("Plan: Pro")
+elif "-p" in args:
+    model = args[args.index("--model") + 1]
+    if mode == "limit":
+        print(json.dumps({"type": "result", "subtype": "error",
+                          "is_error": True, "result": "Usage limit reached for your plan",
+                          "session_id": "cur-1"}))
+        sys.exit(0)
+    with open("hello.py", "w") as f:
+        f.write('print("hello from vulcanbench")\\n')
+    print(json.dumps({"type": "system", "subtype": "init", "session_id": "cur-1",
+                      "model": model,
+                      "leaked_key": os.environ.get("XAI_API_KEY", "")}))
+    print(json.dumps({"type": "assistant", "session_id": "cur-1", "message": {
+        "role": "assistant", "content": [{"type": "text", "text": "Implemented."}]}}))
+    print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                      "duration_ms": 1200, "duration_api_ms": 800,
+                      "result": "done", "session_id": "cur-1"}))
+else:
+    print("unsupported", file=sys.stderr)
+    sys.exit(1)
+"""
+
+
 class _Collector:
     """Minimal TraceCollector stand-in for direct runner tests."""
 
@@ -132,9 +174,23 @@ def fake_codex(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.Mon
     return script
 
 
+@pytest.fixture
+def fake_cursor(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    bin_dir = tmp_path_factory.mktemp("fake-cursor-bin")
+    script = bin_dir / "cursor-agent"
+    script.write_text(FAKE_CURSOR, encoding="utf-8")
+    script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("XAI_API_KEY", "xai-secret-should-not-reach-cursor")
+    monkeypatch.delenv("CURSOR_API_KEY", raising=False)
+    monkeypatch.delenv("FAKE_CURSOR_MODE", raising=False)
+    return script
+
+
 def test_spec_detection() -> None:
     assert is_cli_agent_spec("claude-code:claude-opus-4-8")
     assert is_cli_agent_spec("codex:gpt-5.6-sol")
+    assert is_cli_agent_spec("cursor:grok-4.6")
     assert not is_cli_agent_spec("anthropic:claude-opus-4-8")
     assert not is_cli_agent_spec("mock:synthetic")
 
@@ -268,6 +324,112 @@ def test_claude_code_judge_provider_single_shot(fake_claude: Path) -> None:
     assert json.loads(resp.content) == {"score": 80, "rationale": "fake judge"}
     assert resp.usage.prompt_tokens == 168
     assert resp.usage.completion_tokens == 30
+
+
+def test_run_agent_via_cursor_subscription(tmp_path: Path, fake_cursor: Path) -> None:
+    res = run_agent(
+        task_id="hello-world",
+        model="cursor:grok-4.6",
+        output_dir=tmp_path,
+        tasks_root=Path("tasks/v1"),
+        judges=False,
+        sandbox="local",
+        effort="high",
+    )
+    summary = res["summary"]
+    assert summary["scores"]["functional"] == 1.0
+    assert summary["finished"] is True
+    # Cursor's stream reports no usage: token counts are honestly zero and the
+    # API-equivalent value is unavailable rather than a fabricated $0.
+    assert summary["tokens"]["total"] == 0
+    assert summary["cost_usd"] is None
+    assert summary["economics"]["billing_mode"] == "subscription-included"
+    assert summary["economics"]["measurement_quality"]["api_equivalent_cost_usd"] == "unavailable"
+    cli = summary["cli_agent"]
+    assert cli["harness"] == "cursor"
+    assert cli["auth_method"] == "subscription"
+    assert cli["plan_name"] == "Pro"
+    assert cli["session_id"] == "cur-1"
+    assert cli["requested_model"] == "grok-4.6"
+    # The loop resolved effort=high and the bracket syntax carried it.
+    assert cli["reported_model"] == "grok-4.6[effort=high]"
+    stream_path = tmp_path / res["run_id"] / "cli-agent-stream.jsonl"
+    events = [json.loads(line) for line in stream_path.read_text().splitlines()]
+    assert events[0]["leaked_key"] == ""  # provider keys never reach the CLI
+
+
+def test_cursor_requires_local_sandbox(tmp_path: Path, fake_cursor: Path) -> None:
+    with pytest.raises(SandboxError, match="host execution"):
+        run_agent(
+            task_id="hello-world",
+            model="cursor:grok-4.6",
+            output_dir=tmp_path,
+            tasks_root=Path("tasks/v1"),
+            judges=False,
+            sandbox="docker",
+        )
+
+
+def test_cursor_logged_out_fails_closed(tmp_path: Path, fake_cursor: Path) -> None:
+    # The preflight subprocess gets the minimal allowlisted env, so the mode
+    # must be baked into the fake script rather than passed via os.environ.
+    fake_cursor.write_text(
+        FAKE_CURSOR.replace('os.environ.get("FAKE_CURSOR_MODE", "success")', '"logged_out"'),
+        encoding="utf-8",
+    )
+    with pytest.raises(ProviderError, match=r"signed out|subscription"):
+        run_cursor_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="grok-4.6",
+            priced_spec="cursor:grok-4.6",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_cursor_api_key_auth_fails_closed(
+    tmp_path: Path, fake_cursor: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CURSOR_API_KEY", "key-1")
+    with pytest.raises(ProviderError, match="subscription"):
+        run_cursor_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="grok-4.6",
+            priced_spec="cursor:grok-4.6",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_cursor_usage_limit_raises_quota_error(
+    tmp_path: Path, fake_cursor: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_CURSOR_MODE", "limit")
+    with pytest.raises(SubscriptionQuotaError, match="topping up credits"):
+        run_cursor_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="grok-4.6",
+            priced_spec="cursor:grok-4.6",
+            max_turns=10,
+            collector=_Collector(),
+            env_overrides={"FAKE_CURSOR_MODE": "limit"},
+        )
+
+
+def test_cursor_rejects_unenforceable_live_cost_cap(tmp_path: Path, fake_cursor: Path) -> None:
+    with pytest.raises(ProviderError, match="max-run-cost"):
+        run_cursor_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="grok-4.6",
+            priced_spec="cursor:grok-4.6",
+            max_turns=10,
+            collector=_Collector(),
+            max_run_cost=1.0,
+        )
 
 
 def test_run_agent_via_codex_subscription(tmp_path: Path, fake_codex: Path) -> None:

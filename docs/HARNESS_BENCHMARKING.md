@@ -11,6 +11,15 @@ Release A supports:
 |---|---|---|---|
 | Claude Code | `claude-code:<model>` | Claude Pro/Max login | Claude permission auto mode; `--sandbox local` currently required |
 | Codex CLI | `codex:<model>` | Sign in with ChatGPT | Codex `workspace-write`; Vulcan setup/verifier may still use Docker |
+| Cursor CLI | `cursor:<model>` | `cursor-agent login` (Cursor account/credits) | Cursor sandbox enabled + force-allow; `--sandbox local` required |
+
+Cursor-specific limits: `cursor-agent` streams no token usage or cost, so
+token counts are recorded as zero and the economics receipt marks the
+API-equivalent value **unavailable** — Cursor's own usage dashboard is the
+only ledger of what a run consumed. `--max-run-cost` is rejected (nothing to
+enforce it against) and `--effort low|medium|high` travels via Cursor's
+`model[effort=...]` bracket syntax. Preflight fails closed when signed out or
+when `CURSOR_API_KEY` is set (API-key auth bills metered usage, not the plan).
 
 ## Preflight
 

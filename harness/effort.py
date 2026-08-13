@@ -92,12 +92,22 @@ _XAI_EFFORT_VALUES = {
     "extra-high": "xhigh",
 }
 
+# Cursor CLI bracket parameter (`model[effort=...]`). Cursor documents
+# low/medium/high; anything else is recorded-but-not-sent so the bracket never
+# carries a value Cursor might silently coerce.
+_CURSOR_EFFORT_VALUES = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+}
+
 _PROVIDER_EFFORT_MAPS = {
     "kimi": _KIMI_EFFORT_VALUES,
     "deepseek": _DEEPSEEK_EFFORT_VALUES,
     "qwen": _QWEN_EFFORT_VALUES,
     "meta": _META_EFFORT_VALUES,
     "xai": _XAI_EFFORT_VALUES,
+    "cursor": _CURSOR_EFFORT_VALUES,
 }
 
 

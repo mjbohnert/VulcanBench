@@ -206,6 +206,12 @@ Specify a model as `provider:model`:
   Claude subscription. Results measure the model plus Claude Code harness.
 - `codex:<model>` / `--harness codex` — Codex CLI through a ChatGPT
   subscription, with JSONL traces and Codex's workspace-write sandbox.
+- `cursor:<model>` / `--harness cursor` — Cursor's `cursor-agent` CLI billed to
+  a Cursor account (plan or credits). Results measure the model plus Cursor's
+  agent harness. The CLI streams no token usage, so token counts are zero and
+  API-equivalent cost is recorded as unavailable; check spend in Cursor's
+  dashboard. Effort travels via Cursor's `model[effort=low|medium|high]`
+  bracket syntax. Requires `--sandbox local` (host execution).
 
 Subscription runs record marginal cash, plan allocation, quota, and
 API-equivalent value separately; they are not mixed silently with raw API runs.

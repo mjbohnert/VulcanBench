@@ -265,7 +265,12 @@ def run_agent(
             plan_name=cli_outcome.plan_name,
             cli_reported_cost_usd=cli_outcome.cli_reported_cost_usd,
             api_equivalent_quality=(
-                "estimated-from-reported-tokens-with-cache-pricing"
+                # A harness that streams no usage (Cursor) has no token basis at
+                # all: let the receipt record "unavailable" instead of implying
+                # an estimate exists.
+                None
+                if cost["total"] is None
+                else "estimated-from-reported-tokens-with-cache-pricing"
                 if cached_input_tokens and has_cached_input_price(model)
                 else "estimated-from-reported-tokens-no-cache-discount"
                 if cached_input_tokens
@@ -357,7 +362,10 @@ def _resolve_run_engine(
     """
     if provider is None and is_cli_agent_spec(model):
         adapter = get_cli_agent_adapter(model)
-        if adapter.harness_id == "claude-code" and sandbox != "local":
+        # Claude Code and Cursor execute tools on the host workspace (Cursor's
+        # own sandbox mode notwithstanding); Codex brings a workspace-write
+        # sandbox and is exempt.
+        if adapter.harness_id in {"claude-code", "cursor"} and sandbox != "local":
             raise SandboxError(
                 f"model spec {model!r} runs a vendor agent CLI on the host with "
                 "its own tool execution; pass --sandbox local to acknowledge "

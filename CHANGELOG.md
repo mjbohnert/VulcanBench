@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provider keys and base URLs into `os.environ` for the whole session; provider
   tests then passed or failed based on the machine's configuration. A new autouse
   fixture in `tests/conftest.py` clears provider routing and credential vars.
+- **Cursor CLI harness** (`cursor:<model>` / `--harness cursor`): runs a task
+  through `cursor-agent -p --output-format stream-json`, billed to a Cursor
+  account (plan or promotional credits). Results measure model + Cursor
+  harness, tracked as a subscription run. The CLI streams no usage or cost, so
+  tokens record as zero and the economics receipt marks API-equivalent value
+  unavailable instead of fabricating $0 (the loop's receipt quality now says
+  `unavailable` whenever a harness reports no token basis). Preflight fails
+  closed when signed out or when `CURSOR_API_KEY` is set; usage-limit errors
+  raise the resumable quota error; `--effort low|medium|high` maps to Cursor's
+  `model[effort=...]` bracket syntax; `--sandbox local` required.
 - **xAI provider for Grok** (`xai:<model>`, e.g. `xai:grok-4.6`): OpenAI-compatible
   Chat Completions with xAI's documented `reasoning_effort` enum —
   low/medium/high map directly, `extra-high` -> `xhigh` (Grok 4.6+ only; pre-4.6

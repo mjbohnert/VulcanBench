@@ -1,9 +1,9 @@
 """Run models inside their own agent CLI (subscription billing).
 
-``claude-code:<model>`` and ``codex:<model>`` run a task in the product's
-headless CLI instead of the VulcanBench agent loop.  The external harness owns
-its prompts, context management, and tools; everything downstream (git diff,
-verifier, evaluator, scoring) remains under VulcanBench.
+``claude-code:<model>``, ``codex:<model>``, and ``cursor:<model>`` run a task
+in the product's headless CLI instead of the VulcanBench agent loop.  The
+external harness owns its prompts, context management, and tools; everything
+downstream (git diff, verifier, evaluator, scoring) remains under VulcanBench.
 
 Why this exists: Claude Code authenticates with a Claude subscription
 (Pro/Max), so runs bill the subscription instead of API rates — and it is also
@@ -47,7 +47,7 @@ from harness.agent.providers import (
 from harness.pricing import cost_usd
 from harness.redaction import sanitize
 
-CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex"})
+CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex", "cursor"})
 
 # Claude Code's headless result text when a subscription window is exhausted
 # (e.g. "Claude AI usage limit reached|...", "5-hour limit reached ∙ resets 3am").
@@ -321,6 +321,256 @@ def _codex_preflight(codex_bin: str = "codex") -> HarnessPreflight:
         auth_mode="subscription" if subscription else ("api" if api_key else None),
         detail=None if subscription else "Codex is not using a ChatGPT subscription login",
     )
+
+
+def _cursor_preflight(cursor_bin: str = "cursor-agent") -> HarnessPreflight:
+    version = _version(cursor_bin)
+    if version is None:
+        return HarnessPreflight(
+            harness="cursor",
+            available=False,
+            version=None,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"{cursor_bin!r} not found on PATH",
+        )
+    if os.environ.get("CURSOR_API_KEY"):
+        # API-key auth bills xAI/OpenAI-style metered usage, not the Cursor
+        # plan; fail closed exactly like a signed-out Claude Code or Codex.
+        return HarnessPreflight(
+            harness="cursor",
+            available=True,
+            version=version,
+            authenticated=True,
+            auth_mode="api-key",
+            detail="CURSOR_API_KEY is set; unset it to bill the Cursor subscription",
+        )
+    try:
+        proc = subprocess.run(
+            [cursor_bin, "status"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=_subscription_env(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return HarnessPreflight(
+            harness="cursor",
+            available=True,
+            version=version,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"`{cursor_bin} status` failed: {exc}",
+        )
+    status_text = (proc.stdout or "") + (proc.stderr or "")
+    if re.search(r"not logged in", status_text, re.I):
+        return HarnessPreflight(
+            harness="cursor",
+            available=True,
+            version=version,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"signed out; run `{cursor_bin} login`",
+        )
+    plan_match = re.search(r"(?:plan|membership)\s*[:=]?\s*(\S[^\n]*)", status_text, re.I)
+    return HarnessPreflight(
+        harness="cursor",
+        available=True,
+        version=version,
+        authenticated=True,
+        auth_mode="subscription",
+        plan_name=plan_match.group(1).strip() if plan_match else None,
+    )
+
+
+def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
+    *,
+    workspace: Path,
+    prompt: str,
+    model: str,
+    priced_spec: str,
+    max_turns: int,
+    collector: _Collector,
+    stream_log_path: Path | None = None,
+    timeout_s: float | None = None,
+    network: bool = False,
+    max_run_cost: float | None = None,
+    effort: str | None = None,
+    cursor_bin: str = "cursor-agent",
+    env_overrides: dict[str, str] | None = None,
+    preflight: HarnessPreflight | None = None,
+) -> CliAgentOutcome:
+    """Run one task through ``cursor-agent -p`` billed to the Cursor account.
+
+    Cursor's stream-json reports no token usage or cost, so the outcome carries
+    zero token counts and the economics receipt honestly records the
+    API-equivalent value as unavailable — Cursor's own dashboard is the only
+    ledger for what a run consumed. ``max_turns`` cannot be forwarded (no such
+    flag) and ``max_run_cost`` cannot be enforced live (no streamed usage).
+    """
+    del priced_spec, max_turns, network
+    workspace = workspace.resolve()
+    if timeout_s is not None and timeout_s <= 0:
+        raise ProviderError("run budget exhausted before CLI agent start")
+    if max_run_cost is not None:
+        raise ProviderError(
+            "cursor-agent reports no usage stream, so --max-run-cost cannot be "
+            "enforced; use a wall-clock --timeout for subscription runs"
+        )
+
+    checked = preflight or _cursor_preflight(cursor_bin)
+    _require_subscription(checked)
+    # Cursor's per-model bracket syntax carries effort when the loop resolved a
+    # supported level (e.g. "grok-4.6[effort=high]").
+    model_arg = f"{model}[effort={effort}]" if effort else model
+    cmd = [
+        cursor_bin,
+        "-p",
+        prompt,
+        "--output-format",
+        "stream-json",
+        "--model",
+        model_arg,
+        "--sandbox",
+        "enabled",
+        "--force",
+    ]
+
+    collector.record(
+        "cli_agent_start",
+        {
+            "harness": "cursor",
+            "argv": [cmd[0], "-p", "<prompt omitted>", *cmd[3:]],
+            "harness_version": checked.version,
+        },
+    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=workspace,
+            env=_subscription_env(env_overrides),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as exc:
+        raise ProviderError(
+            f"{cursor_bin!r} not found on PATH; install the Cursor CLI and run `{cursor_bin} login`"
+        ) from exc
+
+    stderr_chunks: list[str] = []
+
+    def _drain_stderr() -> None:
+        assert proc.stderr is not None
+        for chunk in proc.stderr:
+            stderr_chunks.append(chunk)
+
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    stderr_thread.start()
+
+    outcome = CliAgentOutcome(
+        harness="cursor",
+        execution_boundary="host-workspace; cursor-sandbox=enabled; force-allow",
+        requested_model=model,
+        harness_version=checked.version,
+        auth_method=checked.auth_mode,
+        plan_name=checked.plan_name,
+    )
+    killed = {"timeout": False}
+
+    def _kill_on_timeout() -> None:
+        killed["timeout"] = True
+        proc.kill()
+
+    watchdog: threading.Timer | None = None
+    if timeout_s is not None:
+        watchdog = threading.Timer(timeout_s, _kill_on_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+
+    result_msg: dict[str, Any] | None = None
+    stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
+    try:
+        assert proc.stdout is not None
+        for raw_line in proc.stdout:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if stream_f:
+                json.dump(sanitize(event), stream_f)
+                stream_f.write("\n")
+            etype = event.get("type")
+            if etype == "system" and event.get("subtype") == "init":
+                outcome.session_id = event.get("session_id")
+                reported_model = event.get("model")
+                if reported_model:
+                    outcome.reported_model = str(reported_model)
+                    outcome.model_identity_confidence = "cli-reported"
+                collector.record(
+                    "cli_agent_init",
+                    {
+                        "session_id": outcome.session_id,
+                        "model": reported_model,
+                        "harness_version": outcome.harness_version,
+                    },
+                )
+            elif etype == "assistant":
+                msg = event.get("message") or {}
+                collector.record("llm_response", _assistant_trace_data(msg))
+            elif etype == "tool_call":
+                collector.record(
+                    "tool_observation" if event.get("subtype") == "completed" else "tool_call",
+                    {
+                        "tool": event.get("call_id", ""),
+                        "result": event.get("result"),
+                    },
+                )
+            elif etype == "result":
+                result_msg = event
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        if stream_f:
+            stream_f.close()
+
+    proc.wait()
+    stderr_thread.join(timeout=5)
+    outcome.timed_out = killed["timeout"]
+
+    if result_msg is None:
+        if killed["timeout"]:
+            # Partial work still counts; the caller diffs and verifies it.
+            return outcome
+        tail = "".join(stderr_chunks)[-500:].strip()
+        detail = tail or "no stderr"
+        if _LIMIT_PATTERN.search(detail):
+            raise SubscriptionQuotaError(
+                "cursor usage limit hit — rerun after topping up credits "
+                f"(use --only-missing to resume): {detail[:300]}"
+            )
+        raise ProviderError(
+            f"cursor-agent exited without a result (exit {proc.returncode}): {detail}"
+        )
+
+    outcome.subtype = result_msg.get("subtype")
+    outcome.session_id = result_msg.get("session_id") or outcome.session_id
+    result_text = str(result_msg.get("result") or "")
+    if result_msg.get("is_error") or outcome.subtype != "success":
+        if _LIMIT_PATTERN.search(result_text):
+            raise SubscriptionQuotaError(
+                "cursor usage limit hit — rerun after topping up credits "
+                f"(use --only-missing to resume): {result_text[:300]}"
+            )
+        raise ProviderError(f"cursor-agent run failed ({outcome.subtype}): {result_text[:300]}")
+
+    outcome.finished = True
+    collector.record("cli_agent_result", outcome.summary())
+    return outcome
 
 
 def _require_subscription(preflight: HarnessPreflight) -> None:
@@ -856,9 +1106,36 @@ class CodexAdapter:
         return run_codex_task(**kwargs)
 
 
+@dataclass(frozen=True)
+class CursorAdapter:
+    harness_id: str = "cursor"
+
+    def capabilities(self) -> HarnessCapabilities:
+        return HarnessCapabilities(
+            harness=self.harness_id,
+            display_name="Cursor CLI",
+            executable="cursor-agent",
+            structured_events=True,
+            # stream-json carries no usage or cost fields: token counts and
+            # API-equivalent value are honestly unavailable for cursor runs.
+            reports_tokens=False,
+            reports_model=True,
+            supports_effort=True,
+            supports_live_cost_cap=False,
+            sandbox="cursor-sandbox=enabled; force-allow",
+        )
+
+    def preflight(self) -> HarnessPreflight:
+        return _cursor_preflight()
+
+    def run_task(self, **kwargs: Any) -> CliAgentOutcome:
+        return run_cursor_task(**kwargs)
+
+
 _CLI_AGENT_ADAPTERS: dict[str, CliAgentAdapter] = {
     "claude-code": ClaudeCodeAdapter(),
     "codex": CodexAdapter(),
+    "cursor": CursorAdapter(),
 }
 
 
