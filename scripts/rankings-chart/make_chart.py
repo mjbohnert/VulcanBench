@@ -52,6 +52,7 @@ LAB_COLOR = {
 }
 
 NAME = {
+    "xai:grok-4.6": ("Grok 4.6", "xAI"),
     "openai:grok-4.5": ("Grok 4.5", "xAI"),
     "openai:gpt-5.6-luna": ("GPT-5.6 Luna", "OpenAI"),
     "openai:gpt-5.6-sol": ("GPT-5.6 Sol", "OpenAI"),
@@ -84,14 +85,21 @@ def eff_display(model: str, eff: str) -> str:
     if eff == "extra-high":
         if model.startswith("deepseek:"):
             return "max"
-        if model.startswith("qwen:"):
+        if model.startswith(("qwen:", "xai:")):
             return "xhigh"
     return eff
 
 
 with open(HERE / "v3_rankings.json") as f:
     rows = json.load(f)
-rows = [r for r in rows if r["model"] != "anthropic:claude-opus-4-8"]
+# Deliberate exclusions, not silent drops: Opus 4.8 has 5/23 task coverage;
+# Muse Spark's OpenRouter-routed sweep (minimal full, low capped at 33/69,
+# medium 3 runs) is pending its own via-OpenRouter column treatment.
+EXCLUDED_MODELS = {"anthropic:claude-opus-4-8", "meta:muse-spark-1.2"}
+rows = [r for r in rows if r["model"] not in EXCLUDED_MODELS]
+unknown = {r["model"] for r in rows} - set(NAME)
+if unknown:
+    raise SystemExit(f"models missing from NAME (add or exclude explicitly): {unknown}")
 rows.sort(key=lambda r: (-r["pass1"], r["cost"]))
 
 fig = plt.figure(figsize=(16, 30), facecolor=SURFACE)
@@ -271,7 +279,7 @@ fig.text(
     0.9424,
     "23 frontier-hard software-engineering tasks from real merged OSS PRs  ·  "
     "pass@1 across reasoning-effort levels  ·  Docker-sandboxed agent runs  ·  "
-    "2026-08-09",
+    "2026-08-13",
     fontsize=11.5,
     color=INK2,
     family=SANS,
@@ -400,6 +408,11 @@ def model_efforts(model: str) -> list[str]:
         return ["low", "high", "extra-high"]  # DeepSeek: low/high/max
     if model.startswith("qwen:"):
         return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
+    if model.startswith("xai:"):
+        # Grok 4.6+: low/medium/high/xhigh — four real levels; dropping xhigh
+        # would hide the curve's shape (medium peak, high trough, xhigh partial
+        # recovery).
+        return ["low", "medium", "high", "extra-high"]
     return ["low", "medium", "high"]
 
 
@@ -544,7 +557,7 @@ for k, model in enumerate(swept):
     )
 
     tick_names = {"low": "Low", "medium": "Med", "high": "High"}
-    axc.set_xlim(-0.42, 2.42)
+    axc.set_xlim(-0.42, len(EFFORTS) - 1 + 0.42)
     axc.set_ylim(Y0, Y1)
     axc.set_xticks(range(len(EFFORTS)))
     axc.set_xticklabels(
@@ -590,12 +603,15 @@ fig.text(
     "low/medium/xhigh (no 'high').\n"
     "Repeat-swept models aggregate all fresh runs as per-task means; exact run "
     "counts are shown on labels. GPT-5.6 Terra and Luna each have 3 runs/task "
-    "at low/medium/high. Five Qwen xhigh runs on 3 tasks were lost to 600s API "
-    "read timeouts and are excluded rather than scored 0.\n"
+    "at low/medium/high.\n"
+    "Five Qwen xhigh runs on 3 tasks were lost to 600s API read timeouts and "
+    "are excluded rather than scored 0. "
+    "Grok 4.6 columns are a single pass (repeat 1, 2026-08-12) on xAI's API; its "
+    "effort scale is low/medium/high/xhigh and its unset-effort default is high.\n"
     "Whiskers are ±1 stderr — single-pass columns (n=23 runs or fewer) carry wider "
     "uncertainty than repeat-swept ones (n=52-71). Cost = total spend at list API "
     "prices across a column's runs; avg cost/task run = column cost ÷ n. Time = "
-    "sandbox wall-clock. "
+    "sandbox wall-clock.\n"
     "github.com/morganlinton/VulcanBench",
     fontsize=9,
     color=MUTED,
