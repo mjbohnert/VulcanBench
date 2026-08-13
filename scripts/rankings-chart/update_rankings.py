@@ -57,9 +57,7 @@ for p in glob.glob(f"{REPO}/runs*/suite-*/suite.json"):
 
 agg: dict[tuple, dict[str, list]] = {}
 repeat_summary_paths = glob.glob(f"{REPO}/runs/*/summary.json")
-repeat_summary_paths.extend(
-    glob.glob(f"{REPO}/runs/deepseek-v4-pro-high-r3/*/summary.json")
-)
+repeat_summary_paths.extend(glob.glob(f"{REPO}/runs/deepseek-v4-pro-high-r3/*/summary.json"))
 for p in repeat_summary_paths:
     with open(p) as f:
         s = json.load(f)
