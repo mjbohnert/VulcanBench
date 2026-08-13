@@ -83,6 +83,21 @@ def eff_display(model: str, eff: str) -> str:
     return eff
 
 
+def model_efforts(model: str) -> list[str]:
+    """The provider's own effort ladder for ``model``, low to high.
+
+    These are not a shared scale: each API documents its own enum, so a card
+    comparing them compares each model at its own settings.
+    """
+    if model.startswith("deepseek:"):
+        return ["low", "high", "extra-high"]  # DeepSeek: low/high/max
+    if model.startswith("qwen:"):
+        return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
+    if model.startswith("xai:"):
+        return ["low", "medium", "high", "extra-high"]  # Grok 4.6+: adds xhigh
+    return ["low", "medium", "high"]
+
+
 def load_rows() -> list[dict]:
     """Every (model, effort) column, minus deliberate exclusions."""
     with open(HERE / "v3_rankings.json") as f:
