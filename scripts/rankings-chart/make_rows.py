@@ -85,7 +85,7 @@ fig.text(
 fig.text(
     L,
     0.822,
-    f"The top {n_tied} are a statistical tie.",
+    f"First place is a crowd — {n_tied} of {len(pts)} models sit within the noise of the lead.",
     fontsize=15,
     color=INK,
     family=BRAND_MED,
@@ -124,7 +124,7 @@ ax.add_patch(
 ax.text(
     1.6,
     band_bottom + 0.28,
-    f"statistical tie — top {n_tied} of {len(pts)}",
+    f"within noise of the lead — top {n_tied} of {len(pts)}",
     fontsize=10.5,
     color=MUTED,
     family=SANS,
