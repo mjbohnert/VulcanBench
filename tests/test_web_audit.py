@@ -80,6 +80,58 @@ def test_blocked_upstream_fetch_is_not_contamination(tmp_path: Path) -> None:
     assert audit["contaminated"] is False
 
 
+def test_started_then_rejected_is_blocked_not_access(tmp_path: Path) -> None:
+    # The real shape of a denied fetch: a started event carrying the url, then
+    # a completed event carrying the rejection. Scoring the started event alone
+    # flagged clean runs as contaminated.
+    cid = "call-abc-1"
+    started = {
+        "type": "tool_call",
+        "subtype": "started",
+        "call_id": cid,
+        "tool_call": {
+            "webFetchToolCall": {
+                "args": {
+                    "url": "https://github.com/PennyLaneAI/pennylane/pull/9459",
+                    "toolCallId": cid,
+                }
+            }
+        },
+    }
+    completed = {
+        "type": "tool_call",
+        "subtype": "completed",
+        "call_id": cid,
+        "tool_call": {"webFetchToolCall": {"result": {"rejected": {"reason": "User Rejected"}}}},
+    }
+    audit = audit_stream(_stream(tmp_path, [started, completed]), META)
+    assert audit["verdict"] == "web_blocked"
+    assert audit["contaminated"] is False
+    assert audit["web_fetches"] == 0
+    assert audit["web_blocked"] == 1
+
+
+def test_started_then_completed_ok_counts_once(tmp_path: Path) -> None:
+    cid = "call-xyz-2"
+    started = {
+        "type": "tool_call",
+        "subtype": "started",
+        "call_id": cid,
+        "tool_call": {
+            "webFetchToolCall": {"args": {"url": "https://docs.python.org/3/", "toolCallId": cid}}
+        },
+    }
+    completed = {
+        "type": "tool_call",
+        "subtype": "completed",
+        "call_id": cid,
+        "tool_call": {"webFetchToolCall": {"result": {"content": "ok"}}},
+    }
+    audit = audit_stream(_stream(tmp_path, [started, completed]), META)
+    assert audit["verdict"] == "web_used"
+    assert audit["web_fetches"] == 1  # not double counted
+
+
 def test_unrelated_browsing_is_web_used(tmp_path: Path) -> None:
     p = _stream(tmp_path, [_search("python asyncio docs"), _fetch("https://docs.python.org/3/")])
     audit = audit_stream(p, META)

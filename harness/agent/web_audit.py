@@ -69,54 +69,62 @@ def _line_hits(line: str, refs: dict[str, str]) -> tuple[bool, bool]:
     return repo_hit, solution
 
 
-def _line_web_use(line: str) -> tuple[int, int, set[str]]:
-    """(searches, fetches, hosts) contributed by one non-rejected stream line."""
-    searches = 0
-    fetches = 0
-    if "webSearchToolCall" in line or '"WebSearch"' in line:
-        searches = line.count("searchTerm") or 1
-    if "webFetchToolCall" in line or '"WebFetch"' in line:
-        fetches = 1
-    hosts = set()
-    for url in _URL_RE.findall(line):
-        host = re.sub(r"^https?://", "", url).split("/", 1)[0]
-        if host:
-            hosts.add(host.lower())
-    return searches, fetches, hosts
+_CALL_ID_RE = re.compile(r'"(?:toolCallId|call_id)"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
+def _call_id(line: str) -> str:
+    m = _CALL_ID_RE.search(line)
+    return m.group(1) if m else ""
+
+
+def _web_calls(stream_path: Path) -> dict[str, dict[str, Any]]:
+    """Collect web tool calls keyed by call id, marking rejected ones.
+
+    A call is emitted twice: ``started`` carries the url/query, ``completed``
+    carries the result. Counting the ``started`` event alone scores a call the
+    harness went on to REJECT as real access -- which turned every blocked
+    attempt into a false contamination flag.
+    """
+    calls: dict[str, dict[str, Any]] = {}
+    if not stream_path.exists():
+        return calls
+    with stream_path.open(encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if not any(m in line for m in _WEB_MARKERS):
+                continue
+            cid = _call_id(line) or f"anon-{len(calls)}"
+            call = calls.setdefault(cid, {"urls": set(), "searches": 0, "rejected": False})
+            if '"rejected"' in line:
+                call["rejected"] = True
+            if "webSearchToolCall" in line or '"WebSearch"' in line:
+                call["searches"] = max(call["searches"], line.count("searchTerm"), 1)
+            for url in _URL_RE.findall(line):
+                call["urls"].add(url)
+    return calls
 
 
 def audit_stream(stream_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
     """Audit one run's CLI event stream. Missing stream -> trivially no_web."""
     refs = upstream_refs(metadata)
-    searches = 0
-    fetches = 0
+    searches = fetches = blocked = 0
     hosts: set[str] = set()
-    upstream_access = False
-    solution = False
+    upstream_access = solution = False
 
-    blocked = 0
-    if stream_path.exists():
-        with stream_path.open(encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if not any(m in line for m in _WEB_MARKERS):
-                    continue
-                # A denied call appears only as a completed event carrying a
-                # rejection; it obtained nothing, so it is counted separately
-                # and never scores as access.
-                if '"rejected"' in line:
-                    blocked += 1
-                    continue
-                # Otherwise count per tool-call start; Cursor re-emits the call
-                # on completion and double counting would inflate the totals.
-                if '"subtype": "completed"' in line or '"subtype":"completed"' in line:
-                    continue
-                s_add, f_add, line_hosts = _line_web_use(line)
-                searches += s_add
-                fetches += f_add
-                hosts |= line_hosts
-                repo_hit, sol = _line_hits(line, refs)
-                upstream_access = upstream_access or repo_hit
-                solution = solution or sol
+    for call in _web_calls(stream_path).values():
+        if call["rejected"]:
+            blocked += 1
+            continue
+        if call["searches"]:
+            searches += call["searches"]
+        if call["urls"]:
+            fetches += 1
+        for url in call["urls"]:
+            host = re.sub(r"^https?://", "", url).split("/", 1)[0]
+            if host:
+                hosts.add(host.lower())
+            repo_hit, sol = _line_hits(url, refs)
+            upstream_access = upstream_access or repo_hit
+            solution = solution or sol
 
     if solution:
         verdict = "solution_retrieval"
