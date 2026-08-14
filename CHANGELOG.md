@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Patch capture and verifier output decode lossily.** The real crash site
+  behind the semver decode failures was `_git_diff`: the agent's staged diff is
+  whatever bytes the agent wrote, and strict decoding of a ~110MB artifact with
+  one 0xa0 byte killed runs at capture time, after the model spend. `git diff`
+  capture, changed-file listing, and verifier output now decode UTF-8 with
+  errors="replace" alongside the CLI-agent streams.
 - **CLI-agent streams decode lossily.** All three subscription adapters read
   the vendor CLI's stdout with strict platform decoding; a single non-UTF-8
   byte in a large stream (observed: 0xa0 at ~110MB of cursor-agent output)

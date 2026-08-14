@@ -1120,12 +1120,17 @@ def _git_init(workspace: Path) -> None:
 
 
 def _git_diff(workspace: Path) -> str:
+    # Lossy decoding: the diff contains whatever bytes the agent wrote. A single
+    # non-UTF-8 byte in a large artifact crashed the run at capture time -- after
+    # the model spend -- so a stray byte costs a replacement character instead.
     subprocess.run(["git", "add", "-A"], cwd=workspace, capture_output=True, text=True, check=False)
     proc = subprocess.run(
         ["git", "diff", "--cached"],
         cwd=workspace,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return proc.stdout
@@ -1139,6 +1144,8 @@ def _git_changed_files(workspace: Path) -> list[str]:
         cwd=workspace,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
