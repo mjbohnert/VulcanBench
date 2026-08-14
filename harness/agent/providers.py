@@ -956,6 +956,7 @@ class XaiProvider(LLMProvider):
             timeout,
             extra_payload={"reasoning_effort": effort} if effort else None,
             cached_input_factor=cached_factor,
+            completion_excludes_reasoning=True,
         )
 
 
@@ -1176,7 +1177,9 @@ def _openai_effective_prompt_tokens(
 
 
 def _parse_chat_completions_response(
-    body: dict[str, Any], cached_input_factor: float = 0.1
+    body: dict[str, Any],
+    cached_input_factor: float = 0.1,
+    completion_excludes_reasoning: bool = False,
 ) -> LLMResponse:
     choice = (body.get("choices") or [{}])[0]
     msg = choice.get("message", {})
@@ -1189,6 +1192,15 @@ def _parse_chat_completions_response(
         for tc in (msg.get("tool_calls") or [])
     ]
     usage = body.get("usage", {})
+    completion = int(usage.get("completion_tokens", 0) or 0)
+    if completion_excludes_reasoning:
+        # xAI reports reasoning OUTSIDE completion_tokens (total = prompt +
+        # completion + reasoning), unlike OpenAI/DeepSeek/Qwen/Kimi where
+        # completion already contains it. Reasoning bills as output, so folding
+        # it in here is what makes cost_usd match the provider's invoice.
+        completion += int(
+            (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0) or 0
+        )
     return LLMResponse(
         content=msg.get("content"),
         tool_calls=tool_calls,
@@ -1198,7 +1210,7 @@ def _parse_chat_completions_response(
                 (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
                 cached_input_factor,
             ),
-            completion_tokens=usage.get("completion_tokens", 0),
+            completion_tokens=completion,
         ),
         raw=body,
     )
@@ -1220,6 +1232,7 @@ def _chat_completions_complete(
     temperature: float | None = 0,
     extra_payload: dict[str, Any] | None = None,
     cached_input_factor: float = 0.1,
+    completion_excludes_reasoning: bool = False,
 ) -> LLMResponse:
     payload: dict[str, Any] = {
         "model": model,
@@ -1238,7 +1251,9 @@ def _chat_completions_complete(
         payload,
         timeout=timeout,
     )
-    return _parse_chat_completions_response(body, cached_input_factor)
+    return _parse_chat_completions_response(
+        body, cached_input_factor, completion_excludes_reasoning
+    )
 
 
 def _openai_tool_to_anthropic(tool: dict[str, Any]) -> dict[str, Any]:

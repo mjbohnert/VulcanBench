@@ -82,6 +82,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **xAI reasoning tokens are now billed.** xAI reports reasoning OUTSIDE
+  `completion_tokens` (total = prompt + completion + reasoning), unlike
+  OpenAI/DeepSeek/Qwen/Kimi where completion contains it. The Chat Completions
+  parser recorded completion alone, so every `xai:` run under-counted output
+  tokens and understated `cost_usd` by the reasoning volume -- the dominant
+  output term for Grok. The parser now folds
+  `completion_tokens_details.reasoning_tokens` into completion for providers
+  that exclude it (xAI only). Recorded costs on prior Grok runs (Report No. 14
+  and the historical `openai:grok-4.5` shim runs) are lower bounds; the raw
+  reasoning counts were not persisted and must be reconciled against xAI
+  console billing.
 - **Patch capture and verifier output decode lossily.** The real crash site
   behind the semver decode failures was `_git_diff`: the agent's staged diff is
   whatever bytes the agent wrote, and strict decoding of a ~110MB artifact with

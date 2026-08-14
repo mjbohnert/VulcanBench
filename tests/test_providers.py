@@ -874,6 +874,48 @@ def test_xai_sends_reasoning_effort(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resp.content == "ok"
 
 
+def test_xai_folds_reasoning_into_completion(monkeypatch: pytest.MonkeyPatch) -> None:
+    # xAI reports reasoning OUTSIDE completion_tokens (total = prompt +
+    # completion + reasoning) and bills it as output. Recording completion
+    # alone under-billed every Grok run.
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        return {
+            "choices": [{"message": {"content": "4"}}],
+            "usage": {
+                "prompt_tokens": 212,
+                "completion_tokens": 1,
+                "completion_tokens_details": {"reasoning_tokens": 85},
+                "total_tokens": 298,
+            },
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    resp = get_provider("xai:grok-4.6").complete([], [])
+    assert resp.usage.completion_tokens == 86  # 1 visible + 85 reasoning
+
+
+def test_openai_completion_still_includes_reasoning(monkeypatch: pytest.MonkeyPatch) -> None:
+    # OpenAI semantics: completion_tokens already CONTAINS reasoning; folding
+    # details in again would double-count.
+    monkeypatch.setenv("ZAI_API_KEY", "zai-test")
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        return {
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 90,
+                "completion_tokens_details": {"reasoning_tokens": 80},
+            },
+        }
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    resp = get_provider("zai:glm-5.2").complete([], [])
+    assert resp.usage.completion_tokens == 90
+
+
 def test_xai_folds_cache_reads_at_grok46_rate(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XAI_API_KEY", "xai-test")
 
