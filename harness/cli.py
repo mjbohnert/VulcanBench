@@ -1278,5 +1278,65 @@ def compare(
             console.print(f"  missing: {shown}")
 
 
+@app.command("audit-web")
+def audit_web(
+    runs_dir: Path = typer.Argument(  # noqa: B008
+        Path("./runs"), help="Directory of runs to audit (recursive)"
+    ),
+    tasks_base: Path = typer.Option(  # noqa: B008
+        Path("tasks"), "--tasks-base", help="Root holding task suites (tasks/<suite>/<id>)"
+    ),
+    write: bool = typer.Option(
+        True, "--write/--dry-run", help="Persist web_audit into each run's summary.json"
+    ),
+) -> None:
+    """Audit CLI-harness runs for web use and upstream-solution leakage.
+
+    External harnesses can browse; v3 tasks derive from public merged PRs, so
+    the fix exists at a known URL. This matches each run's captured web
+    activity against its task's ``metadata.upstream`` provenance and records a
+    verdict (no_web / web_used / upstream_access / solution_retrieval). It
+    annotates summaries; it never rescores.
+    """
+    from harness.agent.web_audit import audit_stream  # noqa: PLC0415
+
+    meta_cache: dict[str, dict[str, Any]] = {}
+
+    def metadata_for(task_id: str) -> dict[str, Any]:
+        if task_id not in meta_cache:
+            hits = list(tasks_base.glob(f"*/{task_id}/metadata.json"))
+            meta_cache[task_id] = json.loads(hits[0].read_text()) if hits else {}
+        return meta_cache[task_id]
+
+    counts: dict[str, int] = {}
+    contaminated_solved = 0
+    audited = 0
+    for sp in sorted(runs_dir.rglob("summary.json")):
+        try:
+            summary = json.loads(sp.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if "cli_agent" not in summary:
+            continue
+        audit = audit_stream(sp.parent / "cli-agent-stream.jsonl", metadata_for(summary["task_id"]))
+        audited += 1
+        counts[audit["verdict"]] = counts.get(audit["verdict"], 0) + 1
+        if audit["contaminated"] and (summary.get("scores") or {}).get("functional") == 1.0:
+            contaminated_solved += 1
+        if write:
+            summary["web_audit"] = audit
+            sp.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    console.print(f"audited {audited} CLI-harness run(s){'' if write else ' (dry run)'}")
+    for verdict in ("no_web", "web_used", "upstream_access", "solution_retrieval"):
+        if counts.get(verdict):
+            console.print(f"  {verdict}: {counts[verdict]}")
+    if contaminated_solved:
+        console.print(
+            f"[red]{contaminated_solved} solved run(s) are contaminated[/red] "
+            "(upstream access or solution retrieval); exclude or asterisk them in reports"
+        )
+
+
 if __name__ == "__main__":
     app()

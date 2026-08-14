@@ -26,6 +26,31 @@ verifier on the host, where missing toolchains fail Python tasks. Preflight
 fails closed when signed out or when `CURSOR_API_KEY` is set (API-key auth
 bills metered usage, not the plan).
 
+## Web access and solution leakage
+
+VulcanBench's own loop has no web tools and its sandbox runs network-off, but
+external harnesses can browse. For suites built from real merged PRs that is a
+solved-answer oracle: the fix exists at a known public URL. (Terminal-Bench,
+which allows internet by design, asks users to "remain vigilant" about agents
+locating solutions; VulcanBench automates that vigilance.)
+
+Three layers:
+
+1. **Prevention.** The Cursor adapter writes a workspace permissions file
+   denying `WebFetch(*)` and `WebSearch` unless `--network` is passed; denies
+   survive Cursor's `--force`. Claude Code gets `--disallowedTools
+   WebSearch,WebFetch`; Codex network access stays off in its sandbox config.
+2. **Detection.** Every CLI-harness run's summary carries a `web_audit` block:
+   web searches/fetches extracted from the captured stream, matched against
+   the task's `metadata.upstream` provenance. Verdicts escalate: `no_web`,
+   `web_used`, `upstream_access` (fetched the task's upstream repo, whose
+   post-fix sources contain the solution), `solution_retrieval` (fetched the
+   exact PR, fix commit, or a raw diff/patch). `contaminated: true` on the top
+   two. The audit annotates; it never rescores.
+3. **Retro-audit.** `vulcanbench audit-web runs/` re-annotates existing runs
+   and prints verdict counts, flagging solved-but-contaminated runs to exclude
+   or asterisk in reports.
+
 ## Preflight
 
 Check installation, CLI version, authentication source, and non-secret plan

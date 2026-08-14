@@ -358,6 +358,54 @@ def test_run_agent_via_cursor_subscription(tmp_path: Path, fake_cursor: Path) ->
     assert events[0]["leaked_key"] == ""  # provider keys never reach the CLI
 
 
+def test_cursor_writes_web_deny_permissions(tmp_path: Path, fake_cursor: Path) -> None:
+    # Default (network=False): a workspace permissions file denies Cursor's web
+    # tools. Denies survive --force. Without this, v3's post-cutoff
+    # decontamination is defeated at runtime (Harness Study No. 01).
+    run_cursor_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="grok-4.6",
+        priced_spec="cursor:grok-4.6",
+        max_turns=10,
+        collector=_Collector(),
+    )
+    cfg = json.loads((tmp_path / ".cursor" / "cli.json").read_text())
+    assert "WebFetch(*)" in cfg["permissions"]["deny"]
+    assert any(d.startswith("WebSearch") for d in cfg["permissions"]["deny"])
+
+
+def test_cursor_network_flag_skips_web_deny(tmp_path: Path, fake_cursor: Path) -> None:
+    outcome = run_cursor_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="grok-4.6",
+        priced_spec="cursor:grok-4.6",
+        max_turns=10,
+        collector=_Collector(),
+        network=True,
+    )
+    assert not (tmp_path / ".cursor" / "cli.json").exists()
+    assert "web-allowed" in (outcome.execution_boundary or "")
+
+
+def test_cursor_run_records_web_audit(tmp_path: Path, fake_cursor: Path) -> None:
+    res = run_agent(
+        task_id="hello-world",
+        model="cursor:grok-4.6",
+        output_dir=tmp_path,
+        tasks_root=Path("tasks/v1"),
+        judges=False,
+        sandbox="local",
+    )
+    summary = res["summary"]
+    assert summary["web_audit"]["verdict"] == "no_web"
+    assert summary["web_audit"]["contaminated"] is False
+    # The deny file must not leak into the captured patch.
+    patch = (tmp_path / res["run_id"] / "final.patch").read_text()
+    assert ".cursor" not in patch
+
+
 def test_cursor_allows_docker_verifier(fake_cursor: Path) -> None:
     # Cursor brings its own agent sandbox (like Codex), so --sandbox docker is
     # legal: the agent works the host workspace while setup/verification run in

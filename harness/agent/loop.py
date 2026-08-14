@@ -37,6 +37,7 @@ from harness.agent.cli_agents import (
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
 from harness.agent.providers import LLMProvider, get_provider, parse_model_spec, route_manifest
+from harness.agent.web_audit import audit_stream
 from harness.economics import api_receipt, subscription_receipt
 from harness.effort import effort_config
 from harness.evaluator.evaluate import evaluate_run
@@ -323,6 +324,14 @@ def run_agent(
             ),
             **({"experiment_id": experiment_id} if experiment_id else {}),
             **({"cli_agent": cli_outcome.summary()} if cli_outcome else {}),
+            # External harnesses may browse; the audit matches their web
+            # activity against the task's upstream provenance so a run that
+            # fetched its own solution is flagged, never silently counted.
+            **(
+                {"web_audit": audit_stream(run_dir / "cli-agent-stream.jsonl", task.metadata)}
+                if cli_outcome
+                else {}
+            ),
             "verifier": verifier_payload,
             "replay_command": f"vulcanbench replay {run_id}",
         },
@@ -1092,7 +1101,8 @@ def _verify(
     return functional, payload
 
 
-_WORKSPACE_GITIGNORE = ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n"
+# .cursor/ holds the harness-written web-deny permissions file, not agent work.
+_WORKSPACE_GITIGNORE = ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n"
 
 
 def _git_init(workspace: Path) -> None:

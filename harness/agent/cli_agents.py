@@ -409,7 +409,7 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     ledger for what a run consumed. ``max_turns`` cannot be forwarded (no such
     flag) and ``max_run_cost`` cannot be enforced live (no streamed usage).
     """
-    del priced_spec, max_turns, network
+    del priced_spec, max_turns
     workspace = workspace.resolve()
     if timeout_s is not None and timeout_s <= 0:
         raise ProviderError("run budget exhausted before CLI agent start")
@@ -421,6 +421,22 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     checked = preflight or _cursor_preflight(cursor_bin)
     _require_subscription(checked)
+    if not network:
+        # Web parity with the loop (which has no web tools) and with
+        # claude-code's --disallowedTools. Workspace permission denies survive
+        # --force ("force allow unless explicitly denied"). Without this, v3's
+        # post-cutoff decontamination is defeated at runtime: tasks derive from
+        # public merged PRs, and an unrestricted agent can and does fetch the
+        # exact upstream fix (observed in Harness Study No. 01).
+        cursor_dir = workspace / ".cursor"
+        cursor_dir.mkdir(exist_ok=True)
+        (cursor_dir / "cli.json").write_text(
+            json.dumps(
+                {"permissions": {"deny": ["WebFetch(*)", "WebSearch", "WebSearch(*)"]}},
+                indent=1,
+            ),
+            encoding="utf-8",
+        )
     # Cursor's per-model bracket syntax carries effort when the loop resolved a
     # supported level (e.g. "grok-4.6[effort=high]").
     model_arg = f"{model}[effort={effort}]" if effort else model
@@ -473,7 +489,10 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     outcome = CliAgentOutcome(
         harness="cursor",
-        execution_boundary="host-workspace; cursor-sandbox=enabled; force-allow",
+        execution_boundary=(
+            "host-workspace; cursor-sandbox=enabled; force-allow; "
+            + ("web-allowed" if network else "web-denied")
+        ),
         requested_model=model,
         harness_version=checked.version,
         auth_method=checked.auth_mode,

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Web-leakage prevention and audit for CLI harnesses.** External harnesses
+  can browse, and v3 tasks derive from public merged PRs, so the fix exists at
+  a known URL; in the first Cursor sweep 46% of runs fetched their task's
+  exact source PR or fix commit. Three layers now: the Cursor adapter writes a
+  workspace permissions file denying WebFetch/WebSearch unless `--network`
+  (denies survive `--force`); every CLI-harness run summary records a
+  `web_audit` block matching captured web activity against the task's
+  `metadata.upstream` provenance (verdicts no_web / web_used /
+  upstream_access / solution_retrieval, with `contaminated` set on the top
+  two); and `vulcanbench audit-web runs/` retro-annotates existing runs. The
+  audit annotates, never rescores. Terminal-Bench, which also allows internet,
+  asks users to "remain vigilant"; this automates that vigilance using
+  provenance Terminal-Bench's original tasks don't have.
 - **Meta Model API provider** (`meta:muse-spark-1.2`): calls Muse Spark through
   Meta's OpenAI-compatible Responses API with `MODEL_API_KEY`, while the agent's
   tools and deterministic verifier remain inside VulcanBench's Docker sandbox.
