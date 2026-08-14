@@ -362,10 +362,15 @@ def _resolve_run_engine(
     """
     if provider is None and is_cli_agent_spec(model):
         adapter = get_cli_agent_adapter(model)
-        # Claude Code and Cursor execute tools on the host workspace (Cursor's
-        # own sandbox mode notwithstanding); Codex brings a workspace-write
-        # sandbox and is exempt.
-        if adapter.harness_id in {"claude-code", "cursor"} and sandbox != "local":
+        # Claude Code executes tools on the host workspace and must acknowledge
+        # that with --sandbox local. Codex (workspace-write) and Cursor
+        # (cursor-sandbox=enabled) bring their own agent sandboxes and are
+        # exempt: with --sandbox docker their agent runs on the host workspace
+        # while VulcanBench's setup and hidden-test verifier run in Docker over
+        # the same directory. Forcing Cursor to local also forced the VERIFIER
+        # to the host, where toolchains don't match the sandbox image — every
+        # Python task failed verification with "pytest is unavailable".
+        if adapter.harness_id == "claude-code" and sandbox != "local":
             raise SandboxError(
                 f"model spec {model!r} runs a vendor agent CLI on the host with "
                 "its own tool execution; pass --sandbox local to acknowledge "

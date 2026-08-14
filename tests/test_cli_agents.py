@@ -22,7 +22,7 @@ from harness.agent.cli_agents import (
     run_codex_task,
     run_cursor_task,
 )
-from harness.agent.loop import run_agent
+from harness.agent.loop import _resolve_run_engine, run_agent
 from harness.agent.providers import ProviderError, get_provider
 from harness.pricing import cost_usd, is_priced
 from harness.sandbox.docker_executor import SandboxError
@@ -358,16 +358,16 @@ def test_run_agent_via_cursor_subscription(tmp_path: Path, fake_cursor: Path) ->
     assert events[0]["leaked_key"] == ""  # provider keys never reach the CLI
 
 
-def test_cursor_requires_local_sandbox(tmp_path: Path, fake_cursor: Path) -> None:
-    with pytest.raises(SandboxError, match="host execution"):
-        run_agent(
-            task_id="hello-world",
-            model="cursor:grok-4.6",
-            output_dir=tmp_path,
-            tasks_root=Path("tasks/v1"),
-            judges=False,
-            sandbox="docker",
-        )
+def test_cursor_allows_docker_verifier(fake_cursor: Path) -> None:
+    # Cursor brings its own agent sandbox (like Codex), so --sandbox docker is
+    # legal: the agent works the host workspace while setup/verification run in
+    # Docker. Forcing local also forced the verifier onto the host, where
+    # toolchains don't match the sandbox image.
+    adapter, provider, _ = _resolve_run_engine(
+        model="cursor:grok-4.6", provider=None, effort=None, sandbox="docker"
+    )
+    assert adapter is not None and adapter.harness_id == "cursor"
+    assert provider is None
 
 
 def test_cursor_logged_out_fails_closed(tmp_path: Path, fake_cursor: Path) -> None:

@@ -211,7 +211,10 @@ Specify a model as `provider:model`:
   agent harness. The CLI streams no token usage, so token counts are zero and
   API-equivalent cost is recorded as unavailable; check spend in Cursor's
   dashboard. Effort travels via Cursor's `model[effort=low|medium|high]`
-  bracket syntax. Requires `--sandbox local` (host execution).
+  bracket syntax, except model families that bake effort into the id
+  (`cursor-grok-4.6-low` … `-xhigh`) — sweep those by model id. Use
+  `--sandbox docker` so hidden-test verification runs in the sandbox image;
+  the Cursor agent itself works the host workspace under Cursor's own sandbox.
 
 Subscription runs record marginal cash, plan allocation, quota, and
 API-equivalent value separately; they are not mixed silently with raw API runs.

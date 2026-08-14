@@ -24,27 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   future re-hosted endpoint from silently joining a sweep. The Contributor tier is
   rejected on this route (Meta-direct only) instead of billing at a rate OpenRouter
   does not sell. Cache-read parsing now also accepts `prompt_tokens_details`.
-
-### Changed
-
-- **Run manifests record a `route` block** when a run did not use its provider's
-  default API endpoint (base URL, wire model, pinned upstream). Meta-direct and
-  OpenRouter-routed runs were previously indistinguishable in a results directory.
-  Default-route manifests are unchanged.
-
-### Fixed
-
-- **Client errors are no longer retried.** Any HTTP 4xx other than 408/409/425/429
-  now raises `NonRetryableProviderError`: a bad key, missing entitlement, unknown
-  model, or malformed body fails identically on every attempt, so retrying only
-  burned wall clock against the run's timeout budget — and then once more per task
-  under a suite's infra-retry policy. Found when a 403 (`missing 18+ attestation`)
-  from OpenRouter consumed its full attempt budget with backoff.
-- **Tests no longer read the developer's `.env`.** Importing `harness.cli` calls
-  `load_dotenv()` at module scope, so the first test to import it injected real
-  provider keys and base URLs into `os.environ` for the whole session; provider
-  tests then passed or failed based on the machine's configuration. A new autouse
-  fixture in `tests/conftest.py` clears provider routing and credential vars.
 - **Cursor CLI harness** (`cursor:<model>` / `--harness cursor`): runs a task
   through `cursor-agent -p --output-format stream-json`, billed to a Cursor
   account (plan or promotional credits). Results measure model + Cursor
@@ -54,7 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `unavailable` whenever a harness reports no token basis). Preflight fails
   closed when signed out or when `CURSOR_API_KEY` is set; usage-limit errors
   raise the resumable quota error; `--effort low|medium|high` maps to Cursor's
-  `model[effort=...]` bracket syntax; `--sandbox local` required.
+  `model[effort=...]` bracket syntax (Cursor's Grok family instead bakes
+  effort into the model id: `cursor-grok-4.6-low` ... `-xhigh`). Run with
+  `--sandbox docker` so hidden-test verification uses the sandbox image.
 - **xAI provider for Grok** (`xai:<model>`, e.g. `xai:grok-4.6`): OpenAI-compatible
   Chat Completions with xAI's documented `reasoning_effort` enum —
   low/medium/high map directly, `extra-high` -> `xhigh` (Grok 4.6+ only; pre-4.6
@@ -91,6 +72,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as metadata only because Qwen's documented enum is low/medium/xhigh (no `high`) with
   `xhigh` as the default — an unset request already runs at xhigh. Built-in pricing adds
   `qwen3.8-max` ($2/$6 per 1M, flat across the 1M context).
+
+### Changed
+
+- **Run manifests record a `route` block** when a run did not use its provider's
+  default API endpoint (base URL, wire model, pinned upstream). Meta-direct and
+  OpenRouter-routed runs were previously indistinguishable in a results directory.
+  Default-route manifests are unchanged.
+
+### Fixed
+
+- **Cursor harness no longer forces the hidden-test verifier onto the host.**
+  Requiring `--sandbox local` for `cursor:` runs (copied from the claude-code
+  rule) also forced VulcanBench's verifier to the host, where toolchains don't
+  match the sandbox image — every Python task in a 69-run suite failed with
+  "pytest is unavailable in the verifier environment" after the agent had
+  already spent subscription credits. Cursor brings its own agent sandbox, so
+  like Codex it is now exempt: `--sandbox docker` runs the agent on the host
+  workspace and setup/verification in Docker over the same directory.
+- **Client errors are no longer retried.** Any HTTP 4xx other than 408/409/425/429
+  now raises `NonRetryableProviderError`: a bad key, missing entitlement, unknown
+  model, or malformed body fails identically on every attempt, so retrying only
+  burned wall clock against the run's timeout budget — and then once more per task
+  under a suite's infra-retry policy. Found when a 403 (`missing 18+ attestation`)
+  from OpenRouter consumed its full attempt budget with backoff.
+- **Tests no longer read the developer's `.env`.** Importing `harness.cli` calls
+  `load_dotenv()` at module scope, so the first test to import it injected real
+  provider keys and base URLs into `os.environ` for the whole session; provider
+  tests then passed or failed based on the machine's configuration. A new autouse
+  fixture in `tests/conftest.py` clears provider routing and credential vars.
 
 ## [0.8.0] - 2026-07-29
 
