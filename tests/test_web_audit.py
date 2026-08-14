@@ -48,6 +48,38 @@ def test_no_stream_is_no_web(tmp_path: Path) -> None:
     assert audit["contaminated"] is False
 
 
+def test_rejected_calls_are_blocked_not_used(tmp_path: Path) -> None:
+    # A denied call appears only as a completed event carrying a rejection: it
+    # obtained nothing, so it must not count as access, but it is recorded --
+    # an agent reaching for the web on a decontaminated task is worth seeing.
+    rejected = {
+        "type": "tool_call",
+        "subtype": "completed",
+        "tool_call": {"webSearchToolCall": {"result": {"rejected": {"reason": "User Rejected"}}}},
+    }
+    audit = audit_stream(_stream(tmp_path, [rejected]), META)
+    assert audit["verdict"] == "web_blocked"
+    assert audit["web_blocked"] == 1
+    assert audit["web_searches"] == 0
+    assert audit["contaminated"] is False
+
+
+def test_blocked_upstream_fetch_is_not_contamination(tmp_path: Path) -> None:
+    rejected = {
+        "type": "tool_call",
+        "subtype": "completed",
+        "tool_call": {
+            "webFetchToolCall": {
+                "args": {"url": "https://github.com/PennyLaneAI/pennylane/pull/9459"},
+                "result": {"rejected": {"reason": "User Rejected"}},
+            }
+        },
+    }
+    audit = audit_stream(_stream(tmp_path, [rejected]), META)
+    assert audit["verdict"] == "web_blocked"
+    assert audit["contaminated"] is False
+
+
 def test_unrelated_browsing_is_web_used(tmp_path: Path) -> None:
     p = _stream(tmp_path, [_search("python asyncio docs"), _fetch("https://docs.python.org/3/")])
     audit = audit_stream(p, META)

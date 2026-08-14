@@ -76,6 +76,23 @@ _SAFE_ENV_KEYS = frozenset(
 # the agent's tools, not the host's connectivity).
 _WEB_TOOLS = "WebSearch,WebFetch"
 
+# Cursor permission sets. ``allow`` covers the tools a benchmark run needs;
+# ``deny`` blocks the web tools that would let an agent fetch its task's own
+# upstream fix. The schema requires both keys.
+_CURSOR_WEB_DENIED_PERMISSIONS = {
+    "allow": [
+        "Shell(*)",
+        "Read(*)",
+        "Write(*)",
+        "Edit(*)",
+        "Glob(*)",
+        "Grep(*)",
+        "Delete(*)",
+        "Ls(*)",
+    ],
+    "deny": ["WebFetch(*)", "WebSearch", "WebSearch(*)"],
+}
+
 # Single-shot judge/grader calls must not wander the filesystem.
 _JUDGE_DISALLOWED_TOOLS = (
     "Bash,Edit,Write,NotebookEdit,Read,Glob,Grep,WebSearch,WebFetch,Task,TodoWrite"
@@ -423,18 +440,22 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     _require_subscription(checked)
     if not network:
         # Web parity with the loop (which has no web tools) and with
-        # claude-code's --disallowedTools. Workspace permission denies survive
-        # --force ("force allow unless explicitly denied"). Without this, v3's
-        # post-cutoff decontamination is defeated at runtime: tasks derive from
-        # public merged PRs, and an unrestricted agent can and does fetch the
-        # exact upstream fix (observed in Harness Study No. 01).
+        # claude-code's --disallowedTools. Without this, v3's post-cutoff
+        # decontamination is defeated at runtime: tasks derive from public
+        # merged PRs, and an unrestricted agent does fetch the exact upstream
+        # fix (observed in Harness Study No. 01).
+        #
+        # Verified against cursor-agent 2026.08, and the mechanism is fussy:
+        #   * --force approves every permission query, INCLUDING denied ones,
+        #     so a deny list under --force is silently useless.
+        #   * --trust honours denies, but with no allow list it also rejects
+        #     shell calls, which the benchmark needs for running tests.
+        # So: --trust plus an explicit allow list for the work tools, and a
+        # deny list for web. Both keys are required by the config schema.
         cursor_dir = workspace / ".cursor"
         cursor_dir.mkdir(exist_ok=True)
         (cursor_dir / "cli.json").write_text(
-            json.dumps(
-                {"permissions": {"deny": ["WebFetch(*)", "WebSearch", "WebSearch(*)"]}},
-                indent=1,
-            ),
+            json.dumps({"permissions": _CURSOR_WEB_DENIED_PERMISSIONS}, indent=1),
             encoding="utf-8",
         )
     # Cursor's per-model bracket syntax carries effort when the loop resolved a
@@ -450,7 +471,9 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         model_arg,
         "--sandbox",
         "enabled",
-        "--force",
+        # --force would override the web deny; --trust honours it and the
+        # allow list above restores the tools a run needs.
+        "--force" if network else "--trust",
     ]
 
     collector.record(
@@ -490,8 +513,8 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     outcome = CliAgentOutcome(
         harness="cursor",
         execution_boundary=(
-            "host-workspace; cursor-sandbox=enabled; force-allow; "
-            + ("web-allowed" if network else "web-denied")
+            "host-workspace; cursor-sandbox=enabled; "
+            + ("force-allow; web-allowed" if network else "trust+allowlist; web-denied")
         ),
         requested_model=model,
         harness_version=checked.version,

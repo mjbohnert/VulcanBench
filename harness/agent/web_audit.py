@@ -13,6 +13,10 @@ web search and fetch, and matches them against that provenance. Verdicts
 escalate:
 
 - ``no_web``: the stream contains no web tool use.
+- ``web_blocked``: the agent attempted web calls and every one was rejected by
+  the harness's deny rules. No data reached the model, so this is clean --
+  but it is recorded, because an agent reaching for the web on a
+  decontaminated task is worth seeing.
 - ``web_used``: browsed, but never touched the task's upstream project.
 - ``upstream_access``: fetched content from the task's upstream repository.
   Post-fix sources (e.g. the repaired file on ``main``) contain the solution,
@@ -33,7 +37,7 @@ from typing import Any
 _WEB_MARKERS = ("webSearchToolCall", "webFetchToolCall", '"WebSearch"', '"WebFetch"')
 _URL_RE = re.compile(r"https?://[^\s\"'\\]+")
 
-VERDICTS = ("no_web", "web_used", "upstream_access", "solution_retrieval")
+VERDICTS = ("no_web", "web_blocked", "web_used", "upstream_access", "solution_retrieval")
 
 
 def upstream_refs(metadata: dict[str, Any]) -> dict[str, str]:
@@ -65,6 +69,22 @@ def _line_hits(line: str, refs: dict[str, str]) -> tuple[bool, bool]:
     return repo_hit, solution
 
 
+def _line_web_use(line: str) -> tuple[int, int, set[str]]:
+    """(searches, fetches, hosts) contributed by one non-rejected stream line."""
+    searches = 0
+    fetches = 0
+    if "webSearchToolCall" in line or '"WebSearch"' in line:
+        searches = line.count("searchTerm") or 1
+    if "webFetchToolCall" in line or '"WebFetch"' in line:
+        fetches = 1
+    hosts = set()
+    for url in _URL_RE.findall(line):
+        host = re.sub(r"^https?://", "", url).split("/", 1)[0]
+        if host:
+            hosts.add(host.lower())
+    return searches, fetches, hosts
+
+
 def audit_stream(stream_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
     """Audit one run's CLI event stream. Missing stream -> trivially no_web."""
     refs = upstream_refs(metadata)
@@ -74,22 +94,26 @@ def audit_stream(stream_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
     upstream_access = False
     solution = False
 
+    blocked = 0
     if stream_path.exists():
         with stream_path.open(encoding="utf-8", errors="replace") as f:
             for line in f:
                 if not any(m in line for m in _WEB_MARKERS):
                     continue
-                # Count per tool-call start; Cursor re-emits completed events.
+                # A denied call appears only as a completed event carrying a
+                # rejection; it obtained nothing, so it is counted separately
+                # and never scores as access.
+                if '"rejected"' in line:
+                    blocked += 1
+                    continue
+                # Otherwise count per tool-call start; Cursor re-emits the call
+                # on completion and double counting would inflate the totals.
                 if '"subtype": "completed"' in line or '"subtype":"completed"' in line:
                     continue
-                if "webSearchToolCall" in line or '"WebSearch"' in line:
-                    searches += line.count("searchTerm") or 1
-                if "webFetchToolCall" in line or '"WebFetch"' in line:
-                    fetches += 1
-                for url in _URL_RE.findall(line):
-                    host = re.sub(r"^https?://", "", url).split("/", 1)[0]
-                    if host:
-                        hosts.add(host.lower())
+                s_add, f_add, line_hosts = _line_web_use(line)
+                searches += s_add
+                fetches += f_add
+                hosts |= line_hosts
                 repo_hit, sol = _line_hits(line, refs)
                 upstream_access = upstream_access or repo_hit
                 solution = solution or sol
@@ -100,12 +124,15 @@ def audit_stream(stream_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
         verdict = "upstream_access"
     elif searches or fetches:
         verdict = "web_used"
+    elif blocked:
+        verdict = "web_blocked"
     else:
         verdict = "no_web"
     return {
         "verdict": verdict,
         "web_searches": searches,
         "web_fetches": fetches,
+        "web_blocked": blocked,
         "hosts": sorted(hosts)[:40],
         "upstream": refs,
         "contaminated": verdict in ("upstream_access", "solution_retrieval"),

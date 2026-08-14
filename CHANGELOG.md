@@ -13,8 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   can browse, and v3 tasks derive from public merged PRs, so the fix exists at
   a known URL; in the first Cursor sweep 46% of runs fetched their task's
   exact source PR or fix commit. Three layers now: the Cursor adapter writes a
-  workspace permissions file denying WebFetch/WebSearch unless `--network`
-  (denies survive `--force`); every CLI-harness run summary records a
+  workspace permissions file denying WebFetch/WebSearch unless `--network`,
+  and switches `--force` to `--trust` for those runs -- verified against
+  cursor-agent 2026.08, where `--force` approves denied queries too, while
+  `--trust` honours denies but needs an explicit allow list to keep shell
+  access. A `web_blocked` verdict records denied attempts; every CLI-harness run summary records a
   `web_audit` block matching captured web activity against the task's
   `metadata.upstream` provenance (verdicts no_web / web_used /
   upstream_access / solution_retrieval, with `contaminated` set on the top

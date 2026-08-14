@@ -37,12 +37,16 @@ locating solutions; VulcanBench automates that vigilance.)
 Three layers:
 
 1. **Prevention.** The Cursor adapter writes a workspace permissions file
-   denying `WebFetch(*)` and `WebSearch` unless `--network` is passed; denies
-   survive Cursor's `--force`. Claude Code gets `--disallowedTools
+   denying `WebFetch(*)` and `WebSearch` (with an explicit allow list for the
+   work tools) and runs with `--trust` unless `--network` is passed. The
+   mechanism is fussy and was verified live: `--force` approves *denied*
+   queries too, so a deny list under `--force` is silently useless; `--trust`
+   honours denies but rejects shell calls without an allow list. Claude Code gets `--disallowedTools
    WebSearch,WebFetch`; Codex network access stays off in its sandbox config.
 2. **Detection.** Every CLI-harness run's summary carries a `web_audit` block:
    web searches/fetches extracted from the captured stream, matched against
    the task's `metadata.upstream` provenance. Verdicts escalate: `no_web`,
+   `web_blocked` (attempts made, all denied -- clean, but recorded),
    `web_used`, `upstream_access` (fetched the task's upstream repo, whose
    post-fix sources contain the solution), `solution_retrieval` (fetched the
    exact PR, fix commit, or a raw diff/patch). `contaminated: true` on the top
