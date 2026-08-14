@@ -451,6 +451,8 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
             cwd=workspace,
             env=_subscription_env(env_overrides),
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -695,6 +697,8 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
             cwd=workspace,
             env=_subscription_env(env_overrides),
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -950,6 +954,8 @@ def run_codex_task(  # noqa: PLR0912, PLR0915 — linear process/stream adapter
             cwd=workspace,
             env=_subscription_env(env_overrides),
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

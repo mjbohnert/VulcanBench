@@ -82,6 +82,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CLI-agent streams decode lossily.** All three subscription adapters read
+  the vendor CLI's stdout with strict platform decoding; a single non-UTF-8
+  byte in a large stream (observed: 0xa0 at ~110MB of cursor-agent output)
+  crashed the run after the subscription credits were already spent. The
+  claude-code, codex, and cursor Popen streams now decode UTF-8 with
+  errors="replace", so a stray byte costs one replacement character, not a
+  paid run.
 - **Cursor harness no longer forces the hidden-test verifier onto the host.**
   Requiring `--sandbox local` for `cursor:` runs (copied from the claude-code
   rule) also forced VulcanBench's verifier to the host, where toolchains don't
