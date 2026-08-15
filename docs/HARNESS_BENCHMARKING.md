@@ -26,34 +26,51 @@ verifier on the host, where missing toolchains fail Python tasks. Preflight
 fails closed when signed out or when `CURSOR_API_KEY` is set (API-key auth
 bills metered usage, not the plan).
 
-## Web access and solution leakage
+## Leakage: two channels, both real
 
-VulcanBench's own loop has no web tools and its sandbox runs network-off, but
-external harnesses can browse. For suites built from real merged PRs that is a
-solved-answer oracle: the fix exists at a known public URL. (Terminal-Bench,
-which allows internet by design, asks users to "remain vigilant" about agents
-locating solutions; VulcanBench automates that vigilance.)
+External harnesses execute on the host with broad tool access, and a benchmark
+built from public merged PRs leaks through two independent channels. Both were
+observed in live sweeps, and blocking one does nothing about the other.
 
-Three layers:
+**The web.** Every v3 task derives from a public PR, so the fix sits at a known
+URL. In the first Cursor sweep 46% of runs fetched their task's exact source PR
+or fix commit, and the median patch of those runs matched the gold patch
+exactly. (Terminal-Bench, which allows internet by design, asks users to
+"remain vigilant" about this; VulcanBench automates the check using provenance
+its own tasks record.)
 
-1. **Prevention.** The Cursor adapter writes a workspace permissions file
+**The filesystem.** Harness agents run on the host, so a workspace inside this
+checkout lets an agent walk up into `tasks/` and read `gold_patch.diff` and the
+hidden tests -- the grader's answer key, not merely the upstream fix. In a
+sweep with the web already blocked, 46 runs read their own task's answer key
+and all 46 solved.
+
+Three layers now stand against both:
+
+1. **Containment.** CLI-harness runs get a workspace outside the repo
+   (`tempfile.mkdtemp`), so no benchmark data exists anywhere above the
+   agent's cwd; the tree is moved back under the run dir after scoring. This
+   is the load-bearing defence: enumerating forbidden paths is the same losing
+   game as enumerating forbidden URLs.
+2. **Prevention.** The Cursor adapter writes a workspace permissions file
    denying `WebFetch(*)` and `WebSearch` (with an explicit allow list for the
    work tools) and runs with `--trust` unless `--network` is passed. The
    mechanism is fussy and was verified live: `--force` approves *denied*
    queries too, so a deny list under `--force` is silently useless; `--trust`
-   honours denies but rejects shell calls without an allow list. Claude Code gets `--disallowedTools
-   WebSearch,WebFetch`; Codex network access stays off in its sandbox config.
-2. **Detection.** Every CLI-harness run's summary carries a `web_audit` block:
-   web searches/fetches extracted from the captured stream, matched against
-   the task's `metadata.upstream` provenance. Verdicts escalate: `no_web`,
-   `web_blocked` (attempts made, all denied -- clean, but recorded),
-   `web_used`, `upstream_access` (fetched the task's upstream repo, whose
-   post-fix sources contain the solution), `solution_retrieval` (fetched the
-   exact PR, fix commit, or a raw diff/patch). `contaminated: true` on the top
-   two. The audit annotates; it never rescores.
-3. **Retro-audit.** `vulcanbench audit-web runs/` re-annotates existing runs
-   and prints verdict counts, flagging solved-but-contaminated runs to exclude
-   or asterisk in reports.
+   honours denies but rejects shell calls without an allow list. Claude Code
+   gets `--disallowedTools WebSearch,WebFetch`.
+3. **Detection.** Every CLI-harness run summary carries an `integrity_audit`
+   with both channels. Web verdicts: `no_web`, `web_blocked` (attempts made,
+   all denied -- clean, but recorded), `web_used`, `upstream_access`,
+   `solution_retrieval`. Filesystem verdicts: `clean`, `out_of_workspace`,
+   `benchmark_data_access`, `answer_key_access`. A run is `contaminated` if
+   either channel says so. `vulcanbench audit-runs runs/` re-annotates
+   existing runs. The audit annotates; it never rescores.
+
+Note what the audit is not: a rejected call is not access, and the audit must
+correlate a tool call's `started` and `completed` events before scoring it. An
+earlier version scored the `started` event alone and flagged four clean runs as
+contaminated, one of them as solution retrieval.
 
 ## Preflight
 

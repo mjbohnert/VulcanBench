@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from harness.agent import loop as loop_mod
 from harness.agent.cli_agents import (
     SubscriptionQuotaError,
     is_cli_agent_spec,
@@ -389,6 +390,36 @@ def test_cursor_network_flag_skips_web_deny(tmp_path: Path, fake_cursor: Path) -
     assert "web-allowed" in (outcome.execution_boundary or "")
 
 
+def test_cli_harness_workspace_is_outside_the_repo(tmp_path: Path, fake_cursor: Path) -> None:
+    # Containment, not permissions: CLI harnesses run on the host, so the
+    # workspace must sit where no gold_patch.diff exists anywhere above it.
+    # Observed before this: 46 runs read their own task's answer key.
+    seen: dict[str, str] = {}
+    real_prepare = loop_mod.prepare_workspace
+
+    def spy(task, workspace):  # type: ignore[no-untyped-def]
+        seen["workspace"] = str(workspace)
+        return real_prepare(task, workspace)
+
+    loop_mod.prepare_workspace = spy  # type: ignore[assignment]
+    try:
+        res = run_agent(
+            task_id="hello-world",
+            model="cursor:grok-4.6",
+            output_dir=tmp_path,
+            tasks_root=Path("tasks/v1"),
+            judges=False,
+            sandbox="local",
+        )
+    finally:
+        loop_mod.prepare_workspace = real_prepare  # type: ignore[assignment]
+
+    repo_root = Path(__file__).resolve().parents[1]
+    assert not seen["workspace"].startswith(str(repo_root)), seen["workspace"]
+    # ...and the tree is reclaimed into the run dir afterwards.
+    assert (tmp_path / res["run_id"] / "workspace").exists()
+
+
 def test_cursor_run_records_web_audit(tmp_path: Path, fake_cursor: Path) -> None:
     res = run_agent(
         task_id="hello-world",
@@ -399,8 +430,10 @@ def test_cursor_run_records_web_audit(tmp_path: Path, fake_cursor: Path) -> None
         sandbox="local",
     )
     summary = res["summary"]
-    assert summary["web_audit"]["verdict"] == "no_web"
-    assert summary["web_audit"]["contaminated"] is False
+    audit = summary["integrity_audit"]
+    assert audit["web"]["verdict"] == "no_web"
+    assert audit["filesystem"]["verdict"] in ("clean", "out_of_workspace")
+    assert audit["contaminated"] is False
     # The deny file must not leak into the captured patch.
     patch = (tmp_path / res["run_id"] / "final.patch").read_text()
     assert ".cursor" not in patch

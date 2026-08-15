@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Workspace containment and a filesystem integrity audit.** Blocking the web
+  fixed only one leak. CLI harnesses execute on the host, so a workspace inside
+  this checkout let an agent walk up into `tasks/` and read `gold_patch.diff`
+  and the hidden tests: in a sweep with the web already blocked, 46 runs read
+  their own task's answer key and all 46 solved. CLI-harness runs now execute
+  in a workspace outside the repo (moved back under the run dir after scoring),
+  and `web_audit` becomes `integrity_audit` with a second channel: filesystem
+  verdicts `clean` / `out_of_workspace` / `benchmark_data_access` /
+  `answer_key_access`. `vulcanbench audit-web` is now `audit-runs` and reports
+  both channels. VulcanBench's own agent loop was never exposed to either
+  channel: it has no web tools and its sandbox is network-off with no host
+  mount.
 - **Web-leakage prevention and audit for CLI harnesses.** External harnesses
   can browse, and v3 tasks derive from public merged PRs, so the fix exists at
   a known URL; in the first Cursor sweep 46% of runs fetched their task's

@@ -1,11 +1,11 @@
-"""Tests for the CLI-harness web-leakage audit."""
+"""Tests for the CLI-harness integrity audit (web + filesystem)."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from harness.agent.web_audit import audit_stream, upstream_refs
+from harness.agent.run_audit import audit_filesystem, audit_run, audit_stream, upstream_refs
 
 META = {
     "upstream": {
@@ -185,3 +185,81 @@ def test_task_without_upstream_never_flags_contamination(tmp_path: Path) -> None
     audit = audit_stream(p, {"id": "synthetic-task"})
     assert audit["verdict"] == "web_used"
     assert audit["contaminated"] is False
+
+
+# ---------------------------------------------------------------- filesystem
+
+
+def _read(path: str) -> dict:
+    return {
+        "type": "tool_call",
+        "subtype": "completed",
+        "tool_call": {"readToolCall": {"args": {"path": path}}},
+    }
+
+
+def _shell(cmd: str) -> dict:
+    return {
+        "type": "tool_call",
+        "subtype": "completed",
+        "tool_call": {"shellToolCall": {"args": {"command": cmd}}},
+    }
+
+
+def test_fs_workspace_only_is_clean(tmp_path: Path) -> None:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    p = _stream(tmp_path, [_read(str(ws / "src" / "app.py")), _shell(f"cd {ws} && pytest")])
+    audit = audit_filesystem(p, ws, "oss-task", repo_root=tmp_path / "repo")
+    assert audit["verdict"] == "clean"
+    assert audit["contaminated"] is False
+
+
+def test_fs_unrelated_outside_read_is_recorded_not_fatal(tmp_path: Path) -> None:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    p = _stream(tmp_path, [_read("/etc/hosts")])
+    audit = audit_filesystem(p, ws, "oss-task", repo_root=tmp_path / "repo")
+    assert audit["verdict"] == "out_of_workspace"
+    assert audit["contaminated"] is False
+
+
+def test_fs_own_gold_patch_is_answer_key_access(tmp_path: Path) -> None:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    repo = tmp_path / "repo"
+    p = _stream(tmp_path, [_read(f"{repo}/tasks/v3/oss-task/gold_patch.diff")])
+    audit = audit_filesystem(p, ws, "oss-task", repo_root=repo)
+    assert audit["verdict"] == "answer_key_access"
+    assert audit["contaminated"] is True
+
+
+def test_fs_own_hidden_tests_is_answer_key_access(tmp_path: Path) -> None:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    repo = tmp_path / "repo"
+    p = _stream(tmp_path, [_shell(f"cat {repo}/tasks/v3/oss-task/tests/oss_tests.py")])
+    audit = audit_filesystem(p, ws, "oss-task", repo_root=repo)
+    assert audit["verdict"] == "answer_key_access"
+
+
+def test_fs_other_task_data_is_still_contamination(tmp_path: Path) -> None:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    repo = tmp_path / "repo"
+    p = _stream(tmp_path, [_read(f"{repo}/tasks/v4/oss-other/gold_patch.diff")])
+    audit = audit_filesystem(p, ws, "oss-task", repo_root=repo)
+    assert audit["verdict"] == "benchmark_data_access"
+    assert audit["contaminated"] is True
+
+
+def test_audit_run_combines_both_channels(tmp_path: Path) -> None:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    repo = tmp_path / "repo"
+    p = _stream(tmp_path, [_read(f"{repo}/tasks/v3/oss-task/gold_patch.diff")])
+    audit = audit_run(p, {"id": "oss-task"}, ws, repo_root=repo)
+    assert audit["web"]["verdict"] == "no_web"
+    assert audit["filesystem"]["verdict"] == "answer_key_access"
+    # A run clean on the web is still contaminated if it read the answer key.
+    assert audit["contaminated"] is True

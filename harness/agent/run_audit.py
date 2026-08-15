@@ -1,4 +1,4 @@
-"""Runtime web-leakage audit for CLI-harness runs.
+"""Runtime integrity audit for CLI-harness runs: web and filesystem.
 
 VulcanBench's own loop has no web tools and runs its sandbox network-off, but
 external harnesses (Cursor, and Claude Code / Codex when ``--network`` is set)
@@ -23,6 +23,22 @@ escalate:
   so this is contamination even without the PR itself.
 - ``solution_retrieval``: fetched the exact source PR, the fix commit, or a
   raw diff/patch of the upstream repo.
+
+Blocking the web is only half the problem. External harnesses execute on the
+host, so an agent whose workspace sits inside the VulcanBench checkout can walk
+up the tree and read ``tasks/<suite>/<id>/gold_patch.diff`` -- the grader's
+answer key -- and the hidden tests it is about to be scored against. Observed:
+46 runs of a supposedly clean sweep did exactly that, and all 46 solved. Runs
+are now given a workspace outside the repo, and the filesystem half of this
+audit is the check on that containment:
+
+- ``clean``: every path the agent touched is inside its workspace.
+- ``out_of_workspace``: read something outside the workspace that is not
+  benchmark data (a system file, a global config). Recorded, not fatal.
+- ``benchmark_data_access``: touched VulcanBench's own task tree or another
+  run directory. Contaminating regardless of which task it belonged to.
+- ``answer_key_access``: touched this run's own gold patch, hidden tests, or
+  task metadata. The strongest possible contamination signal.
 
 The audit annotates; it never rescores. Reports decide what a contaminated
 run is worth.
@@ -144,4 +160,87 @@ def audit_stream(stream_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
         "hosts": sorted(hosts)[:40],
         "upstream": refs,
         "contaminated": verdict in ("upstream_access", "solution_retrieval"),
+    }
+
+
+_PATH_RE = re.compile(r'"(?:path|file_path|filePath)"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_CMD_RE = re.compile(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_ANSWER_KEY_PARTS = ("gold_patch", "/tests/", "metadata.json")
+
+FS_VERDICTS = ("clean", "out_of_workspace", "benchmark_data_access", "answer_key_access")
+
+
+def _candidate_paths(line: str) -> list[str]:
+    """Absolute paths named by a tool call: explicit path args and shell words."""
+    out = [p for p in _PATH_RE.findall(line) if p.startswith("/")]
+    for cmd in _CMD_RE.findall(line):
+        out.extend(re.findall(r"(?<![\w/])(/[\w./~-]{4,})", cmd))
+    return out
+
+
+def audit_filesystem(
+    stream_path: Path,
+    workspace: Path | None,
+    task_id: str,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    """Check that a CLI agent stayed inside its workspace.
+
+    ``repo_root`` defaults to this checkout: the tree holding ``tasks/`` and
+    ``runs/``, i.e. exactly the benchmark data an agent must never read.
+    """
+    root = (repo_root or Path(__file__).resolve().parents[2]).resolve()
+    ws = str(workspace.resolve()) if workspace else None
+    outside: set[str] = set()
+    benchmark: set[str] = set()
+    answer_key: set[str] = set()
+
+    if stream_path.exists():
+        with stream_path.open(encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if '"path"' not in line and '"command"' not in line:
+                    continue
+                for raw in _candidate_paths(line):
+                    if ws and (raw == ws or raw.startswith(ws + "/")):
+                        continue
+                    outside.add(raw)
+                    in_tasks = "/tasks/" in raw
+                    in_runs = f"{root}/runs" in raw or ("/runs/" in raw and str(root) in raw)
+                    if not (in_tasks or in_runs):
+                        continue
+                    benchmark.add(raw)
+                    own = f"/{task_id}/" in raw or raw.endswith(f"/{task_id}")
+                    if own and any(part in raw for part in _ANSWER_KEY_PARTS):
+                        answer_key.add(raw)
+
+    if answer_key:
+        verdict = "answer_key_access"
+    elif benchmark:
+        verdict = "benchmark_data_access"
+    elif outside:
+        verdict = "out_of_workspace"
+    else:
+        verdict = "clean"
+    return {
+        "verdict": verdict,
+        "out_of_workspace_paths": sorted(outside)[:40],
+        "benchmark_data_paths": sorted(benchmark)[:40],
+        "answer_key_paths": sorted(answer_key)[:20],
+        "contaminated": verdict in ("benchmark_data_access", "answer_key_access"),
+    }
+
+
+def audit_run(
+    stream_path: Path,
+    metadata: dict[str, Any],
+    workspace: Path | None = None,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    """Combined integrity block for a CLI-harness run."""
+    web = audit_stream(stream_path, metadata)
+    fs = audit_filesystem(stream_path, workspace, str(metadata.get("id") or ""), repo_root)
+    return {
+        "web": web,
+        "filesystem": fs,
+        "contaminated": bool(web["contaminated"] or fs["contaminated"]),
     }

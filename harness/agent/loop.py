@@ -19,6 +19,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from collections.abc import Callable
@@ -37,7 +38,7 @@ from harness.agent.cli_agents import (
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
 from harness.agent.providers import LLMProvider, get_provider, parse_model_spec, route_manifest
-from harness.agent.web_audit import audit_stream
+from harness.agent.run_audit import audit_run
 from harness.economics import api_receipt, subscription_receipt
 from harness.effort import effort_config
 from harness.evaluator.evaluate import evaluate_run
@@ -169,7 +170,7 @@ def run_agent(
     collector = TraceCollector(run_dir, run_id, task_id, model)
     collector.record("task_start", {"task_id": task_id, "metadata": task.metadata})
 
-    workspace = run_dir / "workspace"
+    agent_tmp_root, workspace = _resolve_workspace(cli_adapter, run_id, run_dir)
     prepare_workspace(task, workspace)
     _git_init(workspace)
     executor = _make_executor(sandbox, workspace, image, network, task, collector)
@@ -328,7 +329,11 @@ def run_agent(
             # activity against the task's upstream provenance so a run that
             # fetched its own solution is flagged, never silently counted.
             **(
-                {"web_audit": audit_stream(run_dir / "cli-agent-stream.jsonl", task.metadata)}
+                {
+                    "integrity_audit": audit_run(
+                        run_dir / "cli-agent-stream.jsonl", task.metadata, workspace
+                    )
+                }
                 if cli_outcome
                 else {}
             ),
@@ -338,6 +343,7 @@ def run_agent(
     )
     generate_replay_html(collector.trace_path, run_dir / "replay.html")
     maybe_post_run_summary(summary)
+    _reclaim_agent_workspace(agent_tmp_root, workspace, run_dir)
     return {"run_id": run_id, "summary": summary, "replay": str(run_dir / "replay.html")}
 
 
@@ -1103,6 +1109,40 @@ def _verify(
 
 # .cursor/ holds the harness-written web-deny permissions file, not agent work.
 _WORKSPACE_GITIGNORE = ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n"
+
+
+def _resolve_workspace(
+    cli_adapter: CliAgentAdapter | None, run_id: str, run_dir: Path
+) -> tuple[Path | None, Path]:
+    """Where the agent works: outside this checkout for CLI harnesses.
+
+    CLI harnesses execute on the HOST, so a workspace inside the repo lets the
+    agent walk up into ``tasks/`` and read ``gold_patch.diff`` and the hidden
+    tests. Observed: 46 runs of a supposedly clean sweep did exactly that, and
+    all 46 solved. Those runs get a workspace with no benchmark data anywhere
+    above it; :func:`_reclaim_agent_workspace` moves the tree back into the run
+    dir afterwards so artifacts land where every other tool expects them.
+    """
+    if cli_adapter is None:
+        return None, run_dir / "workspace"
+    tmp_root = Path(tempfile.mkdtemp(prefix=f"vulcanbench-{run_id}-"))
+    return tmp_root, tmp_root / "workspace"
+
+
+def _reclaim_agent_workspace(tmp_root: Path | None, workspace: Path, run_dir: Path) -> None:
+    """Move a relocated agent workspace back under the run dir, then clean up.
+
+    Scoring is finished by this point, so the tree is inert; keeping it beside
+    the trace preserves the artifact layout every other tool assumes.
+    """
+    if tmp_root is None:
+        return
+    try:
+        dest = run_dir / "workspace"
+        if workspace.exists() and not dest.exists():
+            shutil.move(str(workspace), str(dest))
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
 
 
 def _git_init(workspace: Path) -> None:

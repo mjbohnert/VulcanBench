@@ -1278,8 +1278,8 @@ def compare(
             console.print(f"  missing: {shown}")
 
 
-@app.command("audit-web")
-def audit_web(
+@app.command("audit-runs")
+def audit_runs(
     runs_dir: Path = typer.Argument(  # noqa: B008
         Path("./runs"), help="Directory of runs to audit (recursive)"
     ),
@@ -1290,15 +1290,16 @@ def audit_web(
         True, "--write/--dry-run", help="Persist web_audit into each run's summary.json"
     ),
 ) -> None:
-    """Audit CLI-harness runs for web use and upstream-solution leakage.
+    """Audit CLI-harness runs for web and filesystem leakage.
 
-    External harnesses can browse; v3 tasks derive from public merged PRs, so
-    the fix exists at a known URL. This matches each run's captured web
-    activity against its task's ``metadata.upstream`` provenance and records a
-    verdict (no_web / web_used / upstream_access / solution_retrieval). It
+    Two channels leak answers to an external harness. The web: v3 tasks derive
+    from public merged PRs, so the upstream fix sits at a known URL. The
+    filesystem: those harnesses run on the host, so an agent can read
+    VulcanBench's own ``tasks/`` tree, including the gold patch and hidden
+    tests. Each run gets an ``integrity_audit`` with both verdicts. It
     annotates summaries; it never rescores.
     """
-    from harness.agent.web_audit import audit_stream  # noqa: PLC0415
+    from harness.agent.run_audit import audit_run  # noqa: PLC0415
 
     meta_cache: dict[str, dict[str, Any]] = {}
 
@@ -1318,19 +1319,25 @@ def audit_web(
             continue
         if "cli_agent" not in summary:
             continue
-        audit = audit_stream(sp.parent / "cli-agent-stream.jsonl", metadata_for(summary["task_id"]))
+        audit = audit_run(
+            sp.parent / "cli-agent-stream.jsonl",
+            metadata_for(summary["task_id"]),
+            sp.parent / "workspace",
+        )
         audited += 1
-        counts[audit["verdict"]] = counts.get(audit["verdict"], 0) + 1
+        for channel in ("web", "filesystem"):
+            key = f"{channel}:{audit[channel]['verdict']}"
+            counts[key] = counts.get(key, 0) + 1
         if audit["contaminated"] and (summary.get("scores") or {}).get("functional") == 1.0:
             contaminated_solved += 1
         if write:
-            summary["web_audit"] = audit
+            summary["integrity_audit"] = audit
+            summary.pop("web_audit", None)
             sp.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
     console.print(f"audited {audited} CLI-harness run(s){'' if write else ' (dry run)'}")
-    for verdict in ("no_web", "web_used", "upstream_access", "solution_retrieval"):
-        if counts.get(verdict):
-            console.print(f"  {verdict}: {counts[verdict]}")
+    for key in sorted(counts):
+        console.print(f"  {key}: {counts[key]}")
     if contaminated_solved:
         console.print(
             f"[red]{contaminated_solved} solved run(s) are contaminated[/red] "
