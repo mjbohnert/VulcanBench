@@ -40,10 +40,10 @@ and is validated to be deterministic over 3 runs.
 
 ## v1 tasks (validated)
 
-Ten tasks across five languages and eight distinct vulnerability classes, one a
-Family-B security-tooling fix. Each is gold-solved (`functional == 1.0`), genuinely
-fails pre-patch (`pre-patch == 0.0`), and is deterministic over three runs in the
-Docker sandbox.
+Sixteen tasks across five languages and a dozen distinct vulnerability classes,
+one a Family-B security-tooling fix. Each is gold-solved (`functional == 1.0`),
+genuinely fails pre-patch (`pre-patch == 0.0`), and is deterministic over three
+runs in the Docker sandbox.
 
 | Task | Lang | Family | Class | Upstream (merged) |
 |------|------|--------|-------|-------------------|
@@ -57,9 +57,16 @@ Docker sandbox.
 | `oss-tornado-urlencoded-field-limit` | Python | A | Urlencoded field-count DoS | [tornadoweb/tornado#3704](https://github.com/tornadoweb/tornado/pull/3704) (2026-08-07) |
 | `oss-werkzeug-host-port-validation` | Python | A | Host-header port validation | [pallets/werkzeug#3236](https://github.com/pallets/werkzeug/pull/3236) (2026-08-12) |
 | `oss-werkzeug-etag-strict-parse` | Python | A | Strict ETag parsing | [pallets/werkzeug#3234](https://github.com/pallets/werkzeug/pull/3234) (2026-08-10) |
+| `oss-toml-writer-quote-count-overflow` | Rust | A | Integer-overflow (quote-run) DoS | [toml-rs/toml#1189](https://github.com/toml-rs/toml/pull/1189) (2026-07-14) |
+| `oss-werkzeug-int-converter-dos` | Python | A | Integer-URL DoS (int-str-digits limit) | [pallets/werkzeug#3238](https://github.com/pallets/werkzeug/pull/3238) (2026-08-13) |
+| `oss-gix-validate-lone-at-refname` | Rust | A | Reference-name spoofing (lone `@`) | [GitoxideLabs/gitoxide#2886](https://github.com/GitoxideLabs/gitoxide/pull/2886) (2026-08-06) |
+| `oss-validator-bytelength-surrogate` | JavaScript | A | Unpaired-surrogate crash DoS | [validatorjs/validator.js#2822](https://github.com/validatorjs/validator.js/pull/2822) (2026-07-25) |
+| `oss-content-disposition-ext-value` | TypeScript | A | Filename spoofing (lenient percent-decode) | [jshttp/content-disposition#138](https://github.com/jshttp/content-disposition/pull/138) (2026-08-03) |
+| `oss-urllib3-host-injection-validation` | Python | A | Host / CRLF injection (control chars in host) | [urllib3/urllib3#5095](https://github.com/urllib3/urllib3/pull/5095) (2026-06-30) |
 
-Language mix: Python 4, TypeScript 2, Go 2, JavaScript 1, Rust 1. A 2nd Family-B
-task and a broader family balance are mapped in
+Language mix: Python 6, TypeScript 3, Rust 3, Go 2, JavaScript 2. A 2nd Family-B
+task (a DOMPurify XSS-sanitizer or an osv-scanner/trivy matching fix) and a
+broader family balance are mapped in
 [the candidates log](../tasks/vulcancyber-v1/CANDIDATES.md).
 
 ## Running it
@@ -83,11 +90,13 @@ vulcanbench leaderboard --suite vulcancyber-v1 --tasks-root tasks/vulcancyber-v1
 vulcanbench report --suite vulcancyber-v1 --tasks-root tasks/vulcancyber-v1
 ```
 
-Two tasks need non-default sandbox images (declared per-task via `metadata.image`):
-`oss-echo-encoded-path-separator` uses `vulcanbench/sandbox:go-1.26` (echo v5's
-`go.mod` requires Go ≥ 1.25; the base image ships 1.23), and
-`oss-quick-xml-serialize-control-escape` uses `vulcanbench/sandbox:rust`. Both
-are built by `make sandbox-image-all`.
+Several tasks declare a non-default sandbox image via `metadata.image`, all built
+by `make sandbox-image-all`: the TypeScript tasks (hono, zod, content-disposition)
+and the validator.js JavaScript task use `vulcanbench/sandbox:node-ts` (tsx); the
+Rust tasks (quick-xml, toml, gix-validate) use `vulcanbench/sandbox:rust`; and the
+Go tasks (echo v5, gosec) use `vulcanbench/sandbox:go-1.26` (their `go.mod`
+requires Go ≥ 1.25, above the base image's 1.23). The Python tasks and undici run
+on the default `vulcanbench/sandbox:base`.
 
 ## Sourcing your own tasks
 

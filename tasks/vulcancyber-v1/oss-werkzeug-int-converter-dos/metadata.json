@@ -1,0 +1,34 @@
+{
+  "id": "oss-werkzeug-int-converter-dos",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "task_complexity": "multi_file",
+  "created": "2026-08-15",
+  "repo_scale": "large",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:base",
+  "decontaminated": true,
+  "base_commit": "a2bf38cf9c9501cc64fb324f5229543023c527bb",
+  "upstream": {
+    "url": "https://github.com/pallets/werkzeug",
+    "issue": "https://github.com/pallets/werkzeug/pull/3238",
+    "pr": "https://github.com/pallets/werkzeug/pull/3238",
+    "commit": "3474ff43371fdb7d9c129d9a13021fda38812f2d"
+  },
+  "upstream_merged": "2026-08-13",
+  "decontamination_notes": "Real routing denial-of-service fix from pallets/werkzeug PR #3238 ('int URL 404s when longer than max_int_str_digits', https://github.com/pallets/werkzeug/pull/3238), merged 2026-08-13 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. The URL routing `<int:...>` converter calls int() on the matched path segment. Python caps int()-from-string at ~4300 digits (the CVE-2020-10735 mitigation) and raises ValueError beyond that; the converter did not catch it, so a request URL with a very long digit run made routing raise an unhandled ValueError (a 500 / crash) instead of simply not matching the route -- a DoS from a single request. The fix catches the ValueError in NumberConverter.to_python (routing/converters.py) and raises ValidationError, and matcher.py chains it to a non-match, so the request cleanly 404s. werkzeug is pure Python; its package __init__ imports MarkupSafe, so MarkupSafe is vendored into repo/_vendor (built for the sandbox's linux-amd64) and hidden tests run offline with PYTHONPATH=src:_vendor on the base image (Python 3.12, default int-str-digits limit 4300). Repo sliced at the PR base commit (21.9k LOC; converter without the guard); BSD-3-Clause LICENSE preserved. Coverage floor: 3 fail_to_pass (a 5000-, 10000-, and 4301-digit int URL each raise an uncaught ValueError at base and cleanly 404 after the fix) plus a 2-check regression guard (a normal integer still matches and converts; an integer within the digit limit still matches).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "dos_5000", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_int_dos.py::test_5000_digit_int_url_is_not_found -q"},
+      {"name": "dos_10000", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_int_dos.py::test_10000_digit_int_url_is_not_found -q"},
+      {"name": "dos_just_over_limit", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_int_dos.py::test_just_over_limit_int_url_is_not_found -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "normal_int", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_regression.py::test_normal_integer_matches -q"},
+      {"name": "within_limit_int", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_regression.py::test_integer_within_digit_limit_matches -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

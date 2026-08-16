@@ -1,0 +1,58 @@
+{
+  "id": "oss-gix-validate-lone-at-refname",
+  "category": "bug_fix",
+  "languages": [
+    "rust"
+  ],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:rust",
+  "decontaminated": true,
+  "base_commit": "95e0213259162d357e68fe459962cbcdce38590f",
+  "upstream": {
+    "url": "https://github.com/GitoxideLabs/gitoxide",
+    "issue": "https://github.com/GitoxideLabs/gitoxide/pull/2886",
+    "pr": "https://github.com/GitoxideLabs/gitoxide/pull/2886",
+    "commit": "12240ab1637a2f3feaef4ce48fd1f6d324705437"
+  },
+  "upstream_merged": "2026-08-06",
+  "decontamination_notes": "Real reference-name validation hardening from GitoxideLabs/gitoxide PR #2886 ('fix: reject a lone @ as a reference name, like Git does', https://github.com/GitoxideLabs/gitoxide/pull/2886), merged 2026-08-06 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. A lone '@' is Git's shorthand for HEAD; Git refuses to create a reference literally named '@'. gix-validate accepted '@' as a valid partial reference name (name_partial returned Ok), and its sanitizing variant left '@' unchanged -- allowing a ref that collides with the HEAD shorthand (reference confusion / spoofing). The fix (gix-validate/src/reference.rs::validate) rejects a name that reduces to exactly '@' with the pre-existing Error::Reserved variant, and sanitizes it to '-', matching Git. This task slices the standalone gix-validate crate (restructured to a single crate at the repo root; edition 2024, rust-version 1.85, built on the :rust image which is rustc 1.87); its one dependency (bstr -> memchr) is vendored into repo/vendor with repo/.cargo/config.toml for offline runs. Hidden tests use the public reference:: API. Repo sliced at the PR base commit (751 source LOC; validate() still accepting a lone '@'; bstr and its vendored deps bring the tree to ~130k LOC, hence repo_scale xlarge); MIT/Apache-2.0 LICENSEs preserved. Coverage floor: 3 fail_to_pass (name_partial('@') is now Err; sanitizing '@' yields '-'; sanitizing '//@//' -- which reduces to a lone '@' -- yields '-' not '@') plus a 2-check regression guard (an '@' inside a component like refs/heads/@ is still valid; an ordinary name is still valid).",
+  "grader": "tests",
+  "setup": [
+    {
+      "name": "warm-build",
+      "cmd": "cargo build --offline --lib"
+    }
+  ],
+  "setup_timeout_s": 600,
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "lone_at_rejected",
+        "cmd": "cargo test --offline --test vb_refname lone_at_is_rejected"
+      },
+      {
+        "name": "lone_at_sanitized",
+        "cmd": "cargo test --offline --test vb_refname lone_at_sanitizes_to_dash"
+      },
+      {
+        "name": "slashed_at_sanitized",
+        "cmd": "cargo test --offline --test vb_refname at_between_slashes_sanitizes_to_dash"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "embedded_at_valid",
+        "cmd": "cargo test --offline --test vb_regression at_inside_a_component_is_valid"
+      },
+      {
+        "name": "ordinary_name_valid",
+        "cmd": "cargo test --offline --test vb_regression ordinary_name_is_valid"
+      }
+    ]
+  },
+  "test_timeout_s": 300
+}

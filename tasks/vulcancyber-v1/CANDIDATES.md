@@ -79,7 +79,7 @@ sliced at base commit, graded by ≥3 deterministic `fail_to_pass` tests. See
 
 ---
 
-## STATUS 2026-08-15 — 10 admitted, all validated (gold=1.0, base=0.0, deterministic ×3, Docker)
+## STATUS 2026-08-15 — 16 admitted, all validated (gold=1.0, base=0.0, deterministic ×3, Docker)
 | # | task | lang | family | vuln class |
 |---|------|------|--------|------------|
 | 1 | oss-hono-proto-pollution-parsers | TS | A | prototype pollution |
@@ -92,8 +92,14 @@ sliced at base commit, graded by ≥3 deterministic `fail_to_pass` tests. See
 | 8 | oss-tornado-urlencoded-field-limit | Python | A | urlencoded field-count DoS |
 | 9 | oss-werkzeug-host-port-validation | Python | A | Host-header port validation |
 | 10 | oss-werkzeug-etag-strict-parse | Python | A | strict ETag parsing |
+| 11 | oss-toml-writer-quote-count-overflow | Rust | A | integer-overflow (quote-run) DoS |
+| 12 | oss-werkzeug-int-converter-dos | Python | A | int-URL DoS (int-str-digits limit) |
+| 13 | oss-gix-validate-lone-at-refname | Rust | A | reference-name spoofing (lone @) |
+| 14 | oss-validator-bytelength-surrogate | JS | A | unpaired-surrogate crash DoS |
+| 15 | oss-content-disposition-ext-value | TS | A | filename spoofing (lenient percent-decode) |
+| 16 | oss-urllib3-host-injection-validation | Python | A | host / CRLF injection (control chars in host) |
 
-Languages: Python 4, TS 2, Go 2, JS 1, Rust 1. Families: A 9, B 1.
+Languages: Python 6, TypeScript 3, Rust 3, Go 2, JavaScript 2. Families: A 15, B 1.
 
 ## Rejected / dropped during the push to 10
 - **securego/gosec #1702** (Family B, G101 secret-token coverage) — DROPPED: against
