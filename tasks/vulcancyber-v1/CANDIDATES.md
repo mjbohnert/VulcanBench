@@ -36,7 +36,9 @@ sliced at base commit, graded by ≥3 deterministic `fail_to_pass` tests. See
 | PR | merged | repo | vuln class / change | family | prov. diff. | status |
 |----|--------|------|---------------------|--------|-------------|--------|
 | yaml/pyyaml #937 | 2026-06-17 | pyyaml | merge-key amplification DoS — dedup merge nodes in flatten_mapping | A | hard | **admitted** ✓ `oss-pyyaml-merge-key-dos` (gold=1.0, base=0.0, det×3; base=1024 keys→4) |
-| tornadoweb/tornado #3704 | 2026-08-07 | tornado | "Security 6.5.8" release | A | ? | candidate (investigate the CVE) |
+| tornadoweb/tornado #3704 | 2026-08-07 | tornado | urlencoded field-count DoS — add max_num_fields limit to parse_qs_bytes (isolated from the 6.5.8 release) | A | medium | **admitted** ✓ `oss-tornado-urlencoded-field-limit` (gold=1.0, base=0.0, det×3) |
+| pallets/werkzeug #3236 | 2026-08-12 | werkzeug | Host-header port validation — reject invalid/out-of-range ports in host_is_trusted | A | medium | **admitted** ✓ `oss-werkzeug-host-port-validation` (gold=1.0, base=0.0, det×3; markupsafe vendored) |
+| pallets/werkzeug #3234 | 2026-08-10 | werkzeug | strict ETag parsing — discard invalid unquoted ETag values | A | medium | **admitted** ✓ `oss-werkzeug-etag-strict-parse` (gold=1.0, base=0.0, det×3) |
 | django/django #21752 | 2026-08-14 | django | html-safe string rendering in form media | A | ? | candidate (django hard to slice) |
 
 ## JavaScript (target ~2–3) — validator.js, express ecosystem, semver ReDoS history
@@ -76,7 +78,7 @@ sliced at base commit, graded by ≥3 deterministic `fail_to_pass` tests. See
 
 ---
 
-## STATUS 2026-08-15 — 7 admitted, all validated (gold=1.0, base=0.0, deterministic ×3, Docker)
+## STATUS 2026-08-15 — 10 admitted, all validated (gold=1.0, base=0.0, deterministic ×3, Docker)
 | # | task | lang | family | vuln class |
 |---|------|------|--------|------------|
 | 1 | oss-hono-proto-pollution-parsers | TS | A | prototype pollution |
@@ -86,25 +88,29 @@ sliced at base commit, graded by ≥3 deterministic `fail_to_pass` tests. See
 | 5 | oss-quick-xml-serialize-control-escape | Rust | A | unescaped control chars |
 | 6 | oss-gosec-g404-weak-random-coverage | Go | B | scanner false-negative (weak-random) |
 | 7 | oss-zod-jsonschema-proto-pollution | TS | A | prototype pollution (JSON-schema) |
+| 8 | oss-tornado-urlencoded-field-limit | Python | A | urlencoded field-count DoS |
+| 9 | oss-werkzeug-host-port-validation | Python | A | Host-header port validation |
+| 10 | oss-werkzeug-etag-strict-parse | Python | A | strict ETag parsing |
 
-Languages: TS 2, Go 2, JS 1, Python 1, Rust 1. Families: A 6, B 1.
+Languages: Python 4, TS 2, Go 2, JS 1, Rust 1. Families: A 9, B 1.
 
-## Mapped path to 10–12 (next builds — all heavier offline builds)
-These candidates are triaged and buildable but each needs a heavier offline setup
-than the fast zero-/low-dep tasks above (workspace slicing, jsdom, or large Go
-monorepos). Recipe is unchanged; budget ~30–45 min each.
-- **GitoxideLabs/gitoxide #2918** (Rust, int-overflow DoS, new class) — edition-2024
-  crate in a big workspace; needs `cargo-prune` to the gix-index closure + a binary
-  fuzz fixture. Test asserts the crafted index is rejected without panicking (no
-  error-text match).
-- **cure53/DOMPurify #1555 / #1577** (TS/JS, XSS + DoS, **Family B**) — needs jsdom
-  in the sandbox (heavy dep tree) to sanitize a DOM; would add a 2nd Family-B + the
-  XSS class.
-- **aquasecurity/trivy #10980 / #11066** or **google/osv-scanner #2915** (Go,
-  **Family B**) — vuln-scanner matching-logic fixes; large Go monorepos, deps
-  vendored offline.
-- **tornadoweb/tornado #3704** (Python) — a bundled "Security 6.5.8" release; would
-  need one of its fixes (auth/escape/httputil) isolated into a focused task.
+## Rejected / dropped during the push to 10
+- **securego/gosec #1702** (Family B, G101 secret-token coverage) — DROPPED: against
+  the sliced base only the AWS temp-key (ASIA) pattern actually activates at gold;
+  the ghp_/ghs_ patterns stay unmatched, so only 1 clean fail_to_pass — below the
+  ≥3 coverage floor.
+- **GitoxideLabs/gitoxide #2918** (Rust int-overflow) — DROPPED: a single overflow
+  behavior can't yield ≥3 independent fail_to_pass, and it needs an edition-2024
+  workspace slice + binary fuzz fixture.
+
+## Mapped path to 12+ (remaining candidates — heavier builds)
+- **cure53/DOMPurify #1555 / #1560** (TS/JS, XSS/DoS, **Family B**) — needs jsdom
+  vendored in the sandbox to sanitize a DOM + an intricate DOM-clobbering test.
+- **aquasecurity/trivy** or **google/osv-scanner #2915** (Go, **Family B**) —
+  vuln-scanner matching-logic fixes in large monorepos (osv-scanner's is an
+  `internal/` package built on scalibr types; heavy vendor).
+- More gosec rules (e.g. G115 false-positive fix) — low risk, but correlated with
+  the existing gosec task, so lower discrimination value.
 
 ## Measurement log (Phase 5 — deferred until the corpus is final)
 Record per-task pass@1 here after the Haiku screen and the Sonnet 5 / Opus 5

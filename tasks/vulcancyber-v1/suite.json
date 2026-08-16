@@ -9,7 +9,9 @@
     "oss-pyyaml-merge-key-dos",
     "oss-quick-xml-serialize-control-escape",
     "oss-gosec-g404-weak-random-coverage",
-    "oss-zod-jsonschema-proto-pollution"
+    "oss-zod-jsonschema-proto-pollution",
+    "oss-tornado-urlencoded-field-limit",
+    "oss-werkzeug-host-port-validation"
   ],
   "full": [
     "oss-hono-proto-pollution-parsers",
@@ -18,10 +20,14 @@
     "oss-pyyaml-merge-key-dos",
     "oss-quick-xml-serialize-control-escape",
     "oss-gosec-g404-weak-random-coverage",
-    "oss-zod-jsonschema-proto-pollution"
+    "oss-zod-jsonschema-proto-pollution",
+    "oss-tornado-urlencoded-field-limit",
+    "oss-werkzeug-host-port-validation"
   ],
   "python": [
-    "oss-pyyaml-merge-key-dos"
+    "oss-pyyaml-merge-key-dos",
+    "oss-tornado-urlencoded-field-limit",
+    "oss-werkzeug-host-port-validation"
   ],
   "rust": [
     "oss-quick-xml-serialize-control-escape"
@@ -43,7 +49,9 @@
     "oss-echo-encoded-path-separator",
     "oss-pyyaml-merge-key-dos",
     "oss-quick-xml-serialize-control-escape",
-    "oss-zod-jsonschema-proto-pollution"
+    "oss-zod-jsonschema-proto-pollution",
+    "oss-tornado-urlencoded-field-limit",
+    "oss-werkzeug-host-port-validation"
   ],
   "family_b_security_tooling": [
     "oss-gosec-g404-weak-random-coverage"

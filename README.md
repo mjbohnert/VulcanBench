@@ -306,10 +306,13 @@ A **defensive cybersecurity** suite (`tasks/vulcancyber-v1/`): each task is a re
 merged open-source PR that fixes a security weakness, sourced **post model cutoff**
 (`upstream_merged >= 2026-06-01`) and graded by the project's own deterministic
 security regression tests — "here is vulnerable code, produce the fix." v1 ships
-five validated tasks, one per language, across five distinct vulnerability classes:
-prototype pollution (hono, TS), CRLF header injection (undici, JS), encoded-separator
-auth bypass (echo, Go), merge-key amplification DoS (pyyaml, Python), and unescaped
-control-character serialization (quick-xml, Rust).
+**10 validated tasks** across Python/TS/Go/JS/Rust and eight vulnerability classes
+(Family A vuln-fixes plus one Family-B security-tool fix): prototype pollution
+(hono, TS; zod, TS), CRLF header injection (undici, JS), encoded-separator auth
+bypass (echo, Go), algorithmic DoS (pyyaml merge keys / tornado field count,
+Python), unescaped control-character serialization (quick-xml, Rust), a gosec
+scanner detection-gap (Go, Family B), and Host-header / ETag hardening (werkzeug,
+Python).
 
 ```bash
 make sandbox-image-all       # base + Rust + Go 1.26 images the suite needs

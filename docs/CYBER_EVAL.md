@@ -40,17 +40,27 @@ and is validated to be deterministic over 3 runs.
 
 ## v1 tasks (validated)
 
-One task per language, five distinct vulnerability classes. Each is gold-solved
-(`functional == 1.0`), genuinely fails pre-patch (`pre-patch == 0.0`), and is
-deterministic over three runs in the Docker sandbox.
+Ten tasks across five languages and eight distinct vulnerability classes, one a
+Family-B security-tooling fix. Each is gold-solved (`functional == 1.0`), genuinely
+fails pre-patch (`pre-patch == 0.0`), and is deterministic over three runs in the
+Docker sandbox.
 
-| Task | Lang | Class | Upstream (merged) |
-|------|------|-------|-------------------|
-| `oss-hono-proto-pollution-parsers` | TypeScript | Prototype pollution | [honojs/hono#5161](https://github.com/honojs/hono/pull/5161) (2026-07-24) |
-| `oss-undici-header-crlf-coercion` | JavaScript | CRLF header injection | [nodejs/undici#5579](https://github.com/nodejs/undici/pull/5579) (2026-07-22) |
-| `oss-echo-encoded-path-separator` | Go | Encoded-separator auth bypass (GHSA-vfp3-v2gw-7wfq) | [labstack/echo#3009](https://github.com/labstack/echo/pull/3009) (2026-06-14) |
-| `oss-pyyaml-merge-key-dos` | Python | Merge-key amplification DoS | [yaml/pyyaml#937](https://github.com/yaml/pyyaml/pull/937) (2026-06-17) |
-| `oss-quick-xml-serialize-control-escape` | Rust | Unescaped control chars (round-trip corruption) | [tafia/quick-xml#1001](https://github.com/tafia/quick-xml/pull/1001) (2026-08-15) |
+| Task | Lang | Family | Class | Upstream (merged) |
+|------|------|--------|-------|-------------------|
+| `oss-hono-proto-pollution-parsers` | TypeScript | A | Prototype pollution | [honojs/hono#5161](https://github.com/honojs/hono/pull/5161) (2026-07-24) |
+| `oss-undici-header-crlf-coercion` | JavaScript | A | CRLF header injection | [nodejs/undici#5579](https://github.com/nodejs/undici/pull/5579) (2026-07-22) |
+| `oss-echo-encoded-path-separator` | Go | A | Encoded-separator auth bypass (GHSA-vfp3-v2gw-7wfq) | [labstack/echo#3009](https://github.com/labstack/echo/pull/3009) (2026-06-14) |
+| `oss-pyyaml-merge-key-dos` | Python | A | Merge-key amplification DoS | [yaml/pyyaml#937](https://github.com/yaml/pyyaml/pull/937) (2026-06-17) |
+| `oss-quick-xml-serialize-control-escape` | Rust | A | Unescaped control chars (round-trip corruption) | [tafia/quick-xml#1001](https://github.com/tafia/quick-xml/pull/1001) (2026-08-15) |
+| `oss-gosec-g404-weak-random-coverage` | Go | **B** | Scanner false-negative (weak randomness) | [securego/gosec#1694](https://github.com/securego/gosec/pull/1694) (2026-06-15) |
+| `oss-zod-jsonschema-proto-pollution` | TypeScript | A | Prototype pollution (JSON-schema conversion) | [colinhacks/zod#6346](https://github.com/colinhacks/zod/pull/6346) (2026-08-09) |
+| `oss-tornado-urlencoded-field-limit` | Python | A | Urlencoded field-count DoS | [tornadoweb/tornado#3704](https://github.com/tornadoweb/tornado/pull/3704) (2026-08-07) |
+| `oss-werkzeug-host-port-validation` | Python | A | Host-header port validation | [pallets/werkzeug#3236](https://github.com/pallets/werkzeug/pull/3236) (2026-08-12) |
+| `oss-werkzeug-etag-strict-parse` | Python | A | Strict ETag parsing | [pallets/werkzeug#3234](https://github.com/pallets/werkzeug/pull/3234) (2026-08-10) |
+
+Language mix: Python 4, TypeScript 2, Go 2, JavaScript 1, Rust 1. A 2nd Family-B
+task and a broader family balance are mapped in
+[the candidates log](../tasks/vulcancyber-v1/CANDIDATES.md).
 
 ## Running it
 
