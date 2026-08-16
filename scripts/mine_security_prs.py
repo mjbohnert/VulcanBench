@@ -24,8 +24,10 @@ Usage::
 
 Output columns: repo | PR | merged | +/- LOC | files | tests? | title.
 Only PRs that (a) merged on/after ``--since`` and (b) touch a test path are kept
-unless ``--include-untested`` is passed. ``base_commit`` for slicing is the merge
-commit's first parent (the base-branch state before the fix) — reported in JSON.
+unless ``--include-untested`` is passed. ``base_commit`` for slicing is the parent
+of the PR's first commit (correct for rebase/squash merges; the merge commit's
+first parent is only used as a fallback) — reported in JSON. Always re-confirm the
+base is actually vulnerable before building a task from it.
 """
 
 from __future__ import annotations
@@ -44,36 +46,92 @@ from dataclasses import asdict, dataclass, field
 
 VULN_REPOS: dict[str, list[str]] = {
     "python": [
-        "aio-libs/aiohttp", "encode/httpx", "encode/starlette", "pallets/werkzeug",
-        "django/django", "urllib3/urllib3", "psf/requests", "tornadoweb/tornado",
-        "getsentry/sentry-python", "pyca/cryptography", "yaml/pyyaml", "lxml/lxml",
-        "python-jose/python-jose", "jpadilla/pyjwt", "aws/aws-sam-cli",
+        "aio-libs/aiohttp",
+        "encode/httpx",
+        "encode/starlette",
+        "pallets/werkzeug",
+        "django/django",
+        "urllib3/urllib3",
+        "psf/requests",
+        "tornadoweb/tornado",
+        "getsentry/sentry-python",
+        "pyca/cryptography",
+        "yaml/pyyaml",
+        "lxml/lxml",
+        "python-jose/python-jose",
+        "jpadilla/pyjwt",
+        "aws/aws-sam-cli",
     ],
     "javascript": [
-        "expressjs/express", "fastify/fastify", "validatorjs/validator.js",
-        "nodejs/undici", "axios/axios", "isaacs/node-tar", "isaacs/minimatch",
-        "jshttp/content-disposition", "jshttp/cookie", "node-fetch/node-fetch",
-        "npm/node-semver", "follow-redirects/follow-redirects",
+        "expressjs/express",
+        "fastify/fastify",
+        "validatorjs/validator.js",
+        "nodejs/undici",
+        "axios/axios",
+        "isaacs/node-tar",
+        "isaacs/minimatch",
+        "jshttp/content-disposition",
+        "jshttp/cookie",
+        "node-fetch/node-fetch",
+        "npm/node-semver",
+        "follow-redirects/follow-redirects",
     ],
     "typescript": [
-        "honojs/hono", "colinhacks/zod", "nestjs/nest", "trpc/trpc",
-        "sinclairzx81/typebox", "lucia-auth/lucia", "panva/jose",
-        "auth0/node-jsonwebtoken", "cure53/DOMPurify",
+        "honojs/hono",
+        "colinhacks/zod",
+        "nestjs/nest",
+        "trpc/trpc",
+        "sinclairzx81/typebox",
+        "lucia-auth/lucia",
+        "panva/jose",
+        "auth0/node-jsonwebtoken",
+        "cure53/DOMPurify",
     ],
     "go": [
-        "go-chi/chi", "gin-gonic/gin", "labstack/echo", "gofiber/fiber",
-        "golang-jwt/jwt", "go-jose/go-jose", "casbin/casbin", "minio/minio",
-        "traefik/traefik", "golang/oauth2", "gorilla/websocket", "gorilla/sessions",
+        "go-chi/chi",
+        "gin-gonic/gin",
+        "labstack/echo",
+        "gofiber/fiber",
+        "golang-jwt/jwt",
+        "go-jose/go-jose",
+        "casbin/casbin",
+        "minio/minio",
+        "traefik/traefik",
+        "golang/oauth2",
+        "gorilla/websocket",
+        "gorilla/sessions",
     ],
     "rust": [
-        "servo/rust-url", "rust-lang/regex", "hyperium/hyper", "rustls/rustls",
-        "briansmith/ring", "tokio-rs/tokio", "actix/actix-web", "SergioBenitez/Rocket",
-        "Keats/jsonwebtoken", "RustCrypto/hashes", "rust-lang/backtrace-rs",
-        "tower-rs/tower-http", "zip-rs/zip2", "image-rs/image", "hickory-dns/hickory-dns",
-        "GitoxideLabs/gitoxide", "hyperium/h2", "servo/html5ever", "rust-lang/git2-rs",
-        "seanmonstar/reqwest", "tokio-rs/axum", "rustls/webpki", "unicode-rs/idna",
-        "jonhoo/openssl-src-rs", "sfackler/rust-openssl", "RustCrypto/RSA",
-        "rust-lang/flate2-rs", "tafia/quick-xml", "serde-rs/json", "toml-rs/toml",
+        "servo/rust-url",
+        "rust-lang/regex",
+        "hyperium/hyper",
+        "rustls/rustls",
+        "briansmith/ring",
+        "tokio-rs/tokio",
+        "actix/actix-web",
+        "SergioBenitez/Rocket",
+        "Keats/jsonwebtoken",
+        "RustCrypto/hashes",
+        "rust-lang/backtrace-rs",
+        "tower-rs/tower-http",
+        "zip-rs/zip2",
+        "image-rs/image",
+        "hickory-dns/hickory-dns",
+        "GitoxideLabs/gitoxide",
+        "hyperium/h2",
+        "servo/html5ever",
+        "rust-lang/git2-rs",
+        "seanmonstar/reqwest",
+        "tokio-rs/axum",
+        "rustls/webpki",
+        "unicode-rs/idna",
+        "jonhoo/openssl-src-rs",
+        "sfackler/rust-openssl",
+        "RustCrypto/RSA",
+        "rust-lang/flate2-rs",
+        "tafia/quick-xml",
+        "serde-rs/json",
+        "toml-rs/toml",
     ],
 }
 
@@ -81,31 +139,77 @@ TOOL_REPOS: dict[str, list[str]] = {
     "python": ["PyCQA/bandit", "pypa/pip-audit", "pyupio/safety", "Yelp/detect-secrets"],
     "javascript": ["retirejs/retire.js", "lirantal/is-website-vulnerable"],
     "typescript": ["ossf/scorecard-action", "aquasecurity/trivy-action"],
-    "go": ["securego/gosec", "aquasecurity/trivy", "google/osv-scanner",
-           "gitleaks/gitleaks", "trufflesecurity/trufflehog", "anchore/grype"],
+    "go": [
+        "securego/gosec",
+        "aquasecurity/trivy",
+        "google/osv-scanner",
+        "gitleaks/gitleaks",
+        "trufflesecurity/trufflehog",
+        "anchore/grype",
+    ],
     "rust": ["rustsec/rustsec", "EmbarkStudios/cargo-deny"],
 }
 
 # High-precision security terms: a match anywhere (title OR body OR label) counts.
 STRONG_KEYWORDS = [
-    "cve-", "redos", "ssrf", "xss", "crlf", "prototype pollution", "open redirect",
-    "path traversal", "zip slip", "directory traversal", "deserialization",
-    "constant-time", "constant time", "command injection", "sql injection",
-    "request smuggling", "arbitrary file", "xxe", "code injection", "csrf",
-    "timing attack", "timing-safe", "auth bypass", "authentication bypass",
-    "privilege escalation", "insecure", "sanitiz", "vulnerabilit",
+    "cve-",
+    "redos",
+    "ssrf",
+    "xss",
+    "crlf",
+    "prototype pollution",
+    "open redirect",
+    "path traversal",
+    "zip slip",
+    "directory traversal",
+    "deserialization",
+    "constant-time",
+    "constant time",
+    "command injection",
+    "sql injection",
+    "request smuggling",
+    "arbitrary file",
+    "xxe",
+    "code injection",
+    "csrf",
+    "timing attack",
+    "timing-safe",
+    "auth bypass",
+    "authentication bypass",
+    "privilege escalation",
+    "insecure",
+    "sanitiz",
+    "vulnerabilit",
 ]
 # Weak terms: noisy in isolation (match unrelated PR bodies), so they only count
 # when they appear in the TITLE or a LABEL, never body-only.
 WEAK_KEYWORDS = [
-    "security", "injection", "traversal", "escape", "smuggling", "overflow",
-    "spoof", "bypass", "untrusted", "hardening", "malicious", "exploit",
+    "security",
+    "injection",
+    "traversal",
+    "escape",
+    "smuggling",
+    "overflow",
+    "spoof",
+    "bypass",
+    "untrusted",
+    "hardening",
+    "malicious",
+    "exploit",
 ]
 SECURITY_KEYWORDS = STRONG_KEYWORDS + WEAK_KEYWORDS  # for reference/back-compat
 
 TEST_PATH_MARKERS = (
-    "test", "tests", "spec", "__tests__", "_test.go", ".test.", ".spec.",
-    "test_", "/it/", "conftest.py",
+    "test",
+    "tests",
+    "spec",
+    "__tests__",
+    "_test.go",
+    ".test.",
+    ".spec.",
+    "test_",
+    "/it/",
+    "conftest.py",
 )
 
 
@@ -142,7 +246,8 @@ def _gh_json(args: list[str]) -> object | None:
     if not proc.stdout.strip():
         return []
     try:
-        return json.loads(proc.stdout)
+        parsed: object = json.loads(proc.stdout)
+        return parsed
     except json.JSONDecodeError:
         print(f"  ! could not parse gh json for: gh {' '.join(args)}", file=sys.stderr)
         return None
@@ -159,9 +264,18 @@ def _search_repo(repo: str, since: str, per_repo: int) -> dict[int, list[str]]:
     """
     rows = _gh_json(
         [
-            "search", "prs", "--repo", repo, "--state", "closed",
-            "--merged-at", f">={since}", "--limit", str(per_repo),
-            "--json", "number,title,labels,body",
+            "search",
+            "prs",
+            "--repo",
+            repo,
+            "--state",
+            "closed",
+            "--merged-at",
+            f">={since}",
+            "--limit",
+            str(per_repo),
+            "--json",
+            "number,title,labels,body",
         ]
     )
     hits: dict[int, list[str]] = {}
@@ -177,8 +291,11 @@ def _search_repo(repo: str, since: str, per_repo: int) -> dict[int, list[str]]:
         title_and_labels = " ".join([title, *label_names])
         matched: list[str] = []
         # Strong terms count anywhere.
-        matched += [kw for kw in STRONG_KEYWORDS if kw in title or kw in body
-                    or any(kw in n for n in label_names)]
+        matched += [
+            kw
+            for kw in STRONG_KEYWORDS
+            if kw in title or kw in body or any(kw in n for n in label_names)
+        ]
         # Weak terms only count in the title or a label (body-only is too noisy).
         matched += [kw for kw in WEAK_KEYWORDS if kw in title_and_labels]
         if any("security" in n or "vuln" in n for n in label_names):
@@ -192,8 +309,13 @@ def _enrich(repo: str, number: int, matched: list[str]) -> Candidate | None:
     """Fetch PR details; classify test-touching; resolve the slice base commit."""
     data = _gh_json(
         [
-            "pr", "view", str(number), "--repo", repo,
-            "--json", "title,url,mergedAt,additions,deletions,files,mergeCommit",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "title,url,mergedAt,additions,deletions,files,mergeCommit",
         ]
     )
     if not isinstance(data, dict) or not data.get("mergedAt"):
@@ -227,9 +349,11 @@ def _pr_base(repo: str, number: int) -> str:
     """Parent of the PR's first commit — the correct slice base for any merge style."""
     try:
         proc = subprocess.run(
-            ["gh", "api", f"repos/{repo}/pulls/{number}/commits",
-             "--jq", ".[0].parents[0].sha"],
-            capture_output=True, text=True, check=False, timeout=30,
+            ["gh", "api", f"repos/{repo}/pulls/{number}/commits", "--jq", ".[0].parents[0].sha"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired):
         return ""
@@ -245,22 +369,38 @@ def _first_parent(repo: str, merge_oid: str) -> str:
     try:
         proc = subprocess.run(
             ["gh", "api", f"repos/{repo}/commits/{merge_oid}", "--jq", ".parents[0].sha"],
-            capture_output=True, text=True, check=False, timeout=30,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
-def mine(langs: list[str], *, tools: bool, since: str, per_repo: int,
-         include_untested: bool, pause: float, max_enrich: int) -> list[Candidate]:
+def mine(
+    langs: list[str],
+    *,
+    tools: bool,
+    since: str,
+    per_repo: int,
+    include_untested: bool,
+    pause: float,
+    max_enrich: int,
+) -> list[Candidate]:
     repos: list[str] = []
     for lang in langs:
         repos.extend(VULN_REPOS.get(lang, []))
         if tools:
             repos.extend(TOOL_REPOS.get(lang, []))
-    seen = set()
-    repos = [r for r in repos if not (r in seen or seen.add(r))]
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for r in repos:
+        if r not in seen:
+            seen.add(r)
+            deduped.append(r)
+    repos = deduped
 
     out: list[Candidate] = []
     for repo in repos:
@@ -314,19 +454,25 @@ def _markdown(cands: list[Candidate]) -> str:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Mine candidate security PRs for VulcanCyber v1")
     p.add_argument(
-        "--lang", default="all",
+        "--lang",
+        default="all",
         help="python|javascript|typescript|go|rust|all (comma-separated ok)",
     )
     p.add_argument("--tools", action="store_true", help="also search security-tooling repos")
     p.add_argument("--since", default="2026-06-01", help="only PRs merged on/after this date")
     p.add_argument("--per-repo", type=int, default=25, help="max PRs per search query")
     p.add_argument(
-        "--include-untested", action="store_true",
+        "--include-untested",
+        action="store_true",
         help="keep PRs that do not touch a test path (default: drop them)",
     )
     p.add_argument("--pause", type=float, default=2.2, help="seconds between searches (rate limit)")
-    p.add_argument("--max-enrich", type=int, default=12,
-                   help="max PRs to enrich per repo (strongest-signal, newest first)")
+    p.add_argument(
+        "--max-enrich",
+        type=int,
+        default=12,
+        help="max PRs to enrich per repo (strongest-signal, newest first)",
+    )
     p.add_argument("--json", type=str, default="", help="also write results to this JSON file")
     args = p.parse_args(argv)
 
@@ -338,8 +484,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     cands = mine(
-        langs, tools=args.tools, since=args.since, per_repo=args.per_repo,
-        include_untested=args.include_untested, pause=args.pause, max_enrich=args.max_enrich,
+        langs,
+        tools=args.tools,
+        since=args.since,
+        per_repo=args.per_repo,
+        include_untested=args.include_untested,
+        pause=args.pause,
+        max_enrich=args.max_enrich,
     )
     print(f"\n# {len(cands)} candidate(s), merged >= {args.since}\n")
     print(_markdown(cands))
