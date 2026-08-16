@@ -11,7 +11,9 @@
     "oss-gosec-g404-weak-random-coverage",
     "oss-zod-jsonschema-proto-pollution",
     "oss-tornado-urlencoded-field-limit",
-    "oss-werkzeug-host-port-validation"
+    "oss-werkzeug-host-port-validation",
+    "oss-werkzeug-etag-strict-parse",
+    "oss-toml-writer-quote-count-overflow"
   ],
   "full": [
     "oss-hono-proto-pollution-parsers",
@@ -22,15 +24,19 @@
     "oss-gosec-g404-weak-random-coverage",
     "oss-zod-jsonschema-proto-pollution",
     "oss-tornado-urlencoded-field-limit",
-    "oss-werkzeug-host-port-validation"
+    "oss-werkzeug-host-port-validation",
+    "oss-werkzeug-etag-strict-parse",
+    "oss-toml-writer-quote-count-overflow"
   ],
   "python": [
     "oss-pyyaml-merge-key-dos",
     "oss-tornado-urlencoded-field-limit",
-    "oss-werkzeug-host-port-validation"
+    "oss-werkzeug-host-port-validation",
+    "oss-werkzeug-etag-strict-parse"
   ],
   "rust": [
-    "oss-quick-xml-serialize-control-escape"
+    "oss-quick-xml-serialize-control-escape",
+    "oss-toml-writer-quote-count-overflow"
   ],
   "typescript": [
     "oss-hono-proto-pollution-parsers",
@@ -51,7 +57,9 @@
     "oss-quick-xml-serialize-control-escape",
     "oss-zod-jsonschema-proto-pollution",
     "oss-tornado-urlencoded-field-limit",
-    "oss-werkzeug-host-port-validation"
+    "oss-werkzeug-host-port-validation",
+    "oss-werkzeug-etag-strict-parse",
+    "oss-toml-writer-quote-count-overflow"
   ],
   "family_b_security_tooling": [
     "oss-gosec-g404-weak-random-coverage"

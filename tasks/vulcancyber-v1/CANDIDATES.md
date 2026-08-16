@@ -66,6 +66,7 @@ sliced at base commit, graded by ≥3 deterministic `fail_to_pass` tests. See
 | PR | merged | repo | vuln class / change | family | prov. diff. | status |
 |----|--------|------|---------------------|--------|-------------|--------|
 | tafia/quick-xml #1001 | 2026-08-15 | quick-xml | serialization control-char escaping (`\r`/`\n`/`\t` → numeric refs) prevents round-trip corruption / attribute smuggling | A | medium | **admitted** ✓ `oss-quick-xml-serialize-control-escape` (gold=1.0, base=0.0, det×3; `:rust`, memchr vendored) |
+| toml-rs/toml #1189 | 2026-07-14 | toml_writer | integer-overflow DoS — u8 quote-run counters overflow (panic) on 256+ consecutive quotes; fix uses Saturating | A | medium | **admitted** ✓ `oss-toml-writer-quote-count-overflow` (gold=1.0, base=0.0, det×3; zero-dep standalone crate) |
 | rustsec/rustsec #1664 | 2026-07-31 | rustsec | CVSS v2 scoring | B | — | **rejected-bad** (test-only PR, +42/-1, no behavioral fix) |
 | Keats/jsonwebtoken #521 | 2026-06-20 | jsonwebtoken | remove insecure_disable_signature_validation | A | — | skipped (removal, no clean fail_to_pass) |
 | GitoxideLabs/gitoxide #2918 | 2026-08-14 | gitoxide | reject overflowing cache-tree entry counts (int overflow DoS) | A | — | candidate (big workspace; deferred) |

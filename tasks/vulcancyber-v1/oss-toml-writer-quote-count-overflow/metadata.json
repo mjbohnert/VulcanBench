@@ -1,0 +1,38 @@
+{
+  "id": "oss-toml-writer-quote-count-overflow",
+  "category": "bug_fix",
+  "languages": ["rust"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "medium",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:rust",
+  "decontaminated": true,
+  "base_commit": "771a975840ff876825c2973a79634ffe79a3bf5a",
+  "upstream": {
+    "url": "https://github.com/toml-rs/toml",
+    "issue": "https://github.com/toml-rs/toml/pull/1189",
+    "pr": "https://github.com/toml-rs/toml/pull/1189",
+    "commit": "3adbbb7860810b146dbdedba1f315c90813083f2"
+  },
+  "upstream_merged": "2026-07-14",
+  "decontamination_notes": "Real integer-overflow denial-of-service fix from toml-rs/toml PR #1189 ('fix(writer): Don't overflow', fixes #1188), merged 2026-07-14 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. When toml_writer serializes a string it scans for the longest run of consecutive single/double quote characters (to choose the quote style). The run counters (ValueMetrics.max_seq_single_quotes / max_seq_double_quotes) are u8 and each run character is added with an unchecked `+= 1`, so a value with 256+ consecutive quote characters overflows the counter -- a panic in a debug build (DoS from a single serialized string). The fix accumulates the run with core::num::Saturating so it can never overflow. This task slices the standalone, zero-dependency toml_writer crate (restructured to a single crate at the repo root with a minimal Cargo.toml; no vendoring needed) and runs on the :rust image; hidden tests use the public ToTomlValue API. Repo sliced at the PR base commit (1.1k LOC; the counters still using plain `+= 1`); MIT/Apache-2.0 LICENSEs preserved. Coverage floor: 3 fail_to_pass (256 double-quotes -> literal '...'; 256 single-quotes -> basic \"...\"; 300 double-quotes -> literal; each overflows and panics at base) plus a 2-check regression guard (ordinary short strings still serialize as basic strings).",
+  "grader": "tests",
+  "setup": [
+    {"name": "warm-build", "cmd": "cargo build --offline --lib"}
+  ],
+  "setup_timeout_s": 600,
+  "tests": {
+    "fail_to_pass": [
+      {"name": "double_quote_run", "cmd": "cargo test --offline --test vb_overflow long_double_quote_run_serializes_without_overflow"},
+      {"name": "single_quote_run", "cmd": "cargo test --offline --test vb_overflow long_single_quote_run_serializes_without_overflow"},
+      {"name": "very_long_double_quote_run", "cmd": "cargo test --offline --test vb_overflow very_long_double_quote_run_serializes_without_overflow"}
+    ],
+    "pass_to_pass": [
+      {"name": "plain_string", "cmd": "cargo test --offline --test vb_regression plain_string_is_basic_quoted"},
+      {"name": "string_with_space", "cmd": "cargo test --offline --test vb_regression string_with_space_is_basic_quoted"}
+    ]
+  },
+  "test_timeout_s": 300
+}
