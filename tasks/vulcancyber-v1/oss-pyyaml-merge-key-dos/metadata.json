@@ -1,0 +1,34 @@
+{
+  "id": "oss-pyyaml-merge-key-dos",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "hard",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "medium",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:base",
+  "decontaminated": true,
+  "base_commit": "d51d8a138f7230834fc6e95635ff09ebd329185f",
+  "upstream": {
+    "url": "https://github.com/yaml/pyyaml",
+    "issue": "https://github.com/yaml/pyyaml/pull/937",
+    "pr": "https://github.com/yaml/pyyaml/pull/937",
+    "commit": "34a9bf82357f4952d8f194a5a31f1c39743652d0"
+  },
+  "upstream_merged": "2026-06-17",
+  "decontamination_notes": "Real merge-key denial-of-service fix from yaml/pyyaml PR #937 (https://github.com/yaml/pyyaml/pull/937, titled 'Dos in merge key'), merged 2026-06-17 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. A YAML merge key (`<<`) referencing the same anchor more than once (directly, in a merge sequence, or transitively through nested merges) was expanded once per reference in Loader.flatten_mapping; because each level can re-merge the level below several times, a tiny document fans out to an exponential number of merged pairs -- unbounded CPU/memory while resolving the merge. The fix tracks a set of already-merged key-node identities (id(pair[0].value)) and skips duplicates, so each distinct source key is merged at most once. The blow-up is in the intermediate flatten_mapping result (the final dict collapses duplicate keys, hiding it), so hidden tests inspect flatten_mapping directly, exactly as the upstream regression test does -- deterministic key-list assertions, no timing. PyYAML's pure-Python loader is self-contained (no build, no C extension needed: hasattr(yaml,'CSafeLoader') is False in the slice), run on the base image; PYTHONPATH=lib makes `import yaml` resolve to the sliced lib/yaml/ ahead of the base image's bandit-installed PyYAML. Repo sliced at the PR base commit (lib/ only, 5.9k LOC; constructor.py still using the un-deduplicated merge.extend/submerge code); MIT LICENSE preserved. Coverage floor: 3 fail_to_pass (duplicate sequence merge, duplicate direct merge, and a levels=4/width=4 fan-out that expands to 1024 keys at base vs the 4 distinct keys after the fix) plus a 2-check regression guard (a single non-duplicate merge still contributes all keys; public safe_load of a merge is correct).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "dup_sequence_merge", "cmd": "PYTHONPATH=lib python -m pytest vb_merge_dos.py::test_duplicate_sequence_merge_nodes_are_skipped -q"},
+      {"name": "dup_direct_merge", "cmd": "PYTHONPATH=lib python -m pytest vb_merge_dos.py::test_duplicate_direct_merge_nodes_are_skipped -q"},
+      {"name": "fanout_dedup", "cmd": "PYTHONPATH=lib python -m pytest vb_merge_dos.py::test_fanout_merge_keys_are_deduplicated -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "single_merge_ok", "cmd": "PYTHONPATH=lib python -m pytest vb_merge_regression.py::test_single_merge_still_contributes_all_keys -q"},
+      {"name": "safe_load_ok", "cmd": "PYTHONPATH=lib python -m pytest vb_merge_regression.py::test_public_safe_load_merge_result_is_correct -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

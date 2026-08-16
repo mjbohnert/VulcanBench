@@ -1,0 +1,34 @@
+{
+  "id": "oss-werkzeug-etag-strict-parse",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "task_complexity": "system",
+  "created": "2026-08-15",
+  "repo_scale": "large",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:base",
+  "decontaminated": true,
+  "base_commit": "efa80bff0ac50824ea4f7d848a10001cc614c893",
+  "upstream": {
+    "url": "https://github.com/pallets/werkzeug",
+    "issue": "https://github.com/pallets/werkzeug/pull/3234",
+    "pr": "https://github.com/pallets/werkzeug/pull/3234",
+    "commit": "941a553e2a713bd5a70595d7f532be2dda8c6c4d"
+  },
+  "upstream_merged": "2026-08-10",
+  "decontamination_notes": "Real ETag-parsing hardening from pallets/werkzeug PR #3234 ('discard invalid etag values', https://github.com/pallets/werkzeug/pull/3234), merged 2026-08-10 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. ETag headers (If-Match / If-None-Match) are parsed into an ETags collection used for conditional-request decisions. The parser accepted invalid *unquoted* values alongside well-formed quoted ETags (the header regex had an `([^\" \\t,]+)` invalid-unquoted-value branch), so a malformed entry became a real ETag that could satisfy a match it should not, and ETags membership did not guard against a None unquote result. The fix parses only syntactically valid quoted ETags (dropping the invalid branch across werkzeug/http.py and sansio/http.py) and makes ETags.__contains__ reject None values (etag.py). werkzeug is pure Python; its package __init__ imports MarkupSafe, so MarkupSafe is vendored into repo/_vendor (built for the sandbox's linux-amd64) and hidden tests run offline with PYTHONPATH=src:_vendor on the base image; parse_etags is deprecated (a warning, not an error) so tests pass -W ignore::DeprecationWarning. Repo sliced at the PR base commit (src/, 22.3k LOC; parser still keeping invalid unquoted values); BSD-3-Clause LICENSE preserved. Coverage floor: 3 fail_to_pass (an invalid unquoted value is discarded from the set; an invalid value does not match; an all-invalid header parses to empty) plus a 2-check regression guard (valid quoted ETags still parse; a valid ETag still matches by value).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "invalid_discarded", "cmd": "PYTHONPATH=src:_vendor python -m pytest -W ignore::DeprecationWarning vb_etag.py::test_invalid_unquoted_value_is_discarded -q"},
+      {"name": "invalid_no_match", "cmd": "PYTHONPATH=src:_vendor python -m pytest -W ignore::DeprecationWarning vb_etag.py::test_invalid_value_does_not_match -q"},
+      {"name": "all_invalid_empty", "cmd": "PYTHONPATH=src:_vendor python -m pytest -W ignore::DeprecationWarning vb_etag.py::test_all_invalid_header_parses_empty -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "valid_parsed", "cmd": "PYTHONPATH=src:_vendor python -m pytest -W ignore::DeprecationWarning vb_regression.py::test_valid_quoted_etags_parsed -q"},
+      {"name": "valid_matches", "cmd": "PYTHONPATH=src:_vendor python -m pytest -W ignore::DeprecationWarning vb_regression.py::test_valid_etag_matches -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

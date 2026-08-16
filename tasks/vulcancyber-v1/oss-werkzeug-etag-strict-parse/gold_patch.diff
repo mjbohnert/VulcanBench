@@ -1,0 +1,155 @@
+diff --git a/src/werkzeug/datastructures/etag.py b/src/werkzeug/datastructures/etag.py
+index cb1a6b9..806587b 100644
+--- a/src/werkzeug/datastructures/etag.py
++++ b/src/werkzeug/datastructures/etag.py
+@@ -11,11 +11,7 @@ _etag_re = re.compile(
+     r"""
+     (?:^|[ \t]*,[ \t]*)  # start or preceded by comma
+     ([Ww]/)?  # optional weak marker
+-    (?:
+-        "([^"]*)"  # quoted value
+-    |
+-        ([^" \t,]+)  # invalid unquoted value, exclude syntax characters
+-    )
++    "([^"]*)"  # quoted value
+     (?=[ \t]*,[ \t]*|$)  # only if followed by comma or end
+     """,
+     flags=re.ASCII | re.VERBOSE,
+@@ -23,8 +19,9 @@ _etag_re = re.compile(
+ 
+ 
+ class ETags(cabc.Collection[str]):
+-    """A set that can be used to check if one etag is present in a collection
+-    of etags.
++    """A collection of ETag values parsed from headers such as ``If-Match`` and
++    ``If-None-Match``. Use :func:`.unquote_etag` to parse a header that only
++    has a single value.
+     """
+ 
+     def __init__(
+@@ -75,14 +72,20 @@ class ETags(cabc.Collection[str]):
+         otherwise strong only."""
+         from ..http import unquote_etag
+ 
+-        etag, weak = unquote_etag(etag)
++        value, weak = unquote_etag(etag)
++
++        if value is None or weak is None:
++            return False
++
+         if weak:
+-            return self.contains_weak(etag)
+-        return self.contains(etag)
++            return self.contains_weak(value)
++
++        return self.contains(value)
+ 
+     @classmethod
+     def from_header(cls, value: str | None) -> te.Self:
+         """Parse a header value and create an instance of this class.
++        Invalid items are discarded.
+ 
+         .. versionadded:: 3.2
+         """
+@@ -96,12 +99,12 @@ class ETags(cabc.Collection[str]):
+         weak = []
+ 
+         for match in _etag_re.finditer(value):
+-            is_weak, tag, invalid_unquoted = match.groups()
++            is_weak, tag = match.groups()
+ 
+             if is_weak:
+-                weak.append(tag or invalid_unquoted)
++                weak.append(tag)
+             else:
+-                strong.append(tag or invalid_unquoted)
++                strong.append(tag)
+ 
+         return cls(strong, weak)
+ 
+diff --git a/src/werkzeug/http.py b/src/werkzeug/http.py
+index 21e67a4..c0692c6 100644
+--- a/src/werkzeug/http.py
++++ b/src/werkzeug/http.py
+@@ -1033,21 +1033,32 @@ def quote_etag(etag: str, weak: bool = False) -> str:
+ 
+ 
+ @t.overload
+-def unquote_etag(etag: str) -> tuple[str, bool]: ...
++def unquote_etag(etag: str) -> tuple[str, bool] | tuple[None, None]: ...
+ @t.overload
+ def unquote_etag(etag: None) -> tuple[None, None]: ...
+ def unquote_etag(
+     etag: str | None,
+ ) -> tuple[str, bool] | tuple[None, None]:
+-    """Unquote a single etag:
++    """Parse a valid single etag. A valid etag must be quoted and may have an
++    optional weak ``W/`` prefix.
+ 
+-    >>> unquote_etag('W/"bar"')
+-    ('bar', True)
+-    >>> unquote_etag('"bar"')
+-    ('bar', False)
++    .. code-block:: pycon
+ 
+-    :param etag: the etag identifier to unquote.
+-    :return: a ``(etag, weak)`` tuple.
++        >>> unquote_etag('"strong"')
++        ('strong', False)
++        >>> unquote_etag('W/"weak"')
++        ('weak', True)
++        >>> unquote_etag('no_quotes')
++        (None, None)
++
++    Use :meth:`.ETags.from_header` to parse a list of etag values.
++
++    :param etag: A valid etag to unquote.
++    :return: A tuple ``(value, weak)``, or ``(None, None)`` if the
++        value is empty or invalid.
++
++    .. versionchanged:: 3.2
++        Does not accept invalid unquoted values.
+     """
+     if not etag:
+         return None, None
+@@ -1059,11 +1070,11 @@ def unquote_etag(
+         weak = True
+         start = 2
+ 
+-    if etag.startswith('"', start) and etag.endswith('"', start):
+-        return etag[start + 1 : -1], weak
++    if not (etag.startswith('"', start) and etag.endswith('"', start)):
++        # invalid, value must be quoted
++        return None, None
+ 
+-    # invalid unquoted
+-    return etag[start:], weak
++    return etag[start + 1 : -1], weak
+ 
+ 
+ def _parse_etags(value: str | None) -> ds.ETags:
+@@ -1074,6 +1085,9 @@ def _parse_etags(value: str | None) -> ds.ETags:
+ 
+     .. deprecated:: 3.2
+         Will be removed in Werkzeug 3.3. Use the 'ETags.from_header' method instead.
++
++    .. versionchanged:: 3.2
++        Does not accept invalid unquoted values.
+     """
+     import warnings
+ 
+diff --git a/src/werkzeug/sansio/http.py b/src/werkzeug/sansio/http.py
+index 8d42e41..87f5235 100644
+--- a/src/werkzeug/sansio/http.py
++++ b/src/werkzeug/sansio/http.py
+@@ -69,7 +69,9 @@ def is_resource_modified(
+     if etag:
+         etag, _ = unquote_etag(etag)
+ 
+-        if if_range is not None and if_range.etag is not None:
++        if etag is None:
++            unmodified = False
++        elif if_range is not None and if_range.etag is not None:
+             unmodified = if_range.etag == etag
+         else:
+             # https://tools.ietf.org/html/rfc7232#section-3.2

@@ -1,0 +1,34 @@
+{
+  "id": "oss-tornado-urlencoded-field-limit",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:base",
+  "decontaminated": true,
+  "base_commit": "48fc2d43d1f48b8b3b0be5dcf6a7634c6f45b1c4",
+  "upstream": {
+    "url": "https://github.com/tornadoweb/tornado",
+    "issue": "https://github.com/tornadoweb/tornado/pull/3704",
+    "pr": "https://github.com/tornadoweb/tornado/pull/3704",
+    "commit": "a55abe3e3bf59994f29b2f7084c46341f0d4f6a7"
+  },
+  "upstream_merged": "2026-08-07",
+  "decontamination_notes": "Real urlencoded-parsing DoS-hardening fix from tornadoweb/tornado PR #3704 ('Security 6.5.8', https://github.com/tornadoweb/tornado/pull/3704), merged 2026-08-07 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. This task isolates ONE self-contained change from that security release: tornado.escape.parse_qs_bytes parses untrusted application/x-www-form-urlencoded data with no cap on the number of fields, so a body with a huge number of parameters forces O(n) structure-building and downstream per-argument work -- an algorithmic denial-of-service from a single request. The fix adds a keyword-only max_num_fields limit (forwarded to the stdlib parser) that raises ValueError when exceeded. NET-NEW PARAMETER: at the base commit parse_qs_bytes has no max_num_fields, so every fail_to_pass call raises TypeError (unexpected keyword) and fails; the pass_to_pass guard uses only the pre-existing signature so it runs at base and after the fix. Scope is deliberately just parse_qs_bytes; the PR's separate httputil/web wiring (ParseUrlEncodedConfig, multipart limits) is out of scope for this focused task. tornado is pure Python (no build, no C extension needed); sliced tornado/ package run on the base image with PYTHONPATH=. Repo sliced at the PR base commit (44k LOC; parse_qs_bytes without the limit); Apache-2.0 LICENSE preserved. Coverage floor: 3 fail_to_pass (over-limit raises ValueError; at-limit parses; repeated keys count toward the limit) plus a 2-check regression guard (ordinary parsing unaffected; no cap without the limit).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "over_limit_raises", "cmd": "PYTHONPATH=. python -m pytest vb_max_fields.py::test_over_limit_raises_value_error -q"},
+      {"name": "at_limit_ok", "cmd": "PYTHONPATH=. python -m pytest vb_max_fields.py::test_at_limit_parses_successfully -q"},
+      {"name": "repeated_key_counts", "cmd": "PYTHONPATH=. python -m pytest vb_max_fields.py::test_repeated_key_counts_toward_limit -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "ordinary_parse", "cmd": "PYTHONPATH=. python -m pytest vb_regression.py::test_ordinary_parse_unaffected -q"},
+      {"name": "no_limit_many_fields", "cmd": "PYTHONPATH=. python -m pytest vb_regression.py::test_no_limit_allows_many_fields -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

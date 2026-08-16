@@ -70,7 +70,11 @@ sandbox-image-rust-2024: sandbox-image ## Build Rust sandbox image on a newer to
 	docker build -t vulcanbench/sandbox:rust-2024 -f sandbox/Dockerfile.rust-2024 .
 	@echo "✅ Built vulcanbench/sandbox:rust-2024 — for crates whose MSRV exceeds :rust"
 
-sandbox-image-all: sandbox-image sandbox-image-rust sandbox-image-rust-2024 ## Build base + Rust sandbox images
+sandbox-image-go-1.26: sandbox-image ## Build Go 1.26 sandbox image (for repos whose go.mod needs go >= 1.24)
+	docker build -t vulcanbench/sandbox:go-1.26 -f sandbox/Dockerfile.go-1.26 .
+	@echo "✅ Built vulcanbench/sandbox:go-1.26 — for Go modules newer than the base image's 1.23"
+
+sandbox-image-all: sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-go-1.26 ## Build base + Rust + Go-1.26 sandbox images
 
 docker-up: ## Start local Postgres (see docker-compose.prod.yml for full stack)
 	docker compose up -d db
@@ -89,3 +93,6 @@ validate-tasks: setup ## Validate all task definitions (gold-solves, fail-to-pas
 
 validate-tasks-docker: sandbox-image-all ## Validate all tasks inside Docker (matches benchmark runs)
 	$(VENV_BIN)/python scripts/validate_tasks.py tasks/v1 --sandbox docker
+
+validate-cyber: sandbox-image-all ## Validate the VulcanCyber v1 suite inside Docker (gold-solves, fail-to-pass, determinism)
+	$(VENV_BIN)/python scripts/validate_tasks.py tasks/vulcancyber-v1 --sandbox docker

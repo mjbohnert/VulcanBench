@@ -1,0 +1,35 @@
+{
+  "id": "oss-werkzeug-host-port-validation",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "large",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:base",
+  "decontaminated": true,
+  "base_commit": "0ac9f126e143498a2357b62e7cdbb0d45f004205",
+  "upstream": {
+    "url": "https://github.com/pallets/werkzeug",
+    "issue": "https://github.com/pallets/werkzeug/pull/3236",
+    "pr": "https://github.com/pallets/werkzeug/pull/3236",
+    "commit": "a2bf38cf9c9501cc64fb324f5229543023c527bb"
+  },
+  "upstream_merged": "2026-08-12",
+  "decontamination_notes": "Real Host-header validation hardening from pallets/werkzeug PR #3236 ('validate host port', https://github.com/pallets/werkzeug/pull/3236), merged 2026-08-12 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. host_is_trusted() (werkzeug/sansio/utils.py) decides whether a request's Host header matches the trusted-host allowlist. It strips the port before comparing but never validates it, so a Host header with a malformed or out-of-range port (:0, :99999, a leading-zero port) is still treated as trusted -- weakening Host-header validation, which guards against Host-header injection, cache poisoning, and bad absolute-URL construction. The fix captures the port in the host regex (requiring [1-9][0-9]{,4}) and range-checks it (1..65535), returning False for an invalid port. werkzeug is pure Python; its package __init__ imports MarkupSafe, so MarkupSafe is vendored into repo/_vendor (built for the sandbox's linux-amd64) and hidden tests run offline with PYTHONPATH=src:_vendor on the base image. Repo sliced at the PR base commit (src/, 21.9k LOC; host_is_trusted with the un-validated port); BSD-3-Clause LICENSE preserved. Coverage floor: 3 fail_to_pass (a zero port, an out-of-range port, and a leading-zero port are each wrongly trusted at base and rejected after the fix) plus a 3-check regression guard (a valid port is trusted, no port is trusted, an untrusted host is rejected).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "zero_port_rejected", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_host_port.py::test_zero_port_is_not_trusted -q"},
+      {"name": "out_of_range_port_rejected", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_host_port.py::test_out_of_range_port_is_not_trusted -q"},
+      {"name": "leading_zero_port_rejected", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_host_port.py::test_leading_zero_port_is_not_trusted -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "valid_port_trusted", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_regression.py::test_valid_port_is_trusted -q"},
+      {"name": "no_port_trusted", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_regression.py::test_no_port_is_trusted -q"},
+      {"name": "untrusted_host_rejected", "cmd": "PYTHONPATH=src:_vendor python -m pytest vb_regression.py::test_untrusted_host_is_rejected -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

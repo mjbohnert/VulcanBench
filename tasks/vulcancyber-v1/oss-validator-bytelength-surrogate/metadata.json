@@ -1,0 +1,34 @@
+{
+  "id": "oss-validator-bytelength-surrogate",
+  "category": "bug_fix",
+  "languages": ["javascript"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "medium",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:node-ts",
+  "decontaminated": true,
+  "base_commit": "ce62eb4c80c82a711bdd3a545256c5f0237849c1",
+  "upstream": {
+    "url": "https://github.com/validatorjs/validator.js",
+    "issue": "https://github.com/validatorjs/validator.js/pull/2822",
+    "pr": "https://github.com/validatorjs/validator.js/pull/2822",
+    "commit": "7d42ed2dcffc229ae7aaab87f77f612d04850096"
+  },
+  "upstream_merged": "2026-07-25",
+  "decontamination_notes": "Real uncaught-exception denial-of-service fix from validatorjs/validator.js PR #2822 ('isByteLength: handle unpaired UTF-16 surrogates'), merged 2026-07-25 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. isByteLength() computed a string's UTF-8 byte length with `encodeURI(str).split(/%..|./).length - 1`. encodeURI throws a URIError on ANY unpaired UTF-16 surrogate, so a single lone surrogate in untrusted input crashes the validator and every caller that reaches it (e.g. isEmail) -- a DoS. The fix (src/lib/isByteLength.js) replaces the encodeURI trick with a manual byte count that treats a surrogate pair as 4 bytes and an unpaired surrogate as 3 (U+FFFD). validator.js is a zero-runtime-dependency package; its source uses extensionless ESM imports, so hidden tests run via tsx (node-ts image) and import the public default export. Repo sliced at the PR base commit (src/ tree, 6.1k LOC; isByteLength still using encodeURI); MIT LICENSE preserved. Coverage floor: 3 fail_to_pass (a lone high surrogate is 3 bytes; a lone low surrogate exceeds a 2-byte max; an ASCII char plus a lone surrogate is 4 bytes -- each throws URIError at base) plus a 2-check regression guard (a valid surrogate pair is 4 bytes; ASCII byte length is unaffected).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "lone_high_surrogate", "cmd": "tsx --test --test-name-pattern='^vb lone high surrogate is measured as three bytes$' vb_bytelength.test.ts"},
+      {"name": "lone_low_surrogate", "cmd": "tsx --test --test-name-pattern='^vb lone low surrogate exceeds a two-byte maximum$' vb_bytelength.test.ts"},
+      {"name": "char_plus_surrogate", "cmd": "tsx --test --test-name-pattern='^vb ascii char plus lone surrogate is measured as four bytes$' vb_bytelength.test.ts"}
+    ],
+    "pass_to_pass": [
+      {"name": "valid_pair", "cmd": "tsx --test --test-name-pattern='^vb valid surrogate pair is measured as four bytes$' vb_regression.test.ts"},
+      {"name": "ascii_unaffected", "cmd": "tsx --test --test-name-pattern='^vb ascii byte length is unaffected$' vb_regression.test.ts"}
+    ]
+  },
+  "test_timeout_s": 180
+}

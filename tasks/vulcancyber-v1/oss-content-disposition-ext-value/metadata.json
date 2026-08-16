@@ -1,0 +1,34 @@
+{
+  "id": "oss-content-disposition-ext-value",
+  "category": "bug_fix",
+  "languages": ["typescript"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "medium",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:node-ts",
+  "decontaminated": true,
+  "base_commit": "0da5e1f05f6e3128ec38a3a4e4d47619e2403615",
+  "upstream": {
+    "url": "https://github.com/jshttp/content-disposition",
+    "issue": "https://github.com/jshttp/content-disposition/pull/138",
+    "pr": "https://github.com/jshttp/content-disposition/pull/138",
+    "commit": "862e437ebf54f159be5819ea3607d097ac5275ac"
+  },
+  "upstream_merged": "2026-08-03",
+  "decontamination_notes": "Real filename-spoofing hardening from jshttp/content-disposition PR #138 ('Reject invalid percent-encoding in ISO-8859-1 ext-value'), merged 2026-08-03 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. RFC 5987 `filename*` ext-values in the ISO-8859-1 charset were decoded leniently: a malformed percent-escape (e.g. %2r, %GG, a trailing %) was partially decoded into a `filename` parameter, unlike the UTF-8 path which rejects them. The half-decoded, attacker-influenced filename disagrees with the raw header (filename-spoofing). The fix makes decodeHexEscapes (src/index.ts) return undefined on any malformed escape, so parse() keeps only the raw `filename*` (and falls back to an explicit `filename` when present). content-disposition is a zero-runtime-dependency TypeScript package; hidden tests run via tsx (node-ts image) and import the public parse(). Repo sliced at the PR base commit (src/ tree, 2.3k LOC; decodeHexEscapes still decoding leniently); MIT LICENSE preserved. Coverage floor: 3 fail_to_pass (a malformed %2r escape yields no decoded filename; a malformed filename* falls back to the explicit filename 'invoice.pdf'; invalid hex %GG yields no decoded filename) plus a 2-check regression guard (a valid UTF-8 ext-value still decodes to '€ rates.pdf'; a plain quoted filename is unchanged).",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "malformed_no_filename", "cmd": "tsx --test --test-name-pattern='^vb malformed iso-8859-1 escape does not yield a decoded filename$' vb_extvalue.test.ts"},
+      {"name": "fallback_to_filename", "cmd": "tsx --test --test-name-pattern='^vb malformed filename\\* falls back to the explicit filename$' vb_extvalue.test.ts"},
+      {"name": "invalid_hex_no_filename", "cmd": "tsx --test --test-name-pattern='^vb invalid hex digits do not yield a decoded filename$' vb_extvalue.test.ts"}
+    ],
+    "pass_to_pass": [
+      {"name": "valid_utf8_decodes", "cmd": "tsx --test --test-name-pattern='^vb valid utf-8 ext-value still decodes$' vb_regression.test.ts"},
+      {"name": "plain_filename", "cmd": "tsx --test --test-name-pattern='^vb plain quoted filename is unchanged$' vb_regression.test.ts"}
+    ]
+  },
+  "test_timeout_s": 180
+}

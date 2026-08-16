@@ -1,0 +1,33 @@
+{
+  "id": "oss-zod-jsonschema-proto-pollution",
+  "category": "bug_fix",
+  "languages": ["typescript"],
+  "difficulty": "medium",
+  "task_complexity": "system",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:node-ts",
+  "decontaminated": true,
+  "base_commit": "f722bcddab2bb02bb7c2d801d736f042b99a2cfb",
+  "upstream": {
+    "url": "https://github.com/colinhacks/zod",
+    "issue": "https://github.com/colinhacks/zod/pull/6346",
+    "pr": "https://github.com/colinhacks/zod/pull/6346",
+    "commit": "e6c213ec5dd73fa397b94fdca334d238e289a195"
+  },
+  "upstream_merged": "2026-08-09",
+  "decontamination_notes": "Real prototype-pollution hardening from colinhacks/zod PR #6346 (https://github.com/colinhacks/zod/pull/6346), merged 2026-08-09 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. zod's JSON Schema conversion builds plain objects and assigns keys with obj[key] = value; when the key is '__proto__' that goes through the inherited __proto__ setter instead of creating an own property, so a '__proto__' key in a schema's properties, an object shape, or a registry id/def is silently dropped or mutates the prototype rather than being carried as data (a schema round-trip that an attacker can influence). The fix routes these assignments through the existing assignProp helper (core/util.ts, present at base) at three sites: from-json-schema.ts (resolving properties), core/json-schema-processors.ts (emitting object shapes and registry/$defs), and core/to-json-schema.ts. zod is a zero-runtime-dependency TypeScript monorepo; hidden tests import the v4 source (./packages/zod/src/v4/index) and run via tsx (node-ts image), using JSON.parse to express a real own '__proto__' data key. Repo sliced at the PR base commit (packages/zod/src, 68k LOC; the three sites still using bare obj[key]=value); MIT LICENSE preserved. Coverage floor: 3 fail_to_pass (a required '__proto__' property is kept and enforced through fromJSONSchema; a '__proto__' object-shape key is emitted as an own property by toJSONSchema; a '__proto__' registry id is emitted as an own entry) plus a regression guard that ordinary object schemas still round-trip and enforce required keys.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "required_proto_enforced", "cmd": "tsx --test --test-name-pattern='^vb required __proto__ property is kept and enforced$' vb_proto_pollution.test.ts"},
+      {"name": "proto_shape_own_prop", "cmd": "tsx --test --test-name-pattern='^vb __proto__ shape key is emitted as an own property$' vb_proto_pollution.test.ts"},
+      {"name": "proto_registry_own_entry", "cmd": "tsx --test --test-name-pattern='^vb __proto__ registry id is emitted as an own entry$' vb_proto_pollution.test.ts"}
+    ],
+    "pass_to_pass": [
+      {"name": "ordinary_roundtrip", "cmd": "tsx --test --test-name-pattern='^vb ordinary object schema round-trips and enforces required keys$' vb_regression.test.ts"}
+    ]
+  },
+  "test_timeout_s": 180
+}
