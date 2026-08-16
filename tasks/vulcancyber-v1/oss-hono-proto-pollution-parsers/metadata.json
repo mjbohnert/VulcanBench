@@ -1,0 +1,33 @@
+{
+  "id": "oss-hono-proto-pollution-parsers",
+  "category": "bug_fix",
+  "languages": ["typescript"],
+  "difficulty": "medium",
+  "task_complexity": "system",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": true,
+  "image": "vulcanbench/sandbox:node-ts",
+  "base_commit": "a88c89dac6e230cbb5f1bf627522d4914b81dffd",
+  "upstream": {
+    "url": "https://github.com/honojs/hono",
+    "issue": "https://github.com/honojs/hono/pull/5161",
+    "pr": "https://github.com/honojs/hono/pull/5161",
+    "commit": "c85aead088659b98b8d05a1187a07d064e12ffe6"
+  },
+  "upstream_merged": "2026-07-24",
+  "decontamination_notes": "Real defensive prototype-pollution hardening from honojs/hono PR #5161 (https://github.com/honojs/hono/pull/5161), merged 2026-07-24 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true). The vulnerable request-parsing sites build their result maps with a plain `{}` object literal, whose prototype is Object.prototype; a request-controlled `__proto__` key can therefore reach the prototype chain. The fix builds each map with Object.create(null) at three sites: getQueryParams (src/utils/url.ts), the Accept media-type param object (src/utils/accept.ts), and the header map in HonoRequest.header() (src/request.ts). Hono is a zero-runtime-dependency TypeScript package with extensionless ESM imports, so hidden tests run via tsx (pinned in the node-ts sandbox image) with the built-in node:test runner. Repo sliced at the PR base commit (75k LOC src tree, all three sites still using `{}`); MIT LICENSE preserved. Coverage floor: 3 fail_to_pass tests (one per parse site, each asserting a null prototype and that `__proto__` is stored as ordinary data) plus a null-prototype-independent regression guard over ordinary query/accept/header parsing.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "query_null_proto", "cmd": "tsx --test --test-name-pattern='^vb query params use a null-prototype object$' vb_proto_pollution.test.ts"},
+      {"name": "accept_null_proto", "cmd": "tsx --test --test-name-pattern='^vb accept params use a null-prototype object$' vb_proto_pollution.test.ts"},
+      {"name": "header_null_proto", "cmd": "tsx --test --test-name-pattern='^vb header map uses a null-prototype object$' vb_proto_pollution.test.ts"}
+    ],
+    "pass_to_pass": [
+      {"name": "parsers_unaffected", "cmd": "tsx --test --test-name-pattern='^vb parsers unaffected for ordinary input$' vb_parsers_regression.test.ts"}
+    ]
+  },
+  "test_timeout_s": 180
+}

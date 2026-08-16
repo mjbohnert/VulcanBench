@@ -1,0 +1,47 @@
+{
+  "id": "oss-undici-header-crlf-coercion",
+  "category": "bug_fix",
+  "languages": [
+    "javascript"
+  ],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:base",
+  "decontaminated": true,
+  "base_commit": "d228fab8495360f8d9bafe7140cf9c44f7894d3d",
+  "upstream": {
+    "url": "https://github.com/nodejs/undici",
+    "issue": "https://github.com/nodejs/undici/pull/5579",
+    "pr": "https://github.com/nodejs/undici/pull/5579",
+    "commit": "354a151f615f03d72f6aff02f3ad18a7e99a72b5"
+  },
+  "upstream_merged": "2026-07-22",
+  "decontamination_notes": "Real CRLF header-injection fix from nodejs/undici PR #5579 (https://github.com/nodejs/undici/pull/5579), merged 2026-07-22 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. In lib/core/request.js::processHeader, string header values are validated with isValidHeaderValue, but non-string values (and non-string array elements) are coerced via `${val}` and pushed WITHOUT validation, so a function with a crafted toString / Symbol.toPrimitive can smuggle CRLF into a header value (request/response splitting). The fix runs the coerced string through isValidHeaderValue (already imported and used for string values) and throws InvalidArgumentError on failure, at both the array-element else-branch and the scalar else-branch. undici is a zero-runtime-dependency package; hidden tests are plain CommonJS run with `node --test` on the base image (Node 22). They assert client.request() rejects specifically with InvalidArgumentError for a CRLF payload -- at the base commit the value is accepted and the request instead rejects with a network error (AggregateError/ECONNREFUSED to a closed localhost port, fast under the network-off sandbox loopback), so each fail_to_pass genuinely fails pre-patch. Repo sliced at the PR base commit (lib/ + index.js, 37.8k LOC); MIT LICENSE preserved (root + lib/web/fetch). Coverage floor: 3 fail_to_pass (toString, Symbol.toPrimitive, array-element coercions) plus a no-regression guard that a valid header value is NOT rejected as invalid.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "crlf_tostring",
+        "cmd": "node --test --test-name-pattern='^vb rejects coerced CRLF header via toString$' vb_crlf_injection.test.js"
+      },
+      {
+        "name": "crlf_toprimitive",
+        "cmd": "node --test --test-name-pattern='^vb rejects coerced CRLF header via Symbol.toPrimitive$' vb_crlf_injection.test.js"
+      },
+      {
+        "name": "crlf_array_element",
+        "cmd": "node --test --test-name-pattern='^vb rejects coerced CRLF header in an array element$' vb_crlf_injection.test.js"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "valid_header_ok",
+        "cmd": "node --test --test-name-pattern='^vb valid header value is not rejected as invalid$' vb_valid_header_regression.test.js"
+      }
+    ]
+  },
+  "test_timeout_s": 180
+}

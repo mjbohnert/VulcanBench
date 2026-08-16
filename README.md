@@ -300,6 +300,29 @@ vulcanbench voice report runs/voice-<id> -o report.md
 
 Full methodology: [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md).
 
+## VulcanCyber Eval Suite
+
+A **defensive cybersecurity** suite (`tasks/vulcancyber-v1/`): each task is a real
+merged open-source PR that fixes a security weakness, sourced **post model cutoff**
+(`upstream_merged >= 2026-06-01`) and graded by the project's own deterministic
+security regression tests — "here is vulnerable code, produce the fix." v1 ships
+five validated tasks, one per language, across five distinct vulnerability classes:
+prototype pollution (hono, TS), CRLF header injection (undici, JS), encoded-separator
+auth bypass (echo, Go), merge-key amplification DoS (pyyaml, Python), and unescaped
+control-character serialization (quick-xml, Rust).
+
+```bash
+make sandbox-image-all       # base + Rust + Go 1.26 images the suite needs
+make validate-cyber          # gold-solves, fail-to-pass real, deterministic x3
+vulcanbench run --suite vulcancyber-v1 --model mock:synthetic --sandbox local   # $0 smoke
+vulcanbench run --suite vulcancyber-v1 --model anthropic:claude-opus-5 --sandbox docker
+```
+
+Posture is defensive only (no offensive tooling). Candidate PRs are surfaced by
+`scripts/mine_security_prs.py` (a read-only `gh` search). Full methodology,
+task list, and sourcing recipe: [docs/CYBER_EVAL.md](docs/CYBER_EVAL.md);
+curation discipline: [tasks/vulcancyber-v1/CHARTER.md](tasks/vulcancyber-v1/CHARTER.md).
+
 ## Architecture & Reproducibility
 
 - Standardized tools (list/read/edit/search/run) behind one protocol, with
@@ -320,6 +343,7 @@ Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 | [METRICS](docs/METRICS.md) | How the five scores are computed |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | Hosted API + dashboard (optional) |
 | [CONTRIBUTING](docs/CONTRIBUTING.md) | Add tasks, run CI locally |
+| [CYBER_EVAL](docs/CYBER_EVAL.md) | VulcanCyber v1 — defensive cybersecurity suite |
 | [ROADMAP](docs/ROADMAP.md) | Planned follow-ups |
 | [results/](docs/results/) | Published benchmark snapshots (MD, JSON, PDF) |
 

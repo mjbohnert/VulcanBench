@@ -1,0 +1,38 @@
+{
+  "id": "oss-gosec-g404-weak-random-coverage",
+  "category": "bug_fix",
+  "languages": ["go"],
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:go-1.26",
+  "decontaminated": true,
+  "base_commit": "f1c81de5fcdf7b466b229fb24ca02d1a8406dd09",
+  "upstream": {
+    "url": "https://github.com/securego/gosec",
+    "issue": "https://github.com/securego/gosec/pull/1694",
+    "pr": "https://github.com/securego/gosec/pull/1694",
+    "commit": "caf8857bbd3276599d0176b0528e9712bb0b5bec"
+  },
+  "upstream_merged": "2026-06-15",
+  "decontamination_notes": "Real security-scanner detection-gap fix from securego/gosec PR #1694 (https://github.com/securego/gosec/pull/1694), merged 2026-06-15 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. FAMILY B (security tooling): gosec is a Go security static analyzer; its G404 rule flags use of the insecure math/rand package. At the base commit the rule's function list omits rand.Perm, rand.Shuffle, and rand.ExpFloat64 (and math/rand/v2 equivalents), so those weak-randomness calls pass unflagged -- a false negative in a security tool. The fix adds the missing functions in rules/rand.go. gosec's go.mod declares go 1.25.8, so this uses vulcanbench/sandbox:go-1.26 (base image ships Go 1.23). ~60 module dependencies are vendored into repo/vendor for offline (network-off) runs; hidden tests are an external package (vbcheck/) that drives the public gosec analyzer over in-memory samples via testutils (proven to build+typecheck a stdlib-only sample offline). Repo sliced at the PR base commit (57k LOC; rand.go missing the added functions); MIT (LICENSE.txt) preserved. Coverage floor: 3 fail_to_pass (G404 must now flag rand.Perm, rand.Shuffle, rand.ExpFloat64 -- each yields zero findings at base) plus a 2-check regression guard (an already-covered function rand.Intn is still flagged; a secure crypto/rand source is still not flagged -- no false positive).",
+  "grader": "tests",
+  "setup": [
+    {"name": "warm-build", "cmd": "go build -mod=vendor ./..."}
+  ],
+  "setup_timeout_s": 900,
+  "tests": {
+    "fail_to_pass": [
+      {"name": "flags_perm", "cmd": "go test -mod=vendor -run '^TestG404FlagsPerm$' ./vbcheck/"},
+      {"name": "flags_shuffle", "cmd": "go test -mod=vendor -run '^TestG404FlagsShuffle$' ./vbcheck/"},
+      {"name": "flags_expfloat64", "cmd": "go test -mod=vendor -run '^TestG404FlagsExpFloat64$' ./vbcheck/"}
+    ],
+    "pass_to_pass": [
+      {"name": "still_flags_intn", "cmd": "go test -mod=vendor -run '^TestG404StillFlagsIntn$' ./vbcheck/"},
+      {"name": "ignores_crypto_rand", "cmd": "go test -mod=vendor -run '^TestG404IgnoresCryptoRand$' ./vbcheck/"}
+    ]
+  },
+  "test_timeout_s": 300
+}

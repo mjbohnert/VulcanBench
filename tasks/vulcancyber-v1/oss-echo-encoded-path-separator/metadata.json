@@ -1,0 +1,38 @@
+{
+  "id": "oss-echo-encoded-path-separator",
+  "category": "bug_fix",
+  "languages": ["go"],
+  "difficulty": "hard",
+  "task_complexity": "system",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:go-1.26",
+  "decontaminated": true,
+  "base_commit": "c9477eb5b5126ae933f2729af852d1be3f5845ae",
+  "upstream": {
+    "url": "https://github.com/labstack/echo",
+    "issue": "https://github.com/labstack/echo/pull/3009",
+    "pr": "https://github.com/labstack/echo/pull/3009",
+    "commit": "8d1ae9d3360a71672418856d58753af25f2c3986"
+  },
+  "upstream_merged": "2026-06-14",
+  "decontamination_notes": "Real route-level auth-bypass fix from labstack/echo PR #3009 (https://github.com/labstack/echo/pull/3009, GHSA-vfp3-v2gw-7wfq), merged 2026-06-14 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. echo's router matches routes on the raw, still-encoded request path, so an encoded path separator (%2F/%2f, %5C/%5c, or double-encoded %252F) is not a segment boundary during routing; the static file handlers then unescape the wildcard, turning it into a real separator AFTER routing and resolving a file outside the authorized path -- bypassing route-level middleware such as auth on a sibling route. The fix adds internal/pathutil/pathutil.go with HasEncodedPathSeparator (NET-NEW package) and calls it in both echo.go::StaticDirectoryHandler and middleware/static.go to return 404 before unescaping, and switches filepath.Clean to path.Clean so a backslash stays a literal fs.FS char. echo v5's go.mod declares go 1.25.0, so this uses vulcanbench/sandbox:go-1.26 (base image ships Go 1.23). Dependencies (testify, golang.org/x/net, x/time) are vendored into repo/vendor for offline (network-off) runs; hidden tests are an external package under vbcheck/ using only echo's public API, run via `go test -mod=vendor ./vbcheck/`. Repo sliced at the PR base commit (38k LOC; internal/pathutil absent); MIT LICENSE preserved. Coverage floor: 3 fail_to_pass (encoded %2F, lower-case %2f, and double-encoded %252F all bypass at base and return 404 after the fix -- an encoded %5C is a separate pass_to_pass because a decoded backslash is already a literal filename char and 404 at base) plus a legit-static-still-served regression guard.",
+  "grader": "tests",
+  "setup": [
+    {"name": "warm-build", "cmd": "go build -mod=vendor ./..."}
+  ],
+  "setup_timeout_s": 600,
+  "tests": {
+    "fail_to_pass": [
+      {"name": "encoded_slash", "cmd": "go test -mod=vendor -run '^TestVbEncodedSlashRejected$' ./vbcheck/"},
+      {"name": "lowercase_slash", "cmd": "go test -mod=vendor -run '^TestVbLowercaseEncodedSlashRejected$' ./vbcheck/"},
+      {"name": "double_encoded", "cmd": "go test -mod=vendor -run '^TestVbDoubleEncodedSlashRejected$' ./vbcheck/"}
+    ],
+    "pass_to_pass": [
+      {"name": "legit_static", "cmd": "go test -mod=vendor -run '^TestVbLegitStaticStillServed$' ./vbcheck/"},
+      {"name": "backslash_notfound", "cmd": "go test -mod=vendor -run '^TestVbEncodedBackslashStaysNotFound$' ./vbcheck/"}
+    ]
+  },
+  "test_timeout_s": 300
+}
