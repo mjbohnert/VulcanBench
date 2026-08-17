@@ -75,7 +75,10 @@ Legend: band guess is pre-measurement (E=easy/anchor, M=mid, H=hard/tail).
 - 🔬 sympy#30144 (07-27, 24/3, 2f) — manualintegrate: ratint fallback for rational fns · MH
 
 ### stdlib-utility
-- 🔬 more-itertools#1211 (07-13, 22/14, 2f) — fix stability in `running_min`/`running_max` · M
+- ✅ more-itertools#1211 (07-13, 22/14, 2f) — fix stability in `running_min`/`running_max` · M
+  — **BUILT + validated 2026-08-17** as `oss-more-itertools-running-minmax-stable`
+  (gold=1.0, base=0.0, det ×3, base image, `PYTHONPATH=.`). 4 fail_to_pass (bounded
+  tie windows) + 4 pass_to_pass. Band still a guess until measured.
 - 🔬 more-itertools#1182 (06-17, 13/0, 3f) — support negative start/stop in `iter_index` · M
 - 🔬 attrs#1571 (08-01, 42/13, 5f) — add `ne` validator · EM
 
@@ -115,6 +118,6 @@ Panel: Opus 5, GPT-5.6 Sol, Grok 4.5, + frugal ref (Haiku 4.5 / Kimi K3).
 Counts well-formed built tasks; final band placement pending frontier measurement.
 
 - anchor easy: 0 / 3
-- **discriminator mid: 1 / 14** — oss-click-param-named-help (guess M)
+- **discriminator mid: 2 / 14** — oss-click-param-named-help, oss-more-itertools-running-minmax-stable (both guess M)
 - hard tail: 0 / 6  _(+2 verified ceilings ready to carry: canonicalize, pennylane)_
-- **built + validated: 1 / 23**
+- **built + validated: 2 / 23**
