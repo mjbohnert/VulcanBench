@@ -118,30 +118,51 @@ Panel: Opus 5, GPT-5.6 Sol, Grok 4.5, + frugal ref (Haiku 4.5 / Kimi K3).
 Counts well-formed built tasks (gold=1.0/base=0.0/det ×3, docker); final band
 placement pending frontier measurement — see MEASUREMENT_PLAN.md.
 
-**11 / 23 built + validated** as of 2026-08-17:
+**18 / 23 built + validated** as of 2026-08-17 (all gold=1.0/base=0.0/det ×3, docker).
 
-Net-new (6): oss-click-param-named-help, oss-click-style-validate-color,
-oss-more-itertools-running-minmax-stable, oss-more-itertools-iter-index-negative,
-oss-attrs-ne-validator, oss-marshmallow-enum-none-default.
+Net-new (13):
+- cli-tooling: oss-click-param-named-help, oss-click-style-validate-color
+- stdlib-utility: oss-more-itertools-running-minmax-stable,
+  oss-more-itertools-iter-index-negative, oss-more-itertools-numeric-range-eq,
+  oss-attrs-ne-validator
+- parsing: oss-marshmallow-enum-none-default
+- scientific: oss-networkx-vf2pp-mapping-direction
+- concurrency: oss-anyio-trio-wouldblock, oss-anyio-fail-at-deadline,
+  oss-trio-memory-channel-peak-buffer  *(new images: anyio-1191, trio-3474)*
+- data-orm: oss-sqlglot-semistructured-case  *(7-file optimizer fix)*
+- web-async: oss-flask-automatic-options-override
 
 Carried from v3 (5): oss-flask-teardown-robust (tail), oss-sqlglot-iso8601-nanos,
 oss-sqlglot-canonicalize-internal-names (ceiling), oss-networkx-leiden-communities,
 oss-pennylane-trotter-fragmented (ceiling).
 
+Every domain now covered: web-async 2, data-orm 3, parsing 1, scientific 3,
+stdlib-utility 4, cli-tooling 2, concurrency 3.
+
 ⚠️ **oss-aiohttp-upgrade-deferred EXCLUDED** — carry-over gold patch scored 0.0 in
-the freshly-built aiohttp-13016 image (env/version drift vs v3; it was only a
-"reconsider" candidate and v3 flagged it timeout-confounded). Needs image
+the freshly-built aiohttp-13016 image (env/version drift vs v3). Needs image
 investigation before re-admission.
 
-Provisional band spread (guesses): ~7 mid, 2 ceiling/tail (canonicalize, pennylane),
-flask-teardown is the both-fail tail, rest mid — no measured anchors yet.
+### The remaining 5 to reach 23 — why they're not built yet
 
-### Remaining 12 to reach 23 — recipe-ready, mostly need a per-task image
-Base-image-tractable (no image build), deferred only for authoring time:
-lark#1592 (big new `scan()` API, 4 files), sqlglot#8161 (optimizer, 7 files).
-Need a per-task Docker image (pip-install the dep): pandas#66794/#66753 (C-ext),
-pydantic#13659 (compiled core), polars#28799 (Rust core), numpy#32292 (C),
-sympy#30144 (mpmath dep), trio#3474 + anyio#1218/#1228 (concurrency — fills the
-one uncovered domain; Dockerfile.anyio-1191 exists as a starting point),
-tornado#3634, flask#5917, poetry#10987 (Dockerfile.poetry-10943 exists). Build
-recipe is the same proven flow; each just needs its image + behavioral tests.
+**Key constraint discovered:** the grader overlays the workspace source via
+`PYTHONPATH`, which only works for **pure-Python** packages. Packages with compiled
+extensions can't be source-overlaid cleanly (the workspace `.py` shadows the
+installed package but the `.so`/Rust core is missing). This **rules out** the
+harvest's compiled candidates: **pandas#66794/#66753/#66791, numpy#32292,
+polars#28799, pydantic#13659** — all need a full from-source build, impractical here.
+Substitute pure-Python PRs for these before counting them toward 23.
+
+Remaining pure-Python candidates, all high-complexity (deferred to protect quality,
+not blocked):
+- **sympy#30144** (scientific, sympy-29877 image built & ready) — manualintegrate
+  ratint fallback; needs a rational integrand that triggers the fallback (research).
+- **lark#1592** (parsing, base image) — new 351-line streaming `scan()` API, 4 files.
+- **attrs#1592** (stdlib-utility, base image) — on_setattr accepts generators, 4 files.
+- **poetry#10987** (cli-tooling, poetry-10943 image) — solver extras from direct-origin
+  lock entries; elaborate multi-resolution fixture.
+- **+1** — re-mine web-async (starlette/httpx/fastapi were missed in the 503 storm)
+  for one more clean pure-Python bugfix.
+
+Same proven build flow applies (see any committed task; image tasks use
+`-c /dev/null` in the test cmd to bypass the sliced repo's pytest plugins/config).
