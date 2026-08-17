@@ -1,0 +1,50 @@
+{
+  "id": "oss-trio-memory-channel-peak-buffer",
+  "category": "feature",
+  "languages": [
+    "python"
+  ],
+  "domain": "concurrency",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "large",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "83b96a39d862b347de2c03db3a3012f9dd4a6831",
+  "image": "vulcanbench/sandbox:trio-3474",
+  "upstream": {
+    "url": "https://github.com/python-trio/trio/pull/3474",
+    "issue": "https://github.com/python-trio/trio/pull/3474",
+    "commit": "83b96a39d862b347de2c03db3a3012f9dd4a6831"
+  },
+  "decontamination_notes": "Real feature from python-trio/trio PR #3474, merged 2026-08-11, after model training cutoffs, so the specific implementation is novel. Repo sliced at the PR's base commit 83b96a3 (src/trio + pyproject.toml + Apache/MIT LICENSE). Runs in the per-task image vulcanbench/sandbox:trio-3474 (trio's runtime deps preinstalled, trio imported from the workspace via PYTHONPATH=src). Adds a peak_buffer_used high-water-mark field to MemoryChannelStatistics that does not reset on drain. Hidden tests drive the public open_memory_channel().statistics() API under trio.run and assert the observable peak/current counts, never internal channel state. Tests run with -c /dev/null so the repo's own pytest config/plugins are ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "peak_starts_at_zero",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_peak_starts_at_zero -q"
+      },
+      {
+        "name": "peak_tracks_maximum",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_peak_tracks_maximum_buffer -q"
+      },
+      {
+        "name": "peak_survives_draining",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_peak_survives_draining -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "current_buffer_used_tracks",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_current_buffer_used_still_tracks_live_count -q"
+      },
+      {
+        "name": "open_channel_counts",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_open_channel_counts_unaffected -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

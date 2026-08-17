@@ -1,0 +1,50 @@
+{
+  "id": "oss-anyio-trio-wouldblock",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "concurrency",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "44713f345cd29dd4e7d76553c134543a1296cc62",
+  "image": "vulcanbench/sandbox:anyio-1191",
+  "upstream": {
+    "url": "https://github.com/agronholm/anyio/pull/1218",
+    "issue": "https://github.com/agronholm/anyio/pull/1218",
+    "commit": "44713f345cd29dd4e7d76553c134543a1296cc62"
+  },
+  "decontamination_notes": "Real fix from agronholm/anyio PR #1218, merged 2026-07-11, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 44713f3 (src/anyio + pyproject.toml + MIT LICENSE). Runs in the per-task image vulcanbench/sandbox:anyio-1191 (anyio's runtime deps + trio preinstalled, anyio itself imported from the workspace via PYTHONPATH=src). The bug: on the trio backend, CapacityLimiter.acquire_nowait / acquire_on_behalf_of_nowait leaked trio.WouldBlock instead of anyio.WouldBlock when the limiter was full. Hidden tests drive the public anyio API on the trio backend via anyio.run(backend='trio') and assert anyio.WouldBlock is raised; never internal backend state.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "acquire_nowait_anyio_wouldblock",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_acquire_nowait_raises_anyio_wouldblock -q"
+      },
+      {
+        "name": "acquire_on_behalf_of_nowait_anyio_wouldblock",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_acquire_on_behalf_of_nowait_raises_anyio_wouldblock -q"
+      },
+      {
+        "name": "multi_token_exhausted_anyio_wouldblock",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_multi_token_limiter_raises_anyio_wouldblock_when_exhausted -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "nowait_succeeds_when_capacity_available",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_nowait_succeeds_when_capacity_available -q"
+      },
+      {
+        "name": "asyncio_backend_already_correct",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_asyncio_backend_already_raises_anyio_wouldblock -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

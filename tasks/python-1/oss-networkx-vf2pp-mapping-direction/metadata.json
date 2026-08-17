@@ -1,0 +1,49 @@
+{
+  "id": "oss-networkx-vf2pp-mapping-direction",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "scientific",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "f884a12db34c39f2e6d81c5b3607caa4cbe8ea7d",
+  "upstream": {
+    "url": "https://github.com/networkx/networkx/pull/8813",
+    "issue": "https://github.com/networkx/networkx/pull/8813",
+    "commit": "f884a12db34c39f2e6d81c5b3607caa4cbe8ea7d"
+  },
+  "decontamination_notes": "Real fix from networkx/networkx PR #8813, merged 2026-08-04, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit f884a12 (networkx package + BSD LICENSE + pyproject.toml). networkx core imports without numpy/scipy, and vf2pp is pure Python, so tests run on the base sandbox image with PYTHONPATH=.. The bug: vf2pp_isomorphism / vf2pp_all_isomorphisms returned the node mapping reversed (G2->G1) rather than the documented G1->G2. Hidden tests assert the public mapping's direction and its validity as a G1->G2 isomorphism, never internal state.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "mapping_keys_g1_values_g2",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_mapping_keys_are_g1_values_are_g2 -q"
+      },
+      {
+        "name": "mapping_valid_isomorphism",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_mapping_is_a_valid_g1_to_g2_isomorphism -q"
+      },
+      {
+        "name": "all_isomorphisms_direction",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_all_isomorphisms_have_g1_to_g2_direction -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "is_isomorphic_true",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_is_isomorphic_still_true -q"
+      },
+      {
+        "name": "non_isomorphic_none",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_non_isomorphic_returns_none -q"
+      }
+    ]
+  },
+  "test_timeout_s": 180
+}
