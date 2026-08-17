@@ -1,0 +1,49 @@
+{
+  "id": "oss-more-itertools-iter-index-negative",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "stdlib-utility",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "c5538f9ff7f3fa92ac0fe378b5c70486494c040b",
+  "upstream": {
+    "url": "https://github.com/more-itertools/more-itertools/pull/1182",
+    "issue": "https://github.com/more-itertools/more-itertools/pull/1182",
+    "commit": "43decdd76072519fbf1392fb3d066ad26601c147"
+  },
+  "decontamination_notes": "Real fix from more-itertools PR #1182, merged 2026-06-17, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit c5538f9 (more_itertools package + MIT LICENSE); dependency-free flat-layout package runs on the base sandbox image with PYTHONPATH=.. iter_index has a fast path for sequences (objects with .index) and a slow islice path for general iterables; negative start/stop worked on the fast path but raised on the slow path. Hidden tests assert the public iter_index output agrees across both paths, never internal state.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "general_iterable_negative_start",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_general_iterable_negative_start -q"
+      },
+      {
+        "name": "general_iterable_negative_stop",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_general_iterable_negative_stop -q"
+      },
+      {
+        "name": "general_iterable_negative_start_and_stop",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_general_iterable_negative_start_and_stop -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "sequence_negative_start_unchanged",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_sequence_negative_start_unchanged -q"
+      },
+      {
+        "name": "sequence_full_scan_unchanged",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_sequence_full_scan_unchanged -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}
