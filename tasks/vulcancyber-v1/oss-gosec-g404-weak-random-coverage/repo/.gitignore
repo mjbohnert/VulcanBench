@@ -12,7 +12,6 @@
 # Folders
 _obj
 _test
-vendor
 dist
 
 # Architecture specific extensions/prefixes
