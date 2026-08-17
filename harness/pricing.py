@@ -100,6 +100,7 @@ _PER_MILLION = 1_000_000.0
 _SPEC_ALIASES = {
     "claude-code:": "anthropic:",
     "codex:": "openai:",
+    "grok-build:": "xai:",
 }
 
 

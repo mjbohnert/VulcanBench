@@ -221,6 +221,9 @@ def audit_filesystem(
                         continue
                     if perimeter and perimeter.search(raw):
                         continue
+                    # /dev/null etc. are shell plumbing, not data access.
+                    if raw == "/dev" or raw.startswith("/dev/"):
+                        continue
                     outside.add(raw)
                     in_tasks = "/tasks/" in raw
                     in_runs = f"{root}/runs" in raw or ("/runs/" in raw and str(root) in raw)

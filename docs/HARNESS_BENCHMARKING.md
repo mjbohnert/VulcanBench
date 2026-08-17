@@ -27,23 +27,28 @@ verifier on the host, where missing toolchains fail Python tasks. Preflight
 fails closed when signed out or when `CURSOR_API_KEY` is set (API-key auth
 bills metered usage, not the plan).
 
-Grok Build-specific notes (verified on grok 0.2.69 alpha):
+Grok Build-specific notes (verified on grok 0.2.69 and 1.0.5, both alpha —
+the surface moves fast; re-verify these on every CLI update before a sweep):
 
-- **The effort trap.** The CLI parses `--effort low|…|max` and silently
-  ignores it for reasoning — the session runs at the default (`high`)
-  regardless. The adapter sends `--reasoning-effort` (accepted:
-  none/minimal/low/medium/high/xhigh), which verifiably moves the knob: the
-  session's `summary.json` records the `reasoning_effort` that actually ran,
-  and the adapter copies it into the outcome as `reported_effort`. Never
-  sweep with `--effort`.
-- **Tool calls and usage live in the trace, not the stream.** Headless
-  `streaming-json` emits only text/thought/end. The adapter pre-assigns the
-  session id (`-s <uuid>`), harvests `~/.grok/sessions/**/<id>/`
-  (`summary.json`, `updates.jsonl`, `events.jsonl`) into the run dir after
-  the run — timeouts included — and folds `updates.jsonl` (which carries
-  `toolCallId` + `rawInput`) into the stream log so `integrity_audit` can see
-  grok runs. `_meta.totalTokens` is recorded as `cli_total_tokens`; it has no
-  prompt/completion split, so economics stays honestly unavailable.
+- **The effort knob.** The adapter sends `--reasoning-effort` (accepted:
+  none/minimal/low/medium/high/xhigh) and proves each run's level by copying
+  the session summary's `reasoning_effort` into the outcome as
+  `reported_effort`. On 0.2.69 the separate `--effort` flag parsed and was
+  silently ignored (every level ran at the default `high`); 1.0.5 makes it
+  an alias of `--reasoning-effort`. The adapter never uses `--effort`.
+- **Usage and tool calls stream on 1.0+.** `streaming-json` emits
+  `tool_call`/`tool_call_update`/`usage` events plus an `end` event with the
+  full token split (input/output/cache-read/reasoning; grok's
+  `output_tokens` already includes reasoning, unlike the raw xAI API),
+  `num_turns`, and the CLI's own `total_cost_usd` (recorded as
+  `cli_reported_cost_usd`; it is far below list price and is Grok's internal
+  accounting, not a bill). Token receipts and a live `--max-run-cost`
+  API-equivalent cap both work; `grok-build:` prices via the `xai:` table.
+  The session trace (`~/.grok/sessions/**/<id>/`) is still harvested into
+  the run dir — the session id is pre-assigned with `-s` so timeouts keep
+  their trace. On 0.2.69, where the stream carried none of this, the trace
+  was the only source; the harvest also guards against future stream
+  regressions.
 - **Web denial is by tool removal.** `--disallowed-tools web_search,web_fetch`
   deletes the tools outright (with `--deny WebFetch` as a second layer), so a
   grok run shows `no_web` rather than Cursor-style `web_blocked` attempt
@@ -60,9 +65,10 @@ Grok Build-specific notes (verified on grok 0.2.69 alpha):
   profile cannot be applied. Note the sandbox does not block child-process
   network on macOS — `curl` in a shell works; web tool removal plus the
   audit's command scan remain the check on that.
-- **Session hygiene.** `--no-memory` is always passed: Grok's cross-session
-  memory would let repeat N+1 remember repeat N's task. `grok trace` uploads
-  remotely by default — anything touching it must pass `--local`.
+- **Session hygiene.** `GROK_MEMORY=0` is always set (1.0 dropped the
+  `--no-memory` flag): Grok's cross-session memory would let repeat N+1
+  remember repeat N's task. `grok trace` uploads remotely by default —
+  anything touching it must pass `--local`.
 - Preflight fails closed when signed out or when `XAI_API_KEY` is set
   (API-key auth bills console.x.ai metered usage, not the plan).
 

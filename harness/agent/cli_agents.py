@@ -784,14 +784,19 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 ) -> CliAgentOutcome:
     """Run one task through ``grok -p`` billed to the Grok subscription.
 
-    Verified against grok 0.2.69 (alpha), where the flag surface has one trap:
-    ``--effort`` parses and is silently IGNORED for reasoning (the session
-    keeps the default "high"); ``--reasoning-effort`` is the flag that
-    actually moves the knob (accepted: none/minimal/low/medium/high/xhigh —
-    confirmed by reading back ``reasoning_effort`` from the session summary).
-    The live stream carries no tool calls or usage; both are harvested
-    post-run from the session's trace files, which is why the session id is
-    chosen up front with ``-s`` (a timeout must still find its trace).
+    Verified against grok 0.2.69 and 1.0.5 (alpha). On 0.2.69 the flag
+    surface had a trap: ``--effort`` parsed and was silently IGNORED for
+    reasoning (the session kept the default "high"); 1.0.5 makes it an alias
+    of ``--reasoning-effort``, which is the flag this adapter always sends
+    (accepted: none/minimal/low/medium/high/xhigh — confirmed by reading
+    back ``reasoning_effort`` from the session summary on both versions).
+    On 0.2.69 the live stream carried no tool calls or usage; 1.0.5 streams
+    ``tool_call``/``tool_call_update``/``usage`` events and a final ``end``
+    event with the full split (input/output/cache-read/reasoning tokens,
+    ``num_turns``, and the CLI's own ``total_cost_usd``), so token receipts
+    and a live API-equivalent cost cap both work. The session trace is still
+    harvested post-run as the audit substrate — the session id is chosen up
+    front with ``-s`` so a timeout can still find its trace.
 
     ``--sandbox strict`` is Seatbelt/Landlock-enforced: reads outside the
     workspace are kernel-denied, which contains the filesystem channel harder
@@ -799,15 +804,9 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     network (curl in a shell still works); web tools are removed instead and
     the audit remains the check on the rest.
     """
-    del priced_spec
     workspace = workspace.resolve()
     if timeout_s is not None and timeout_s <= 0:
         raise ProviderError("run budget exhausted before CLI agent start")
-    if max_run_cost is not None:
-        raise ProviderError(
-            "grok reports no priced usage stream, so --max-run-cost cannot be "
-            "enforced; use a wall-clock --timeout for subscription runs"
-        )
 
     checked = preflight or _grok_build_preflight(grok_bin)
     _require_subscription(checked)
@@ -833,11 +832,8 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         str(workspace),
         "--output-format",
         "streaming-json",
-        "--yolo",
+        "--always-approve",
         "--no-auto-update",
-        # Cross-session memory would let run N+1 remember run N's task —
-        # repeat-to-repeat contamination inside one sweep.
-        "--no-memory",
         "--sandbox",
         "vulcanbench",
         "--session-id",
@@ -863,6 +859,11 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     )
     env = _subscription_env(env_overrides)
     env["GROK_DISABLE_AUTOUPDATER"] = "1"
+    # Cross-session memory would let run N+1 remember run N's task —
+    # repeat-to-repeat contamination inside one sweep. Grok 1.0 dropped the
+    # --no-memory flag; GROK_MEMORY=0 force-disables regardless of the
+    # user's config.toml, which a flag never did.
+    env["GROK_MEMORY"] = "0"
     try:
         proc = subprocess.Popen(
             cmd,
@@ -902,7 +903,7 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         plan_name=checked.plan_name,
         session_id=session_id,
     )
-    killed = {"timeout": False}
+    killed = {"timeout": False, "cost": False}
 
     def _kill_on_timeout() -> None:
         killed["timeout"] = True
@@ -918,6 +919,11 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     error_msg: str | None = None
     text_parts: list[str] = []
     thought_chars = 0
+    # Running totals from per-call ``usage`` events (grok >= 1.0). Grok's
+    # output_tokens already includes reasoning (verified: per-call outputs sum
+    # to the end event's output_tokens, and end total = input + cache reads +
+    # output) — no completion_excludes_reasoning fold here, unlike raw xAI.
+    acc = {"prompt": 0, "completion": 0, "cached": 0, "reasoning": 0}
     stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
     try:
         assert proc.stdout is not None
@@ -948,6 +954,31 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
                 error_msg = str(event.get("message") or "")
             elif etype == "max_turns_reached":
                 outcome.subtype = "max_turns"
+            elif etype == "usage":
+                usage = event.get("usage") or {}
+                acc["prompt"] += (
+                    int(usage.get("input_tokens", 0) or 0)
+                    + int(usage.get("cache_read_input_tokens", 0) or 0)
+                    + int(usage.get("cache_creation_input_tokens", 0) or 0)
+                )
+                acc["completion"] += int(usage.get("output_tokens", 0) or 0)
+                acc["cached"] += int(usage.get("cache_read_input_tokens", 0) or 0)
+                acc["reasoning"] += int(usage.get("reasoning_tokens", 0) or 0)
+                if max_run_cost is not None:
+                    run_cost = cost_usd(
+                        priced_spec,
+                        acc["prompt"],
+                        acc["completion"],
+                        cached_input_tokens=acc["cached"],
+                    )
+                    if run_cost is not None and run_cost >= max_run_cost:
+                        collector.record(
+                            "cost_cap_exceeded",
+                            {"cost_usd": run_cost, "max_run_cost": max_run_cost},
+                        )
+                        outcome.cost_capped = True
+                        killed["cost"] = True
+                        proc.kill()
     finally:
         if watchdog is not None:
             watchdog.cancel()
@@ -969,9 +1000,13 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
             stream_f.close()
 
     outcome.timed_out = killed["timeout"]
+    outcome.prompt_tokens = acc["prompt"]
+    outcome.completion_tokens = acc["completion"]
+    outcome.cached_input_tokens = acc["cached"]
+    outcome.reasoning_output_tokens = acc["reasoning"]
 
     if end_msg is None:
-        if killed["timeout"]:
+        if killed["timeout"] or killed["cost"]:
             # Partial work still counts; the caller diffs and verifies it.
             return outcome
         tail = (error_msg or "").strip() or "".join(stderr_chunks)[-500:].strip() or "no stderr"
@@ -984,6 +1019,25 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     outcome.subtype = outcome.subtype or str(end_msg.get("stopReason") or "")
     outcome.session_id = end_msg.get("sessionId") or outcome.session_id
+    end_usage = end_msg.get("usage") or {}
+    if end_usage:
+        # The end event's totals are authoritative over per-call accumulation.
+        cache_read = int(end_usage.get("cache_read_input_tokens", 0) or 0)
+        outcome.prompt_tokens = (
+            int(end_usage.get("input_tokens", 0) or 0)
+            + cache_read
+            + int(end_usage.get("cache_creation_input_tokens", 0) or 0)
+        )
+        outcome.completion_tokens = int(end_usage.get("output_tokens", 0) or 0)
+        outcome.cached_input_tokens = cache_read
+        outcome.reasoning_output_tokens = int(end_usage.get("reasoning_tokens", 0) or 0)
+        total = end_usage.get("total_tokens")
+        if isinstance(total, int):
+            outcome.cli_total_tokens = total
+    if end_msg.get("num_turns") is not None:
+        outcome.num_turns = int(end_msg["num_turns"])
+    if end_msg.get("total_cost_usd") is not None:
+        outcome.cli_reported_cost_usd = float(end_msg["total_cost_usd"])
     outcome.finished = True
     collector.record("cli_agent_result", outcome.summary())
     return outcome
@@ -1571,13 +1625,13 @@ class GrokBuildAdapter:
             display_name="Grok Build",
             executable="grok",
             structured_events=True,
-            # The trace reports a cumulative totalTokens with no
-            # prompt/completion split, so priced token accounting is off.
-            reports_tokens=False,
+            # grok >= 1.0 streams per-call usage and an end event with the
+            # full token split and the CLI's own total_cost_usd.
+            reports_tokens=True,
             reports_model=True,
             supports_effort=True,
-            supports_live_cost_cap=False,
-            sandbox="grok-sandbox=strict (Seatbelt/Landlock)",
+            supports_live_cost_cap=True,
+            sandbox="grok-sandbox=vulcanbench (workspace writes, kernel-denied repo)",
         )
 
     def preflight(self) -> HarnessPreflight:

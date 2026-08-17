@@ -17,7 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--disallowed-tools`, and `--no-memory` keeps repeats from remembering
   each other. `_subscription_env` now scrubs repo-rooted PATH entries for
   every harness (a live run extracted the repo path from `.venv/bin` and ran
-  `find` over it; the kernel denied the read, and now the path never leaks). Two alpha-CLI traps are documented and coded around:
+  `find` over it; the kernel denied the read, and now the path never leaks).
+  On grok >= 1.0 the stream reports the full token split, `num_turns`, and
+  the CLI's own `total_cost_usd`, so grok-build runs carry real token
+  receipts (priced via the `xai:` table) and support a live
+  `--max-run-cost` cap; the session-trace harvest remains as the audit
+  substrate and a guard against stream regressions. Two alpha-CLI traps are documented and coded around:
   the CLI's `--effort` flag parses but is silently ignored for reasoning
   (the adapter sends `--reasoning-effort`, and copies the session summary's
   `reasoning_effort` back into the outcome as `reported_effort` as proof),
