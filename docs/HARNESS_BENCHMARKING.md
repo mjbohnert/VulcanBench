@@ -12,6 +12,7 @@ Release A supports:
 | Claude Code | `claude-code:<model>` | Claude Pro/Max login | Claude permission auto mode; `--sandbox local` currently required |
 | Codex CLI | `codex:<model>` | Sign in with ChatGPT | Codex `workspace-write`; Vulcan setup/verifier may still use Docker |
 | Cursor CLI | `cursor:<model>` | `cursor-agent login` (Cursor account/credits) | Cursor sandbox enabled + force-allow; Vulcan setup/verifier may use Docker |
+| Grok Build | `grok-build:<model>` | `grok login` (grok.com OIDC) | custom kernel profile: workspace writes + repo reads denied (Seatbelt/Landlock); Vulcan setup/verifier may use Docker |
 
 Cursor-specific limits: `cursor-agent` streams no token usage or cost, so
 token counts are recorded as zero and the economics receipt marks the
@@ -25,6 +26,45 @@ verification uses the sandbox image toolchains; `--sandbox local` puts the
 verifier on the host, where missing toolchains fail Python tasks. Preflight
 fails closed when signed out or when `CURSOR_API_KEY` is set (API-key auth
 bills metered usage, not the plan).
+
+Grok Build-specific notes (verified on grok 0.2.69 alpha):
+
+- **The effort trap.** The CLI parses `--effort low|…|max` and silently
+  ignores it for reasoning — the session runs at the default (`high`)
+  regardless. The adapter sends `--reasoning-effort` (accepted:
+  none/minimal/low/medium/high/xhigh), which verifiably moves the knob: the
+  session's `summary.json` records the `reasoning_effort` that actually ran,
+  and the adapter copies it into the outcome as `reported_effort`. Never
+  sweep with `--effort`.
+- **Tool calls and usage live in the trace, not the stream.** Headless
+  `streaming-json` emits only text/thought/end. The adapter pre-assigns the
+  session id (`-s <uuid>`), harvests `~/.grok/sessions/**/<id>/`
+  (`summary.json`, `updates.jsonl`, `events.jsonl`) into the run dir after
+  the run — timeouts included — and folds `updates.jsonl` (which carries
+  `toolCallId` + `rawInput`) into the stream log so `integrity_audit` can see
+  grok runs. `_meta.totalTokens` is recorded as `cli_total_tokens`; it has no
+  prompt/completion split, so economics stays honestly unavailable.
+- **Web denial is by tool removal.** `--disallowed-tools web_search,web_fetch`
+  deletes the tools outright (with `--deny WebFetch` as a second layer), so a
+  grok run shows `no_web` rather than Cursor-style `web_blocked` attempt
+  counts — the model cannot reach for a tool that does not exist.
+- **The sandbox is a custom kernel profile, not `strict`.** The adapter
+  writes `<workspace>/.grok/sandbox.toml` (`extends = "workspace"`, `deny =
+  [<repo root>]`) and runs `--sandbox vulcanbench`: toolchains stay usable
+  (`strict` also kernel-denied `~/.cargo` and homebrew, crippling non-Python
+  tasks — observed live) while this checkout's answer keys are read-denied
+  by the kernel even if the agent learns the path. That path can leak:
+  a live run extracted the repo location from `PATH`'s `.venv/bin` entry and
+  ran `find` over it (Seatbelt denied it), so `_subscription_env` now scrubs
+  repo-rooted PATH entries for every harness. Grok fails closed if the
+  profile cannot be applied. Note the sandbox does not block child-process
+  network on macOS — `curl` in a shell works; web tool removal plus the
+  audit's command scan remain the check on that.
+- **Session hygiene.** `--no-memory` is always passed: Grok's cross-session
+  memory would let repeat N+1 remember repeat N's task. `grok trace` uploads
+  remotely by default — anything touching it must pass `--local`.
+- Preflight fails closed when signed out or when `XAI_API_KEY` is set
+  (API-key auth bills console.x.ai metered usage, not the plan).
 
 ## Leakage: two channels, both real
 

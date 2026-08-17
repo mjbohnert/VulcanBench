@@ -50,7 +50,16 @@ import re
 from pathlib import Path
 from typing import Any
 
-_WEB_MARKERS = ("webSearchToolCall", "webFetchToolCall", '"WebSearch"', '"WebFetch"')
+# Cursor/Claude Code camel-case forms plus Grok Build's snake-case tool
+# titles as they appear in trace updates ("title":"web_search").
+_WEB_MARKERS = (
+    "webSearchToolCall",
+    "webFetchToolCall",
+    '"WebSearch"',
+    '"WebFetch"',
+    '"web_search"',
+    '"web_fetch"',
+)
 _URL_RE = re.compile(r"https?://[^\s\"'\\]+")
 
 VERDICTS = ("no_web", "web_blocked", "web_used", "upstream_access", "solution_retrieval")
@@ -163,7 +172,9 @@ def audit_stream(stream_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_PATH_RE = re.compile(r'"(?:path|file_path|filePath)"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_PATH_RE = re.compile(
+    r'"(?:path|file_path|filePath|target_file|target_directory)"\s*:\s*"((?:[^"\\]|\\.)*)"'
+)
 _CMD_RE = re.compile(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _ANSWER_KEY_PARTS = ("gold_patch", "/tests/", "metadata.json")
 
@@ -191,6 +202,11 @@ def audit_filesystem(
     """
     root = (repo_root or Path(__file__).resolve().parents[2]).resolve()
     ws = str(workspace.resolve()) if workspace else None
+    # CLI-harness runs execute in a VulcanBench-created tmp perimeter
+    # (``vulcanbench-<run_id>-XXXX/workspace``) that is gone by re-annotation
+    # time; paths under it are inside the containment regardless of which
+    # workspace path this audit was handed. The run id embeds the task id.
+    perimeter = re.compile(rf"/vulcanbench-{re.escape(task_id)}-[^/]+(?:/|$)") if task_id else None
     outside: set[str] = set()
     benchmark: set[str] = set()
     answer_key: set[str] = set()
@@ -198,10 +214,12 @@ def audit_filesystem(
     if stream_path.exists():
         with stream_path.open(encoding="utf-8", errors="replace") as f:
             for line in f:
-                if '"path"' not in line and '"command"' not in line:
+                if '"path"' not in line and '"command"' not in line and '"target_' not in line:
                     continue
                 for raw in _candidate_paths(line):
                     if ws and (raw == ws or raw.startswith(ws + "/")):
+                        continue
+                    if perimeter and perimeter.search(raw):
                         continue
                     outside.add(raw)
                     in_tasks = "/tasks/" in raw

@@ -330,8 +330,15 @@ def run_agent(
             # fetched its own solution is flagged, never silently counted.
             **(
                 {
+                    # The audit boundary is the containment perimeter
+                    # VulcanBench created (the empty tmp root holding
+                    # workspace/), not the inner dir: agents that discover
+                    # their project root list the parent, and flagging our
+                    # own perimeter as out_of_workspace buries real signals.
                     "integrity_audit": audit_run(
-                        run_dir / "cli-agent-stream.jsonl", task.metadata, workspace
+                        run_dir / "cli-agent-stream.jsonl",
+                        task.metadata,
+                        agent_tmp_root or workspace,
                     )
                 }
                 if cli_outcome
@@ -1108,7 +1115,9 @@ def _verify(
 
 
 # .cursor/ holds the harness-written web-deny permissions file, not agent work.
-_WORKSPACE_GITIGNORE = ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n"
+_WORKSPACE_GITIGNORE = (
+    ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n.grok/\n"
+)
 
 
 def _resolve_workspace(

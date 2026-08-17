@@ -101,6 +101,19 @@ _CURSOR_EFFORT_VALUES = {
     "high": "high",
 }
 
+# Grok Build CLI. The knob is --reasoning-effort (none/minimal/low/medium/
+# high/xhigh); the adapter never uses the CLI's --effort flag, which parses
+# but is silently ignored for reasoning (verified on grok 0.2.69: a session
+# run with `--effort low` records reasoning_effort=high, the default).
+# "none" is outside VulcanBench's vocabulary; "max" does not exist here.
+_GROK_BUILD_EFFORT_VALUES = {
+    "minimal": "minimal",
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "extra-high": "xhigh",
+}
+
 _PROVIDER_EFFORT_MAPS = {
     "kimi": _KIMI_EFFORT_VALUES,
     "deepseek": _DEEPSEEK_EFFORT_VALUES,
@@ -108,6 +121,7 @@ _PROVIDER_EFFORT_MAPS = {
     "meta": _META_EFFORT_VALUES,
     "xai": _XAI_EFFORT_VALUES,
     "cursor": _CURSOR_EFFORT_VALUES,
+    "grok-build": _GROK_BUILD_EFFORT_VALUES,
 }
 
 

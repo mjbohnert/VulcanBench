@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Grok Build harness (`--harness grok-build`).** Runs tasks through xAI's
+  `grok` CLI billed to a grok.com subscription, under a custom kernel
+  sandbox profile (Seatbelt/Landlock): workspace writes plus a kernel deny
+  on this checkout, so answer keys are unreadable even when the agent knows
+  the path, while toolchains stay usable. Web tools are removed outright via
+  `--disallowed-tools`, and `--no-memory` keeps repeats from remembering
+  each other. `_subscription_env` now scrubs repo-rooted PATH entries for
+  every harness (a live run extracted the repo path from `.venv/bin` and ran
+  `find` over it; the kernel denied the read, and now the path never leaks). Two alpha-CLI traps are documented and coded around:
+  the CLI's `--effort` flag parses but is silently ignored for reasoning
+  (the adapter sends `--reasoning-effort`, and copies the session summary's
+  `reasoning_effort` back into the outcome as `reported_effort` as proof),
+  and the live stream carries no tool calls or usage — the adapter
+  pre-assigns the session id and harvests the session trace
+  (`updates.jsonl`, `summary.json`, `events.jsonl`) into the run dir so the
+  integrity audit has a substrate. The trace's cumulative `totalTokens` is
+  recorded as `cli_total_tokens` (no prompt/completion split, so economics
+  stays unavailable). Preflight fails closed when signed out or when
+  `XAI_API_KEY` is set. The audit now also recognizes Grok's snake_case web
+  tool titles and `target_file`/`target_directory` path arguments.
+
 - **Workspace containment and a filesystem integrity audit.** Blocking the web
   fixed only one leak. CLI harnesses execute on the host, so a workspace inside
   this checkout let an agent walk up into `tasks/` and read `gold_patch.diff`

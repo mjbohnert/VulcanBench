@@ -32,6 +32,7 @@ import re
 import shutil
 import subprocess
 import threading
+import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,7 +48,7 @@ from harness.agent.providers import (
 from harness.pricing import cost_usd
 from harness.redaction import sanitize
 
-CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex", "cursor"})
+CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex", "cursor", "grok-build"})
 
 # Claude Code's headless result text when a subscription window is exhausted
 # (e.g. "Claude AI usage limit reached|...", "5-hour limit reached ∙ resets 3am").
@@ -68,6 +69,7 @@ _SAFE_ENV_KEYS = frozenset(
         "XDG_DATA_HOME",
         "CODEX_HOME",
         "CLAUDE_CONFIG_DIR",
+        "GROK_HOME",
     }
 )
 
@@ -207,6 +209,15 @@ def _subscription_env(extra: dict[str, str] | None = None) -> dict[str, str]:
         for key, value in os.environ.items()
         if key in _SAFE_ENV_KEYS or key.startswith("LC_")
     }
+    # PATH leaks this checkout's location (.venv/bin sits under the repo), and
+    # a live grok run was observed extracting the prefix and running
+    # `find <repo> -name cargo` over it. Scrub repo-rooted entries: the CLIs
+    # find their own binaries through the remaining entries.
+    repo_root = str(Path(__file__).resolve().parents[2])
+    if "PATH" in env:
+        env["PATH"] = os.pathsep.join(
+            p for p in env["PATH"].split(os.pathsep) if p and not p.startswith(repo_root)
+        )
     env["DISABLE_AUTOUPDATER"] = "1"
     if extra:
         env.update(extra)
@@ -617,6 +628,367 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     return outcome
 
 
+def _grok_build_preflight(grok_bin: str = "grok") -> HarnessPreflight:
+    version = _version(grok_bin)
+    if version is None:
+        return HarnessPreflight(
+            harness="grok-build",
+            available=False,
+            version=None,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"{grok_bin!r} not found on PATH",
+        )
+    if os.environ.get("XAI_API_KEY"):
+        # API-key auth bills metered console.x.ai usage, not the Grok plan;
+        # fail closed exactly like CURSOR_API_KEY on the Cursor adapter.
+        return HarnessPreflight(
+            harness="grok-build",
+            available=True,
+            version=version,
+            authenticated=True,
+            auth_mode="api-key",
+            detail="XAI_API_KEY is set; unset it to bill the Grok subscription",
+        )
+    try:
+        proc = subprocess.run(
+            [grok_bin, "models"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=_subscription_env(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return HarnessPreflight(
+            harness="grok-build",
+            available=True,
+            version=version,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"`{grok_bin} models` failed: {exc}",
+        )
+    status_text = (proc.stdout or "") + (proc.stderr or "")
+    if re.search(r"not authenticated|not logged in", status_text, re.I):
+        return HarnessPreflight(
+            harness="grok-build",
+            available=True,
+            version=version,
+            authenticated=False,
+            auth_mode=None,
+            detail=f"signed out; run `{grok_bin} login`",
+        )
+    login_match = re.search(r"logged in with\s+(\S+)", status_text, re.I)
+    return HarnessPreflight(
+        harness="grok-build",
+        available=True,
+        version=version,
+        authenticated=True,
+        auth_mode="subscription",
+        plan_name=login_match.group(1).strip().rstrip(".") if login_match else None,
+    )
+
+
+# Tools Grok Build must not have on a decontaminated suite. Removal via
+# --disallowed-tools is airtight (the model cannot call a tool that does not
+# exist), at the cost of the "refused attempts" telemetry the Cursor study
+# had — a deliberate trade after Harness Study No. 01 showed how fussy
+# permission-layer denies are. --deny WebFetch rides along as a second layer.
+_GROK_WEB_TOOLS = "web_search,web_fetch"
+
+
+def _grok_session_dir(session_id: str) -> Path | None:
+    """Locate ``~/.grok/sessions/**/<session_id>`` for the trace artifacts."""
+    home = Path(os.environ.get("GROK_HOME") or Path.home() / ".grok")
+    root = home / "sessions"
+    if not root.is_dir():
+        return None
+    for candidate in root.rglob(session_id):
+        if candidate.is_dir() and (candidate / "summary.json").exists():
+            return candidate
+    return None
+
+
+def _harvest_grok_trace(  # noqa: PLR0912 — linear artifact-copy + fold loop
+    session_dir: Path,
+    run_dir: Path,
+    stream_f: Any,
+    outcome: CliAgentOutcome,
+) -> None:
+    """Copy session artifacts into the run dir and fold them into the stream.
+
+    Grok's live streaming-json is text/thought/end only; every tool call
+    (with ``toolCallId`` and ``rawInput`` — the audit substrate) lives in the
+    session's ``updates.jsonl``. Appending those records to the stream log is
+    what lets ``run_audit`` see grok runs at all.
+    """
+    dest = run_dir / "grok-session"
+    dest.mkdir(exist_ok=True)
+    max_tokens = 0
+    for name in ("summary.json", "updates.jsonl", "events.jsonl"):
+        src = session_dir / name
+        if not src.exists():
+            continue
+        shutil.copy2(src, dest / name)
+    updates = session_dir / "updates.jsonl"
+    if updates.exists() and stream_f is not None:
+        with updates.open(encoding="utf-8", errors="replace") as f:
+            for raw_line in f:
+                stripped = raw_line.strip()
+                if not stripped:
+                    continue
+                try:
+                    record = json.loads(stripped)
+                except json.JSONDecodeError:
+                    continue
+                meta = (record.get("params") or {}).get("_meta") or {}
+                total = meta.get("totalTokens")
+                if isinstance(total, int):
+                    max_tokens = max(max_tokens, total)
+                json.dump(sanitize(record), stream_f)
+                stream_f.write("\n")
+    if max_tokens:
+        outcome.cli_total_tokens = max_tokens
+    summary_path = session_dir / "summary.json"
+    if summary_path.exists():
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        reported = summary.get("current_model_id")
+        if reported:
+            outcome.reported_model = str(reported)
+            outcome.model_identity_confidence = "cli-reported"
+        if summary.get("reasoning_effort"):
+            outcome.reported_effort = str(summary["reasoning_effort"])
+        if summary.get("sandbox_profile"):
+            outcome.sandbox_profile = str(summary["sandbox_profile"])
+
+
+def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
+    *,
+    workspace: Path,
+    prompt: str,
+    model: str,
+    priced_spec: str,
+    max_turns: int,
+    collector: _Collector,
+    stream_log_path: Path | None = None,
+    timeout_s: float | None = None,
+    network: bool = False,
+    max_run_cost: float | None = None,
+    effort: str | None = None,
+    grok_bin: str = "grok",
+    env_overrides: dict[str, str] | None = None,
+    preflight: HarnessPreflight | None = None,
+) -> CliAgentOutcome:
+    """Run one task through ``grok -p`` billed to the Grok subscription.
+
+    Verified against grok 0.2.69 (alpha), where the flag surface has one trap:
+    ``--effort`` parses and is silently IGNORED for reasoning (the session
+    keeps the default "high"); ``--reasoning-effort`` is the flag that
+    actually moves the knob (accepted: none/minimal/low/medium/high/xhigh —
+    confirmed by reading back ``reasoning_effort`` from the session summary).
+    The live stream carries no tool calls or usage; both are harvested
+    post-run from the session's trace files, which is why the session id is
+    chosen up front with ``-s`` (a timeout must still find its trace).
+
+    ``--sandbox strict`` is Seatbelt/Landlock-enforced: reads outside the
+    workspace are kernel-denied, which contains the filesystem channel harder
+    than Cursor's sandbox did. On macOS the sandbox does NOT block child
+    network (curl in a shell still works); web tools are removed instead and
+    the audit remains the check on the rest.
+    """
+    del priced_spec
+    workspace = workspace.resolve()
+    if timeout_s is not None and timeout_s <= 0:
+        raise ProviderError("run budget exhausted before CLI agent start")
+    if max_run_cost is not None:
+        raise ProviderError(
+            "grok reports no priced usage stream, so --max-run-cost cannot be "
+            "enforced; use a wall-clock --timeout for subscription runs"
+        )
+
+    checked = preflight or _grok_build_preflight(grok_bin)
+    _require_subscription(checked)
+
+    session_id = str(uuid.uuid4())
+    # Custom kernel sandbox: toolchain parity with other harnesses (read
+    # everywhere, write CWD — `strict` also denied ~/.cargo and homebrew,
+    # crippling non-Python tasks), plus a kernel deny on this checkout so the
+    # answer keys are unreadable even if the agent learns the repo path.
+    # Grok fails closed if the profile cannot be applied.
+    repo_root = str(Path(__file__).resolve().parents[2])
+    grok_dir = workspace / ".grok"
+    grok_dir.mkdir(exist_ok=True)
+    (grok_dir / "sandbox.toml").write_text(
+        f'[profiles.vulcanbench]\nextends = "workspace"\ndeny = ["{repo_root}"]\n',
+        encoding="utf-8",
+    )
+    cmd = [
+        grok_bin,
+        "-p",
+        prompt,
+        "--cwd",
+        str(workspace),
+        "--output-format",
+        "streaming-json",
+        "--yolo",
+        "--no-auto-update",
+        # Cross-session memory would let run N+1 remember run N's task —
+        # repeat-to-repeat contamination inside one sweep.
+        "--no-memory",
+        "--sandbox",
+        "vulcanbench",
+        "--session-id",
+        session_id,
+        "-m",
+        model,
+        "--max-turns",
+        str(max_turns),
+    ]
+    if effort:
+        # NOT --effort; see docstring.
+        cmd += ["--reasoning-effort", effort]
+    if not network:
+        cmd += ["--disallowed-tools", _GROK_WEB_TOOLS, "--deny", "WebFetch"]
+
+    collector.record(
+        "cli_agent_start",
+        {
+            "harness": "grok-build",
+            "argv": [cmd[0], "-p", "<prompt omitted>", *cmd[3:]],
+            "harness_version": checked.version,
+        },
+    )
+    env = _subscription_env(env_overrides)
+    env["GROK_DISABLE_AUTOUPDATER"] = "1"
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=workspace,
+            env=env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as exc:
+        raise ProviderError(
+            f"{grok_bin!r} not found on PATH; install Grok Build and run `{grok_bin} login`"
+        ) from exc
+
+    stderr_chunks: list[str] = []
+
+    def _drain_stderr() -> None:
+        assert proc.stderr is not None
+        for chunk in proc.stderr:
+            stderr_chunks.append(chunk)
+
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    stderr_thread.start()
+
+    outcome = CliAgentOutcome(
+        harness="grok-build",
+        execution_boundary=(
+            "host-workspace; grok-sandbox=vulcanbench "
+            "(workspace-writes + kernel-denied repo reads); "
+            + ("web-allowed" if network else "web-tools-removed")
+        ),
+        requested_model=model,
+        harness_version=checked.version,
+        auth_method=checked.auth_mode,
+        plan_name=checked.plan_name,
+        session_id=session_id,
+    )
+    killed = {"timeout": False}
+
+    def _kill_on_timeout() -> None:
+        killed["timeout"] = True
+        proc.kill()
+
+    watchdog: threading.Timer | None = None
+    if timeout_s is not None:
+        watchdog = threading.Timer(timeout_s, _kill_on_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+
+    end_msg: dict[str, Any] | None = None
+    error_msg: str | None = None
+    text_parts: list[str] = []
+    thought_chars = 0
+    stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
+    try:
+        assert proc.stdout is not None
+        for raw_line in proc.stdout:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            etype = event.get("type")
+            # text/thought chunks are word-level; logging each would bloat the
+            # stream log ~100x for no audit value (tool calls arrive later
+            # from the trace). Aggregate them and log everything else.
+            if etype == "text":
+                text_parts.append(str(event.get("data") or ""))
+                continue
+            if etype == "thought":
+                thought_chars += len(str(event.get("data") or ""))
+                continue
+            if stream_f:
+                json.dump(sanitize(event), stream_f)
+                stream_f.write("\n")
+            if etype == "end":
+                end_msg = event
+            elif etype == "error":
+                error_msg = str(event.get("message") or "")
+            elif etype == "max_turns_reached":
+                outcome.subtype = "max_turns"
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        proc.wait()
+        stderr_thread.join(timeout=5)
+        if text_parts or thought_chars:
+            collector.record(
+                "llm_response",
+                {
+                    "text": "".join(text_parts)[:4000],
+                    "thought_chars": thought_chars,
+                },
+            )
+        session_dir = _grok_session_dir(session_id)
+        if session_dir is not None and stream_log_path is not None:
+            run_dir = stream_log_path.parent
+            _harvest_grok_trace(session_dir, run_dir, stream_f, outcome)
+        if stream_f:
+            stream_f.close()
+
+    outcome.timed_out = killed["timeout"]
+
+    if end_msg is None:
+        if killed["timeout"]:
+            # Partial work still counts; the caller diffs and verifies it.
+            return outcome
+        tail = (error_msg or "").strip() or "".join(stderr_chunks)[-500:].strip() or "no stderr"
+        if _LIMIT_PATTERN.search(tail):
+            raise SubscriptionQuotaError(
+                "grok usage limit hit — rerun after the window resets "
+                f"(use --only-missing to resume): {tail[:300]}"
+            )
+        raise ProviderError(f"grok exited without an end event (exit {proc.returncode}): {tail}")
+
+    outcome.subtype = outcome.subtype or str(end_msg.get("stopReason") or "")
+    outcome.session_id = end_msg.get("sessionId") or outcome.session_id
+    outcome.finished = True
+    collector.record("cli_agent_result", outcome.summary())
+    return outcome
+
+
 def _require_subscription(preflight: HarnessPreflight) -> None:
     if preflight.ready:
         return
@@ -649,6 +1021,12 @@ class CliAgentOutcome:
     subtype: str | None = None
     num_turns: int | None = None
     cli_reported_cost_usd: float | None = None
+    # Cumulative context+output total when a CLI reports only that (Grok
+    # Build's trace `_meta.totalTokens`); no prompt/completion split exists,
+    # so it never feeds pricing — it is provenance, not a bill.
+    cli_total_tokens: int | None = None
+    reported_effort: str | None = None
+    sandbox_profile: str | None = None
 
     def summary(self) -> dict[str, Any]:
         """Provenance block persisted into the run summary."""
@@ -669,6 +1047,9 @@ class CliAgentOutcome:
             "cached_input_tokens": self.cached_input_tokens,
             "reasoning_output_tokens": self.reasoning_output_tokens,
             "cli_reported_cost_usd": self.cli_reported_cost_usd,
+            "cli_total_tokens": self.cli_total_tokens,
+            "reported_effort": self.reported_effort,
+            "sandbox_profile": self.sandbox_profile,
         }
 
 
@@ -1180,10 +1561,37 @@ class CursorAdapter:
         return run_cursor_task(**kwargs)
 
 
+@dataclass(frozen=True)
+class GrokBuildAdapter:
+    harness_id: str = "grok-build"
+
+    def capabilities(self) -> HarnessCapabilities:
+        return HarnessCapabilities(
+            harness=self.harness_id,
+            display_name="Grok Build",
+            executable="grok",
+            structured_events=True,
+            # The trace reports a cumulative totalTokens with no
+            # prompt/completion split, so priced token accounting is off.
+            reports_tokens=False,
+            reports_model=True,
+            supports_effort=True,
+            supports_live_cost_cap=False,
+            sandbox="grok-sandbox=strict (Seatbelt/Landlock)",
+        )
+
+    def preflight(self) -> HarnessPreflight:
+        return _grok_build_preflight()
+
+    def run_task(self, **kwargs: Any) -> CliAgentOutcome:
+        return run_grok_build_task(**kwargs)
+
+
 _CLI_AGENT_ADAPTERS: dict[str, CliAgentAdapter] = {
     "claude-code": ClaudeCodeAdapter(),
     "codex": CodexAdapter(),
     "cursor": CursorAdapter(),
+    "grok-build": GrokBuildAdapter(),
 }
 
 
