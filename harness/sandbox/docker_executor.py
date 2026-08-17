@@ -102,6 +102,13 @@ class DockerToolExecutor(ToolProtocol):
                 f"could not connect to the Docker daemon ({e}). Is Docker running?"
             ) from e
 
+        # Run the container as the host UID/GID so files written to the bind mount
+        # stay owned by the host user — POSIX only. On Windows os.getuid is absent
+        # and Docker Desktop maps bind-mount ownership itself, so we omit --user.
+        run_kwargs: dict[str, Any] = {}
+        if hasattr(os, "getuid"):
+            run_kwargs["user"] = f"{os.getuid()}:{os.getgid()}"
+
         try:
             self._container = self._client.containers.run(
                 image,
@@ -114,11 +121,11 @@ class DockerToolExecutor(ToolProtocol):
                 mem_limit=mem_limit,
                 nano_cpus=int(cpus * 1_000_000_000),
                 pids_limit=pids_limit,
-                user=f"{os.getuid()}:{os.getgid()}",
                 security_opt=["no-new-privileges"],
                 cap_drop=["ALL"],
                 tty=False,
                 auto_remove=False,
+                **run_kwargs,
             )
         except Exception as e:
             raise SandboxError(f"failed to start sandbox container from {image!r}: {e}") from e
