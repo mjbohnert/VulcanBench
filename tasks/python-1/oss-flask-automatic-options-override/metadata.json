@@ -1,0 +1,50 @@
+{
+  "id": "oss-flask-automatic-options-override",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "web-async",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "d3b78fd18a8d9e224cb9ef58a23cec9b1ffc9ce9",
+  "image": "vulcanbench/sandbox:flask-5928",
+  "upstream": {
+    "url": "https://github.com/pallets/flask/pull/5917",
+    "issue": "https://github.com/pallets/flask/pull/5917",
+    "commit": "d3b78fd18a8d9e224cb9ef58a23cec9b1ffc9ce9"
+  },
+  "decontamination_notes": "Real fix from pallets/flask PR #5917, merged 2026-02-12, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit d3b78fd (src/flask + pyproject.toml + BSD LICENSE). Runs in the shared per-task image vulcanbench/sandbox:flask-5928 (flask runtime deps preinstalled, flask itself removed; flask imported from the workspace via PYTHONPATH=src). The bug: when a view force-enables provide_automatic_options (via a view attribute or add_url_rule argument) while OPTIONS is not in its methods, the automatic OPTIONS handler was not installed. Hidden tests drive the public Flask test client and assert HTTP status / Allow header; never internal rule state. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "force_enable_via_view_attribute",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_force_enable_via_view_attribute -q"
+      },
+      {
+        "name": "force_enable_via_argument",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_force_enable_via_add_url_rule_argument -q"
+      },
+      {
+        "name": "forced_options_reports_allowed_methods",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_forced_options_reports_allowed_methods -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "default_route_gets_automatic_options",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_default_route_gets_automatic_options -q"
+      },
+      {
+        "name": "force_disable_blocks_automatic_options",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_force_disable_blocks_automatic_options -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

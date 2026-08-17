@@ -1,0 +1,128 @@
+diff --git a/src/anyio/__init__.py b/src/anyio/__init__.py
+index 2502c760b..a7a6a97a1 100644
+--- a/src/anyio/__init__.py
++++ b/src/anyio/__init__.py
+@@ -74,7 +74,9 @@
+ from ._core._tasks import create_task_group as create_task_group
+ from ._core._tasks import current_effective_deadline as current_effective_deadline
+ from ._core._tasks import fail_after as fail_after
++from ._core._tasks import fail_at as fail_at
+ from ._core._tasks import move_on_after as move_on_after
++from ._core._tasks import move_on_at as move_on_at
+ from ._core._tempfile import NamedTemporaryFile as NamedTemporaryFile
+ from ._core._tempfile import SpooledTemporaryFile as SpooledTemporaryFile
+ from ._core._tempfile import TemporaryDirectory as TemporaryDirectory
+diff --git a/src/anyio/_core/_tasks.py b/src/anyio/_core/_tasks.py
+index ced54b2e2..c9f22dc3f 100644
+--- a/src/anyio/_core/_tasks.py
++++ b/src/anyio/_core/_tasks.py
+@@ -6,9 +6,7 @@
+     Coroutine,
+     Generator,
+ )
+-from contextlib import (
+-    contextmanager,
+-)
++from contextlib import AbstractContextManager, contextmanager
+ from enum import Enum, auto
+ from inspect import iscoroutine
+ from types import TracebackType
+@@ -127,14 +125,14 @@ def __exit__(
+ 
+ 
+ @contextmanager
+-def fail_after(
+-    delay: float | None, shield: bool = False
++def fail_at(
++    deadline: float | None, shield: bool = False
+ ) -> Generator[CancelScope, None, None]:
+     """
+-    Create a context manager which raises a :class:`TimeoutError` if does not finish in
+-    time.
++    Create a context manager which raises a :class:`TimeoutError` if the code in the
++    enclosing context does not finish by the given deadline.
+ 
+-    :param delay: maximum allowed time (in seconds) before raising the exception, or
++    :param deadline: the deadline before raising the exception, or
+         ``None`` to disable the timeout
+     :param shield: ``True`` to shield the cancel scope from external cancellation
+     :return: a context manager that yields a cancel scope
+@@ -142,11 +140,13 @@ def fail_after(
+     :raises NoEventLoopError: if no supported asynchronous event loop is running in the
+         current thread
+ 
++    .. versionadded:: 4.15.0
++
+     """
+     current_time = get_async_backend().current_time
+-    deadline = (current_time() + delay) if delay is not None else math.inf
++    effective_deadline = math.inf if deadline is None else deadline
+     with get_async_backend().create_cancel_scope(
+-        deadline=deadline, shield=shield
++        deadline=effective_deadline, shield=shield
+     ) as cancel_scope:
+         yield cancel_scope
+ 
+@@ -154,7 +154,51 @@ def fail_after(
+         raise TimeoutError
+ 
+ 
+-def move_on_after(delay: float | None, shield: bool = False) -> CancelScope:
++@contextmanager
++def fail_after(
++    delay: float | None, shield: bool = False
++) -> Generator[CancelScope, None, None]:
++    """
++    Create a context manager which raises a :class:`TimeoutError` if the code in the
++    enclosing context block does not finish in time.
++
++    :param delay: maximum allowed time (in seconds) before raising the exception, or
++        ``None`` to disable the timeout
++    :param shield: ``True`` to shield the cancel scope from external cancellation
++    :return: a context manager that yields a cancel scope
++    :rtype: :class:`~typing.ContextManager`\\[:class:`~anyio.CancelScope`\\]
++    :raises NoEventLoopError: if no supported asynchronous event loop is running in the
++        current thread
++
++    """
++    current_time = get_async_backend().current_time
++    deadline = (current_time() + delay) if delay is not None else math.inf
++    with fail_at(deadline, shield=shield) as scope:
++        yield scope
++
++
++def move_on_at(deadline: float | None, shield: bool = False) -> CancelScope:
++    """
++    Create a cancel scope with a deadline that expires after the given delay.
++
++    :param deadline: the deadline before exiting the context block, or
++        ``None`` to disable the timeout
++    :param shield: ``True`` to shield the cancel scope from external cancellation
++    :return: a cancel scope
++    :raises NoEventLoopError: if no supported asynchronous event loop is running in the
++        current thread
++
++    .. versionadded:: 4.15.0
++
++    """
++    return get_async_backend().create_cancel_scope(
++        deadline=deadline if deadline is not None else math.inf, shield=shield
++    )
++
++
++def move_on_after(
++    delay: float | None, shield: bool = False
++) -> AbstractContextManager[CancelScope]:
+     """
+     Create a cancel scope with a deadline that expires after the given delay.
+ 
+@@ -165,6 +209,9 @@ def move_on_after(delay: float | None, shield: bool = False) -> CancelScope:
+     :raises NoEventLoopError: if no supported asynchronous event loop is running in the
+         current thread
+ 
++    .. note:: Unlike with :func:`fail_after`, the timer starts when this function is
++        called, not when the context manager is entered. This will be changed in v5.0.
++
+     """
+     deadline = (
+         (get_async_backend().current_time() + delay) if delay is not None else math.inf

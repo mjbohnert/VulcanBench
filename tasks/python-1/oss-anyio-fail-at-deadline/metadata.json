@@ -1,0 +1,50 @@
+{
+  "id": "oss-anyio-fail-at-deadline",
+  "category": "feature",
+  "languages": [
+    "python"
+  ],
+  "domain": "concurrency",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "c384f99687c64c59ed8a11c3a0f11a2d57daff71",
+  "image": "vulcanbench/sandbox:anyio-1191",
+  "upstream": {
+    "url": "https://github.com/agronholm/anyio/pull/1228",
+    "issue": "https://github.com/agronholm/anyio/pull/1228",
+    "commit": "c384f99687c64c59ed8a11c3a0f11a2d57daff71"
+  },
+  "decontamination_notes": "Real feature from agronholm/anyio PR #1228, merged 2026-07-20, after model training cutoffs, so the specific implementation is novel. Repo sliced at the PR's base commit c384f99 (src/anyio + pyproject.toml + MIT LICENSE). Runs in the shared per-task image vulcanbench/sandbox:anyio-1191 (anyio's runtime deps preinstalled, anyio imported from the workspace via PYTHONPATH=src). Adds absolute-deadline timeout helpers fail_at() and move_on_at() alongside the existing delay-based fail_after()/move_on_after(). Hidden tests drive the public anyio API under anyio.run and assert observable timeout/cancel behavior; deadlines use anyio.current_time() with generous margins. Tests run with -c /dev/null so the repo's own pytest config/plugins are ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "fail_at_raises_when_deadline_passes",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_fail_at_raises_timeout_when_deadline_passes -q"
+      },
+      {
+        "name": "fail_at_completes_when_far",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_fail_at_completes_when_deadline_is_far -q"
+      },
+      {
+        "name": "move_on_at_cancels",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_move_on_at_cancels_at_deadline_without_raising -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "fail_after_still_raises",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_fail_after_still_raises_timeout -q"
+      },
+      {
+        "name": "move_on_after_still_cancels",
+        "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_move_on_after_still_cancels -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

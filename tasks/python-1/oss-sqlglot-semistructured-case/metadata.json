@@ -1,0 +1,49 @@
+{
+  "id": "oss-sqlglot-semistructured-case",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "data-orm",
+  "difficulty": "hard",
+  "task_complexity": "system",
+  "created": "2026-08-17",
+  "repo_scale": "large",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "16cd8d7f08dac7e1de8cc1f1fa2029203ea0b9a1",
+  "upstream": {
+    "url": "https://github.com/tobymao/sqlglot/pull/8161",
+    "issue": "https://github.com/tobymao/sqlglot/pull/8161",
+    "commit": "e0a32853331fde1648f6b88376ad6e1367da7e33"
+  },
+  "decontamination_notes": "Real fix from tobymao/sqlglot PR #8161, merged 2026-08-14, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 16cd8d7 (sqlglot package + MIT LICENSE + setup.py); dependency-free, runs on the base sandbox image with PYTHONPATH=.. The bug: the optimizer normalized (lower-cased) field names in semi-structured dot access (MAP/VARIANT/JSON), which is a case-sensitive data lookup, the same way it normalizes STRUCT field identifiers. Hidden tests assert the public qualify+annotate_types output SQL string for MAP/VARIANT (must preserve case) vs STRUCT (still normalized), lifted from the upstream test. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "map_dot_access_preserves_case",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_map_dot_access_preserves_case -q"
+      },
+      {
+        "name": "variant_dot_access_preserves_case",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_variant_dot_access_preserves_case -q"
+      },
+      {
+        "name": "qualified_root_map_access_preserves_case",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_qualified_root_map_access_preserves_case -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "struct_field_still_normalized",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_struct_field_is_still_normalized -q"
+      },
+      {
+        "name": "json_nested_access_unchanged",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_json_nested_access_case_unchanged -q"
+      }
+    ]
+  },
+  "test_timeout_s": 180
+}
