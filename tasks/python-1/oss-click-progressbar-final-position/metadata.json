@@ -1,0 +1,32 @@
+{
+  "id": "oss-click-progressbar-final-position",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "domain": "cli-tooling",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "8b44edfff7d9a6c895fa804148c16b3a0bc9efb5",
+  "upstream": {
+    "url": "https://github.com/pallets/click/pull/3769",
+    "issue": "https://github.com/pallets/click/pull/3769",
+    "commit": "8b44edfff7d9a6c895fa804148c16b3a0bc9efb5"
+  },
+  "decontamination_notes": "Real fix from pallets/click PR #3769, merged 2026-08-15, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 8b44edf (src/click + pyproject.toml + BSD LICENSE). click is dependency-free with lazy version import, so tests run on the base sandbox image with PYTHONPATH=src. The bug: when update_min_steps did not evenly divide (or exceeded) the work, the progress bar froze below completion, leaving the trailing remainder unrendered (e.g. 14/20 for length 20, threshold 7). Hidden tests assert the rendered output of the public click.progressbar reaches the final position; never internal render state. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "final_position_indivisible_threshold", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_lands_on_final_position_threshold_indivisible -q"},
+      {"name": "final_position_threshold_exceeds_length", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_lands_on_final_position_threshold_exceeds_length -q"},
+      {"name": "final_position_driven_by_update", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_lands_on_final_position_when_driven_by_update -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "threshold_one_completes", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_threshold_one_completes -q"},
+      {"name": "threshold_two_completes", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_threshold_two_completes -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}
