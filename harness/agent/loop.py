@@ -1114,9 +1114,15 @@ def _verify(
     return functional, payload
 
 
-# .cursor/ holds the harness-written web-deny permissions file, not agent work.
+# .cursor/ and .grok/ hold harness-written config, not agent work. The build
+# dirs matter beyond patch noise: node_modules/.cache/nyc/*.js and similar
+# generated files carry scored extensions, so an un-ignored build dir doesn't
+# just bloat final.patch -- group_by_language() picks them up and quality/
+# security analyzers score them as if they were the agent's real changes
+# (observed live: nyc cache JS files scored on oss-hono-client-header-merge).
 _WORKSPACE_GITIGNORE = (
     ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n.grok/\n"
+    "target/\nnode_modules/\ndist/\nbuild/\n.gocache/\n.nyc_output/\n*.egg-info/\n"
 )
 
 
