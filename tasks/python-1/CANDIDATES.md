@@ -105,9 +105,37 @@ Full raw harvest JSON: scratchpad `mine_all.json` (119 rows, all domains).
 
 ---
 
-## Measurement log (repeat ≥ 3, frontier panel)
+## Measurement log
 
-Panel: Opus 5, GPT-5.6 Sol, Grok 4.5, + frugal ref (Haiku 4.5 / Kimi K3).
+### Tier 1 — grok-4.5 low, repeat 1 (2026-08-17) — run suite-d28de6fb
+
+**Aggregate: pass@1 = 0.870 ± 0.072, 20/23 solved, $2.74** (`functional` = fraction
+of fail_to_pass passing; a "fail" below is a partial, not 0).
+
+Only 3 tasks resist grok-4.5-low (the provisional tail):
+| task | functional | note |
+|---|---|---|
+| oss-pennylane-trotter-fragmented | **0.20** | genuine ceiling (0-for-all in v3 too) |
+| oss-click-param-named-help | 0.67 | partial — 2/3 fail_to_pass |
+| oss-networkx-leiden-communities | 0.83 | near-miss — 1 test short |
+
+The other 20 scored 1.0. ⚠️ **Notable:** grok-4.5-low **solved
+oss-sqlglot-canonicalize-internal-names** (1.0) — a task that was **0-for-27 across
+every model/effort in v3**. Either real model progression (good — that's
+discrimination) or the task eased; it re-validates clean, so treat as progression.
+It is **no longer a ceiling** for the current frontier.
+
+**Read:** the *tail* is intact (pennylane still hard) but the suite skews **easy for
+a strong model at low effort** — 20/23 swept. This is a floor-thickness question, not
+a tail question. Next moves, in order:
+1. **Cheaper/weaker model** (e.g. a small/nano or Haiku 4.5) at low, r1 — this is the
+   real floor test. grok-4.5 is *capable*, so "grok solves it" ≠ "trivial"; a weaker
+   model separates true floor (cut candidates) from genuine mid.
+2. **Repeat the 3 partials** (r3) to see if 0.67/0.83 firm up or were one-run noise —
+   pennylane's 0.20 is the only robust tail so far.
+3. Only then the frontier bracket (Tier 2) on whatever remains ambiguous.
+
+### Frontier panel log (repeat ≥ 3) — pending
 
 | task | Opus5 p@1 (n) | Sol p@1 (n) | Grok p@1 (n) | ref p@1 (n) | median | band | admit? |
 |---|---|---|---|---|---|---|---|

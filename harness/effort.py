@@ -55,10 +55,21 @@ _QWEN_EFFORT_VALUES = {
     "extra-high": "xhigh",
 }
 
+# xAI Grok `reasoning_effort` (OpenAI-compatible Chat Completions). The Grok
+# reasoning models accept low/medium/high, which the v3 leaderboard exercised as
+# three distinct run levels. `extra-high` has no distinct Grok level, so it is
+# absent and falls back to recorded-but-not-sent.
+_XAI_EFFORT_VALUES = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+}
+
 _PROVIDER_EFFORT_MAPS = {
     "kimi": _KIMI_EFFORT_VALUES,
     "deepseek": _DEEPSEEK_EFFORT_VALUES,
     "qwen": _QWEN_EFFORT_VALUES,
+    "xai": _XAI_EFFORT_VALUES,
 }
 
 

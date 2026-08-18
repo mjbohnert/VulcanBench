@@ -28,7 +28,7 @@ already passes it. This is the correctness gate; it costs nothing.
 Run the whole suite once on the **cheapest capable** model at one effort:
 
 ```bash
-vulcanbench run --suite python-1 --model openai:grok-4.5 --effort low --no-judges \
+vulcanbench run --suite python-1 --model xai:grok-4.5 --effort low --no-judges \
   --max-concurrency 4 --max-cost 10
 ```
 
@@ -89,7 +89,7 @@ You don't need to re-establish that variance on all 23 forever:
 ## A concrete first move (~$5, tonight)
 
 ```bash
-vulcanbench run --suite python-1 --model openai:grok-4.5 --effort low \
+vulcanbench run --suite python-1 --model xai:grok-4.5 --effort low \
   --no-judges --max-concurrency 4 --max-cost 8
 ```
 

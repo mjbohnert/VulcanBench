@@ -743,6 +743,55 @@ class DeepSeekProvider(LLMProvider):
         )
 
 
+class XaiProvider(LLMProvider):
+    """xAI (Grok) OpenAI-compatible Chat Completions API.
+
+    Uses ``/chat/completions`` on ``https://api.x.ai/v1`` (override with
+    ``XAI_BASE_URL``) and reads ``XAI_API_KEY``. ``effort`` maps straight to the
+    API's ``reasoning_effort`` field; the Grok reasoning models accept
+    low/medium/high, so all three run levels pass through unchanged. Grok's
+    thinking can run long, so it gets a roomier per-request ceiling.
+    """
+
+    MAX_REQUEST_TIMEOUT_S = 900.0
+
+    @property
+    def name(self) -> str:
+        return "xai"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout, effort)
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+        effort: str | None,
+    ) -> LLMResponse:
+        api_key = os.environ.get("XAI_API_KEY")
+        if not api_key:
+            raise ProviderError("XAI_API_KEY is not set")
+        base = os.environ.get("XAI_BASE_URL", "https://api.x.ai/v1").rstrip("/")
+        return _chat_completions_complete(
+            base,
+            api_key,
+            self.model,
+            messages,
+            tools,
+            timeout,
+            extra_payload={"reasoning_effort": effort} if effort else None,
+        )
+
+
 def _loads_args(raw: Any) -> dict[str, Any]:
     if isinstance(raw, dict):
         return raw
@@ -971,6 +1020,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "kimi": KimiProvider,
     "qwen": QwenProvider,
     "deepseek": DeepSeekProvider,
+    "xai": XaiProvider,
     "mock": MockProvider,
 }
 
