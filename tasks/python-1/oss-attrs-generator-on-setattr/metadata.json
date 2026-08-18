@@ -1,0 +1,32 @@
+{
+  "id": "oss-attrs-generator-on-setattr",
+  "category": "feature",
+  "languages": ["python"],
+  "domain": "stdlib-utility",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "b56f28cc4bc4bbc59b6b367360ba46be2c40c315",
+  "upstream": {
+    "url": "https://github.com/python-attrs/attrs/pull/1592",
+    "issue": "https://github.com/python-attrs/attrs/pull/1592",
+    "commit": "b56f28cc4bc4bbc59b6b367360ba46be2c40c315"
+  },
+  "decontamination_notes": "Real feature from python-attrs/attrs PR #1592, merged 2026-08-01, after model training cutoffs, so the specific implementation is novel. Repo sliced at the PR's base commit b56f28c (src/attr + src/attrs + pyproject.toml + MIT LICENSE); attrs is dependency-free, so tests run on the base sandbox image with PYTHONPATH=src. Adds generator support to on_setattr hooks: pre-yield code runs before the set, the yielded value is stored, post-yield code runs after. Hidden tests assert observable attrs behavior (stored attribute values and hook side effects) via the public API, never the internal _lazy_is_generator helper. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "yielded_value_overwrites", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_yielded_value_overwrites_assignment -q"},
+      {"name": "generator_hook_transforms", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_generator_hook_can_transform_value -q"},
+      {"name": "pre_and_post_yield_bracket", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_pre_and_post_yield_bracket_the_assignment -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "returning_hook_transforms", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_returning_hook_still_transforms -q"},
+      {"name": "returning_hook_identity", "cmd": "PYTHONPATH=src python -m pytest -c /dev/null oss_tests.py::test_returning_hook_identity_value -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

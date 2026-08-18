@@ -118,51 +118,35 @@ Panel: Opus 5, GPT-5.6 Sol, Grok 4.5, + frugal ref (Haiku 4.5 / Kimi K3).
 Counts well-formed built tasks (gold=1.0/base=0.0/det ×3, docker); final band
 placement pending frontier measurement — see MEASUREMENT_PLAN.md.
 
-**18 / 23 built + validated** as of 2026-08-17 (all gold=1.0/base=0.0/det ×3, docker).
+## ✅ 23 / 23 built + validated — COMPLETE (2026-08-17)
 
-Net-new (13):
-- cli-tooling: oss-click-param-named-help, oss-click-style-validate-color
-- stdlib-utility: oss-more-itertools-running-minmax-stable,
-  oss-more-itertools-iter-index-negative, oss-more-itertools-numeric-range-eq,
-  oss-attrs-ne-validator
-- parsing: oss-marshmallow-enum-none-default
-- scientific: oss-networkx-vf2pp-mapping-direction
-- concurrency: oss-anyio-trio-wouldblock, oss-anyio-fail-at-deadline,
-  oss-trio-memory-channel-peak-buffer  *(new images: anyio-1191, trio-3474)*
-- data-orm: oss-sqlglot-semistructured-case  *(7-file optimizer fix)*
-- web-async: oss-flask-automatic-options-override
+All gold=1.0/base=0.0/deterministic ×3 in the Docker sandbox. By domain:
 
-Carried from v3 (5): oss-flask-teardown-robust (tail), oss-sqlglot-iso8601-nanos,
-oss-sqlglot-canonicalize-internal-names (ceiling), oss-networkx-leiden-communities,
-oss-pennylane-trotter-fragmented (ceiling).
+- **web-async (2):** oss-flask-teardown-robust (tail, carried), oss-flask-automatic-options-override
+- **data-orm (3):** oss-sqlglot-iso8601-nanos (carried), oss-sqlglot-canonicalize-internal-names (ceiling, carried), oss-sqlglot-semistructured-case (7-file)
+- **parsing (3):** oss-marshmallow-enum-none-default, oss-lark-scan, oss-lark-earley-ambiguous-ignore
+- **scientific (4):** oss-networkx-leiden-communities (carried), oss-networkx-vf2pp-mapping-direction, oss-pennylane-trotter-fragmented (ceiling, carried), oss-sympy-manualintegrate-ratint
+- **stdlib-utility (5):** oss-more-itertools-running-minmax-stable, oss-more-itertools-iter-index-negative, oss-more-itertools-numeric-range-eq, oss-attrs-ne-validator, oss-attrs-generator-on-setattr
+- **cli-tooling (3):** oss-click-param-named-help, oss-click-style-validate-color, oss-click-progressbar-final-position
+- **concurrency (3):** oss-anyio-trio-wouldblock, oss-anyio-fail-at-deadline, oss-trio-memory-channel-peak-buffer
 
-Every domain now covered: web-async 2, data-orm 3, parsing 1, scientific 3,
-stdlib-utility 4, cli-tooling 2, concurrency 3.
+18 net-new + 5 carried from v3. New per-task images: anyio-1191, trio-3474, sympy-29877.
+Repo cap (≤3/repo) respected everywhere. **Next: measure per MEASUREMENT_PLAN.md.**
 
-⚠️ **oss-aiohttp-upgrade-deferred EXCLUDED** — carry-over gold patch scored 0.0 in
-the freshly-built aiohttp-13016 image (env/version drift vs v3). Needs image
-investigation before re-admission.
-
-### The remaining 5 to reach 23 — why they're not built yet
-
-**Key constraint discovered:** the grader overlays the workspace source via
-`PYTHONPATH`, which only works for **pure-Python** packages. Packages with compiled
-extensions can't be source-overlaid cleanly (the workspace `.py` shadows the
-installed package but the `.so`/Rust core is missing). This **rules out** the
-harvest's compiled candidates: **pandas#66794/#66753/#66791, numpy#32292,
-polars#28799, pydantic#13659** — all need a full from-source build, impractical here.
-Substitute pure-Python PRs for these before counting them toward 23.
-
-Remaining pure-Python candidates, all high-complexity (deferred to protect quality,
-not blocked):
-- **sympy#30144** (scientific, sympy-29877 image built & ready) — manualintegrate
-  ratint fallback; needs a rational integrand that triggers the fallback (research).
-- **lark#1592** (parsing, base image) — new 351-line streaming `scan()` API, 4 files.
-- **attrs#1592** (stdlib-utility, base image) — on_setattr accepts generators, 4 files.
-- **poetry#10987** (cli-tooling, poetry-10943 image) — solver extras from direct-origin
-  lock entries; elaborate multi-resolution fixture.
-- **+1** — re-mine web-async (starlette/httpx/fastapi were missed in the 503 storm)
-  for one more clean pure-Python bugfix.
-
-Same proven build flow applies (see any committed task; image tasks use
-`-c /dev/null` in the test cmd to bypass the sliced repo's pytest plugins/config).
+### Notes / lessons for future suites
+- ⚠️ **oss-aiohttp-upgrade-deferred EXCLUDED** (gold scored 0.0 in the rebuilt
+  aiohttp-13016 image — env drift vs v3). Not counted; re-mined web-async instead.
+- **Compiled-package constraint:** the grader overlays workspace source via
+  `PYTHONPATH`, so only **pure-Python** *packages under test* work. Ruled out
+  pandas/numpy/polars/pydantic-core candidates (compiled cores). A package with
+  compiled *dependencies* is still fine (deps are pip-installed in the image).
+- **pip#14220 skipped** — the bug is Python-3.15+ specific; the base sandbox runs
+  3.12, so it doesn't reproduce.
+- **git apply is strict:** `gh pr diff` context can drift from the sliced base
+  (passes `patch -p1` but fails the validator's `git apply`). Fix: regenerate the
+  gold patch via `git diff` in a throwaway git repo of the slice (see
+  oss-attrs-generator-on-setattr).
+- **Image tasks** run pytest with `-c /dev/null` to bypass the sliced repo's own
+  pytest plugins/config (e.g. anyio_mode, filterwarnings=error).
+- **click#3728 dropped** — it fixes output *nondeterminism*, which conflicts with
+  the validator's "base deterministic ×3" gate.
