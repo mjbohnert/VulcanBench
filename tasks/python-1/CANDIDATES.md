@@ -168,6 +168,33 @@ well-formed but don't earn their place in a *discrimination* instrument.
 Total measurement spend to reach this finding: **$3.46** (grok $2.74 + deepseek
 $0.72) — the funnel caught saturation before any frontier-panel spend.
 
+### Tail confirmation — grok-4.5 low, repeat 3 (2026-08-17) on the 4 non-floor tasks
+
+Repeat-3 **corrects the single-run tier-1 picture** (pass@1 = fraction of 3 runs
+fully passing; avg_total = mean partial score):
+
+| task | pass@1 (n=3) | avg_total | read |
+|---|---|---|---|
+| oss-click-param-named-help | **0/3** | 0.560 ± 0.003 | **robust discriminator** — never all 3 fail_to_pass; near-zero variance |
+| oss-sqlglot-canonicalize-internal-names | **0/3** | 0.324 ± 0.185 | **robust discriminator** — the tier-1 1.0 was a lucky single run |
+| oss-pennylane-trotter-fragmented | **0/3** | 0.281 ± 0.054 | **robust ceiling** — consistent ~0.28 partial |
+| oss-networkx-leiden-communities | 1/3 | 0.741 ± 0.046 | **genuine mid** — solved once, borderline |
+
+**Net:** the discriminating set is **~4 tasks** (3 that grok-4.5-low robustly fails +
+1 mid), not the ~2 the single run implied. deepseek-flash also failed
+canonicalize/click-param/pennylane, so those three are robustly hard for *both*
+cheap models — good discriminators (a stronger model should separate on them).
+
+**Sourcing insight from click-param:** it's a "simple"-sounding task (param named
+`help`) yet discriminates — because its 3 fail_to_pass tests demand *distinct*
+behaviors (argument-named-help, option-alias, collision-warning) and grok-low gets
+only ~2/3. **Multi-behavior tasks with several independent fail_to_pass assertions
+create partial-credit gradients** even without exotic difficulty. Bias the re-source
+toward this shape.
+
+**Verdict stands:** ~19/23 true floor, ~4 discriminating. Keep the 4; re-source the
+rest for difficulty. Total measurement spend so far: **~$8.3**.
+
 ### Frontier panel log (repeat ≥ 3) — pending
 
 | task | Opus5 p@1 (n) | Sol p@1 (n) | Grok p@1 (n) | ref p@1 (n) | median | band | admit? |
