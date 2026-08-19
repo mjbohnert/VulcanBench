@@ -135,6 +135,39 @@ a tail question. Next moves, in order:
    pennylane's 0.20 is the only robust tail so far.
 3. Only then the frontier bracket (Tier 2) on whatever remains ambiguous.
 
+### Floor test — deepseek-v4-flash low, repeat 1 (2026-08-17) — run suite-14a3f7ee
+
+**pass@1 = 0.870 (20/23), $0.72.** Diffed against the grok-low pass:
+
+| bucket | n | tasks |
+|---|---|---|
+| **TRUE FLOOR** (both weak+strong solve) | **19** | anyio×2, attrs×2, click-progressbar, click-style, flask×2, lark×2, marshmallow, more-itertools×3, networkx-vf2pp, sqlglot-iso8601, sqlglot-semistructured, sympy, trio |
+| genuine mid (grok✓ deepseek✗) | 1 | sqlglot-canonicalize (grok 1.0 / ds 0.17) |
+| deepseek-only (ds✓ grok✗) | 1 | networkx-leiden (ds 1.0 / grok 0.83 — grok near-miss = variance) |
+| tail (both fail) | 2 | click-param-named-help (both 0.67), pennylane-trotter (both 0.20) |
+
+### ⚠️ VERDICT: the suite is saturated as built
+
+19 of 23 tasks are **true floor** — solved by a *cheap* model (deepseek-v4-flash,
+$0.72) at low effort, repeat 1. Effective discriminating structure is ~1 mid +
+~2 tail (only **pennylane** is a robust ceiling; click-param is a consistent 0.67
+partial). This is the **same ~80%-floor pattern that saturated v3** — the
+language-specific pivot fixed the confound but not task *difficulty*.
+
+**Root cause:** most sourced candidates are *localized library bug-fixes* — exactly
+what the v2 CHARTER warned "rarely reaches a hard tail." And the frontier moved:
+`flask-teardown-robust` was v3's both-fail tail (0/3 for Sonnet 5 / Opus 4.8 at
+low); grok-4.5 **and** deepseek-v4-flash both solve it now. Tasks calibrated hard in
+the Sonnet-5 era are floor for 2026 models.
+
+**Implication:** to discriminate the current frontier the suite needs genuinely
+harder tasks — multi-site behavioral redesigns / subtle-correctness traps in
+app-scale repos, not localized edge-case fixes. The 19 floor tasks are fair and
+well-formed but don't earn their place in a *discrimination* instrument.
+
+Total measurement spend to reach this finding: **$3.46** (grok $2.74 + deepseek
+$0.72) — the funnel caught saturation before any frontier-panel spend.
+
 ### Frontier panel log (repeat ≥ 3) — pending
 
 | task | Opus5 p@1 (n) | Sol p@1 (n) | Grok p@1 (n) | ref p@1 (n) | median | band | admit? |
