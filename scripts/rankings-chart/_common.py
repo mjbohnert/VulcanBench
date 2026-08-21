@@ -1,7 +1,7 @@
 """Shared config + data loading for the suite-v3 result cards.
 
 ``make_chart.py`` (the four-panel rankings card) predates this module and keeps
-its own copy deliberately — it is the published card, and refactoring it is a
+its own copy deliberately, it is the published card, and refactoring it is a
 separate change from prototyping alternatives. New cards import from here.
 """
 
@@ -34,7 +34,7 @@ MUTED = "#8a897f"
 GRID = "#e7e6e1"
 
 # Per-lab hues, matching the rankings card (see CLAUDE.md). Note for future
-# edits: this set FAILS the generic categorical checks — xAI black and Moonshot
+# edits: this set FAILS the generic categorical checks, xAI black and Moonshot
 # slate are below the chroma floor, and OpenAI green vs Anthropic clay is
 # dE 6.8 under protanopia. That is legal only because every mark is directly
 # labelled with its model name; do not drop those labels to "clean up" a card.
@@ -73,7 +73,7 @@ N_TASKS_FULL = 23
 
 def eff_display(model: str, eff: str) -> str:
     """Label an effort with the provider's own name for it."""
-    if eff == "—":
+    if eff in ("", "\u2014", "-"):  # stored as a dash when no effort was set
         return "default"
     if eff == "extra-high":
         if model.startswith("deepseek:"):
@@ -140,3 +140,61 @@ def best_per_model(rows: list[dict]) -> list[dict]:
             )
         )
     return sorted(pts, key=lambda p: -p["pass1"])
+
+
+def top_effort_row(model_rows: list[dict]) -> dict:
+    """The row at the highest rung of the provider's effort ladder that has data.
+
+    Models without a sweep (a single 'default' or 'extra-high' column) keep
+    their only row.
+    """
+    ladder = model_efforts(model_rows[0]["model"])
+    rank = {e: i for i, e in enumerate(ladder)}
+    return max(model_rows, key=lambda r: (rank.get(r["effort"], -1), r["pass1"]))
+
+
+def best_effort_row(model_rows: list[dict]) -> dict:
+    """The row with the highest pass@1; ties break to the cheaper run.
+
+    Full-coverage columns are preferred: a partial column (fewer than
+    N_TASKS_FULL tasks) can only win when the model has no full column at all,
+    so a 7-task sweep never outranks a 23-task one on a fraction of a point.
+    """
+    full = [r for r in model_rows if r["n_tasks"] >= N_TASKS_FULL]
+    pool = full or model_rows
+    return max(pool, key=lambda r: (r["pass1"], -r["cost"] / max(r["n_runs"], 1)))
+
+
+def top_per_model(rows: list[dict], rule: str = "best") -> list[dict]:
+    """One point per model.
+
+    ``rule="best"`` picks the best-scoring effort level (the leaderboard
+    default); ``rule="max"`` picks the highest rung of the provider's effort
+    ladder. Same record shape as ``best_per_model`` plus speed/cost fields.
+    """
+    pick = {"best": best_effort_row, "max": top_effort_row}[rule]
+    per_model: dict[str, list[dict]] = {}
+    for r in rows:
+        per_model.setdefault(r["model"], []).append(r)
+    pts = []
+    for model, mrows in per_model.items():
+        r = pick(mrows)
+        disp, lab = NAME[model]
+        pts.append(
+            dict(
+                model=model,
+                label=disp,
+                lab=lab,
+                effort=eff_display(model, r["effort"]),
+                cost_per_run=r["cost"] / max(r["n_runs"], 1),
+                cost_total=r["cost"],
+                pass1=r["pass1"] * 100,
+                se=(r["se"] or 0) * 100,
+                minutes=(r["avg_duration_s"] or 0) / 60,
+                n_runs=r["n_runs"],
+                n_tasks=r["n_tasks"],
+                partial=r["n_tasks"] < N_TASKS_FULL,
+                external=model in EXTERNAL,
+            )
+        )
+    return sorted(pts, key=lambda p: (-p["pass1"], p["cost_per_run"]))

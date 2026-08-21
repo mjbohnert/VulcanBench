@@ -1,4 +1,4 @@
-"""VulcanBench suite v3 rankings — four-panel shareable PNG.
+"""VulcanBench suite v3 rankings, four-panel shareable PNG.
 
 Panel 1: pass@1 ranking bars (gradient, lab logo chips).
 Panel 2: avg wall-clock minutes per task, fastest first.
@@ -39,15 +39,15 @@ GRID = "#e7e6e1"
 
 # Brand colors: Anthropic clay, OpenAI green, DeepSeek blue (official icon
 # colors); xAI's official mark is black. Moonshot's is also black, so it gets a
-# dark slate instead — two identical black bar families would be unreadable.
+# dark slate instead, two identical black bar families would be unreadable.
 LAB_COLOR = {
     "Anthropic": "#D97757",
     "OpenAI": "#10A37F",
     "xAI": "#0A0A0A",
     "Moonshot": "#44445E",
     "DeepSeek": "#5786FE",
-    # Qwen's official violet (#6950EF) sits ΔE 12 from DeepSeek's blue — below
-    # the readability floor — so this deepened violet stands in for it.
+    # Qwen's official violet (#6950EF) sits ΔE 12 from DeepSeek's blue, below
+    # the readability floor, so this deepened violet stands in for it.
     "Alibaba": "#9333EA",
 }
 
@@ -80,7 +80,7 @@ def darken(hex_color: str, f: float) -> tuple:
 
 def eff_display(model: str, eff: str) -> str:
     """Label an effort with the provider's own name for it."""
-    if eff == "—":
+    if eff in ("", "\u2014", "-"):  # stored as a dash when no effort was set
         return "default"
     if eff == "extra-high":
         if model.startswith("deepseek:"):
@@ -100,7 +100,40 @@ rows = [r for r in rows if r["model"] not in EXCLUDED_MODELS]
 unknown = {r["model"] for r in rows} - set(NAME)
 if unknown:
     raise SystemExit(f"models missing from NAME (add or exclude explicitly): {unknown}")
+def model_efforts(model: str) -> list[str]:
+    """The provider's own effort ladder, low to high."""
+    if model.startswith("deepseek:"):
+        return ["low", "high", "extra-high"]  # DeepSeek: low/high/max
+    if model.startswith("qwen:"):
+        return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
+    if model.startswith("xai:"):
+        # Grok 4.6+: low/medium/high/xhigh, four real levels; dropping xhigh
+        # would hide the curve's shape (medium peak, high trough, xhigh partial
+        # recovery).
+        return ["low", "medium", "high", "extra-high"]
+    return ["low", "medium", "high"]
+
+
+def best_effort_row(model_rows: list[dict]) -> dict:
+    """The model's best-scoring effort column; ties break to the cheaper run.
+
+    Full-coverage (23-task) columns are preferred; a partial column can only
+    win when the model has no full column. The bar panels show one column per
+    model; the full per-effort data stays visible in the effort-curve cards.
+    """
+    full = [r for r in model_rows if r["n_tasks"] >= 23]
+    pool = full or model_rows
+    return max(pool, key=lambda r: (r["pass1"], -r["cost"] / max(r["n_runs"], 1)))
+
+
+# `rows` keeps every (model, effort) column for the effort-curve cards;
+# `bar_rows` is one column per model (its best-scoring effort) for the three bar panels.
 rows.sort(key=lambda r: (-r["pass1"], r["cost"]))
+_per_model: dict[str, list[dict]] = {}
+for r in rows:
+    _per_model.setdefault(r["model"], []).append(r)
+bar_rows = [best_effort_row(v) for v in _per_model.values()]
+bar_rows.sort(key=lambda r: (-r["pass1"], r["cost"]))
 
 fig = plt.figure(figsize=(16, 30), facecolor=SURFACE)
 gs = fig.add_gridspec(
@@ -273,12 +306,12 @@ ab = AnnotationBbox(
 )
 fig.add_artist(ab)
 fig.text(0.098, 0.9662, "VulcanBench", fontsize=29, color=INK, family=BRAND)
-fig.text(0.30, 0.9662, "Eval Suite 3 — Model Rankings", fontsize=29, color=MUTED, family=BRAND_MED)
+fig.text(0.30, 0.9662, "Eval Suite 3, Model Rankings", fontsize=29, color=MUTED, family=BRAND_MED)
 fig.text(
     0.065,
     0.9424,
     "23 frontier-hard software-engineering tasks from real merged OSS PRs  ·  "
-    "pass@1 across reasoning-effort levels  ·  Docker-sandboxed agent runs  ·  "
+    "pass@1 at each model's best-scoring reasoning effort  ·  Docker-sandboxed agent runs  ·  "
     "2026-08-13",
     fontsize=11.5,
     color=INK2,
@@ -289,7 +322,7 @@ fig.text(
 ax1 = fig.add_subplot(gs[0])
 ax1.set_facecolor(SURFACE)
 labels1 = []
-for r in rows:
+for r in bar_rows:
     disp, _ = NAME[r["model"]]
     partial = "*" if r["n_tasks"] < 23 else ""
     labels1.append(
@@ -298,19 +331,19 @@ for r in rows:
     )
 draw_bars(
     ax1,
-    rows,
-    [r["pass1"] * 100 for r in rows],
+    bar_rows,
+    [r["pass1"] * 100 for r in bar_rows],
     lambda v: f"{v:.0f}",
     108,
     20,
     "pass@1 (%)",
-    errs=[(r.get("se") or 0) * 100 for r in rows],
+    errs=[(r.get("se") or 0) * 100 for r in bar_rows],
 )
 ax1.set_xticklabels(
-    labels1, rotation=47, ha="right", rotation_mode="anchor", fontsize=8.5, color=INK2, family=SANS
+    labels1, rotation=47, ha="right", rotation_mode="anchor", fontsize=10, color=INK2, family=SANS
 )
 
-seen = dict.fromkeys(NAME[r["model"]][1] for r in rows)
+seen = dict.fromkeys(NAME[r["model"]][1] for r in bar_rows)
 handles = [plt.Rectangle((0, 0), 1, 1, color=LAB_COLOR[lab]) for lab in seen]
 ax1.legend(
     handles,
@@ -326,7 +359,7 @@ ax1.legend(
     labelcolor=INK2,
 )
 ax1.set_title(
-    "Rankings by pass@1 — all effort levels",
+    "Rankings by pass@1, best effort level per model",
     loc="left",
     fontsize=16,
     color=INK,
@@ -337,7 +370,7 @@ ax1.set_title(
 # ---------------- Panel 2: minutes per task, fastest first ----------------
 ax2 = fig.add_subplot(gs[1])
 ax2.set_facecolor(SURFACE)
-trows = sorted(rows, key=lambda r: r["avg_duration_s"] or 0)
+trows = sorted(bar_rows, key=lambda r: r["avg_duration_s"] or 0)
 tvals = [(r["avg_duration_s"] or 0) / 60 for r in trows]
 labels2 = []
 for r in trows:
@@ -349,10 +382,10 @@ draw_bars(
     ax2, trows, tvals, lambda v: f"{v:.1f}m" if v < 10 else f"{v:.0f}m", tmax, 5, "min / task"
 )
 ax2.set_xticklabels(
-    labels2, rotation=47, ha="right", rotation_mode="anchor", fontsize=8.5, color=INK2, family=SANS
+    labels2, rotation=47, ha="right", rotation_mode="anchor", fontsize=10, color=INK2, family=SANS
 )
 ax2.set_title(
-    "Speed — avg wall-clock minutes per task, fastest first",
+    "Speed, avg wall-clock minutes per task, fastest first",
     loc="left",
     fontsize=16,
     color=INK,
@@ -364,7 +397,7 @@ ax2.set_title(
 # ---------------- Panel 3: average API cost per task run ----------------
 ax3 = fig.add_subplot(gs[2])
 ax3.set_facecolor(SURFACE)
-crows = sorted(rows, key=lambda r: r["cost"] / r["n_runs"])
+crows = sorted(bar_rows, key=lambda r: r["cost"] / r["n_runs"])
 cvals = [r["cost"] / r["n_runs"] for r in crows]
 labels3 = []
 for r in crows:
@@ -387,12 +420,12 @@ ax3.set_xticklabels(
     rotation=47,
     ha="right",
     rotation_mode="anchor",
-    fontsize=8.5,
+    fontsize=10,
     color=INK2,
     family=SANS,
 )
 ax3.set_title(
-    "Cost — avg API spend per task run, lowest first",
+    "Cost, avg API spend per task run, lowest first",
     loc="left",
     fontsize=16,
     color=INK,
@@ -402,20 +435,6 @@ ax3.set_title(
 
 
 # ---------------- Panel 4: effort-curve cards ----------------
-def model_efforts(model: str) -> list[str]:
-    """The provider's own effort ladder, low to high."""
-    if model.startswith("deepseek:"):
-        return ["low", "high", "extra-high"]  # DeepSeek: low/high/max
-    if model.startswith("qwen:"):
-        return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
-    if model.startswith("xai:"):
-        # Grok 4.6+: low/medium/high/xhigh — four real levels; dropping xhigh
-        # would hide the curve's shape (medium peak, high trough, xhigh partial
-        # recovery).
-        return ["low", "medium", "high", "extra-high"]
-    return ["low", "medium", "high"]
-
-
 by_model: dict[str, dict[str, dict]] = {}
 for r in rows:
     if r["effort"] in model_efforts(r["model"]):
@@ -582,7 +601,7 @@ card_top = first_card.get_position().y1
 fig.text(
     0.065,
     card_top + 0.012,
-    "Effort curves — how pass@1 responds to reasoning effort",
+    "Effort curves, how pass@1 responds to reasoning effort",
     fontsize=16,
     color=INK,
     family=BRAND_MED,
@@ -592,7 +611,7 @@ fig.text(
 fig.text(
     0.065,
     0.062,
-    "* partial coverage — Claude Fable 5 excludes tasks refused by safety filters "
+    "* partial coverage, Claude Fable 5 excludes tasks refused by safety filters "
     "(low 19/23, medium 21/23, high 20/23); Kimi K3 19/23; Claude Haiku 4.5 21/23. "
     "Grok 4.5 low has 21/23 fresh tasks; Claude Opus 4.8 omitted (5/23 tasks).\n"
     "Claude Opus 5 columns are from vulcanbench.com Report 10 (single runs, "
@@ -608,7 +627,9 @@ fig.text(
     "are excluded rather than scored 0. "
     "Grok 4.6 columns are a single pass (repeat 1, 2026-08-12) on xAI's API; its "
     "effort scale is low/medium/high/xhigh and its unset-effort default is high.\n"
-    "Whiskers are ±1 stderr — single-pass columns (n=23 runs or fewer) carry wider "
+    "Bar panels show one column per model at its best-scoring effort (ties to the cheaper run); every effort "
+    "level is plotted in the effort-curve cards.\n"
+    "Whiskers are ±1 stderr, single-pass columns (n=23 runs or fewer) carry wider "
     "uncertainty than repeat-swept ones (n=52-71). Cost = total spend at list API "
     "prices across a column's runs; avg cost/task run = column cost ÷ n. Time = "
     "sandbox wall-clock.\n"
