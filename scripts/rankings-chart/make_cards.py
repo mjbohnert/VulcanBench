@@ -13,6 +13,8 @@ per-level detail lives in the effort-curve card.
     python scripts/rankings-chart/make_cards.py
 """
 
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 from _common import (
@@ -41,7 +43,10 @@ SUBTITLE = (
     "one bar per model at its best-scoring reasoning effort  ·  " + DATE
 )
 L = 0.062
-W_IN, H_IN = 16.0, 13.0  # tall enough that 12 rows breathe; X crops the preview, not the file
+# Tall enough that 12 rows breathe; X crops the preview, not the file. ``--og``
+# renders only the rankings card at 16:9 for link-preview (Open Graph) images.
+OG = "--og" in sys.argv
+W_IN, H_IN = (16.0, 9.0) if OG else (16.0, 13.0)
 
 
 def ytop(inches: float) -> float:
@@ -123,7 +128,7 @@ def bar_card(
     """Horizontal bar card: chip + model name at left, value at bar end, a few
     text columns at right. Everything sized to read at timeline scale."""
     fig = plt.figure(figsize=(W_IN, H_IN), facecolor=SURFACE)
-    ax_top, ax_bottom = 2.55, H_IN - 2.35  # inches from top
+    ax_top, ax_bottom = (2.35, H_IN - 1.95) if OG else (2.55, H_IN - 2.35)  # inches from top
     ax = fig.add_axes([0.34, ytop(ax_bottom), 0.40, (ax_bottom - ax_top) / H_IN])
     ax.set_facecolor(SURFACE)
     header(fig, title, headline)
@@ -165,7 +170,7 @@ def bar_card(
             fontsize=17, color=INK, family=SANS, fontweight="bold", ha="right", va="center",
         )
         ab = AnnotationBbox(
-            OffsetImage(CHIPS[p["lab"]], zoom=0.27, interpolation="lanczos"),
+            OffsetImage(CHIPS[p["lab"]], zoom=(0.20 if OG else 0.27), interpolation="lanczos"),
             (-0.63, y),
             xycoords=ax.get_yaxis_transform(),
             frameon=False, box_alignment=(0.5, 0.5), annotation_clip=False,
@@ -185,7 +190,9 @@ def bar_card(
             fontsize=12, color=MUTED, family=SANS, ha="right", va="center",
         )
 
-    footnote(fig, note)
+    footnote(fig, note if not OG else note.split("\n")[-1])
+    if OG:
+        out = out.replace(".png", "_og.png")
     path = HERE / out
     fig.savefig(path, dpi=160, facecolor=SURFACE)
     plt.close(fig)
@@ -218,6 +225,9 @@ bar_card(
     out="vulcanbench_suite3_card_rankings.png",
     err=lambda p: p["se"],
 )
+
+if OG:
+    raise SystemExit(0)
 
 # ---------------- Card 2: speed ----------------
 by_speed = sorted(pts, key=lambda p: p["minutes"])
