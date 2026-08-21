@@ -78,6 +78,9 @@ def test_provider_prefix_fallback() -> None:
 def test_zai_glm_priced() -> None:
     assert pricing.is_priced("zai:glm-5.2")
     assert pricing.cost_usd("zai:glm-5.2", 1_000_000, 1_000_000) == 5.80
+    # GLM 5.3: input 1.40/1M, output 4.40/1M -> 5.80 (same headline as 5.2).
+    assert pricing.is_priced("zai:glm-5.3")
+    assert pricing.cost_usd("zai:glm-5.3", 1_000_000, 1_000_000) == 5.80
 
 
 def test_kimi_k3_priced() -> None:
@@ -106,7 +109,7 @@ def test_grok_46_priced_with_cached_input() -> None:
 
 
 def test_ollama_local_runs_are_free_not_unknown() -> None:
-    # $0 (a real, known cost) — not None (cost unknown), which would exclude
+    # $0 (a real, known cost), not None (cost unknown), which would exclude
     # local runs from cost reporting entirely.
     assert pricing.cost_usd("ollama:muse-glimmer:30b", 1_000_000, 1_000_000) == 0.0
     assert pricing.is_priced("ollama:muse-glimmer:30b")

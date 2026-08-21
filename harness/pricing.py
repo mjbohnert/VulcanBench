@@ -5,7 +5,7 @@ are a built-in table (USD per 1M tokens) that can be overridden via the
 ``VULCANBENCH_PRICING`` env var (path to a JSON file merged over the defaults).
 
 Honesty: unknown models return ``None`` (cost unknown) rather than a guessed
-number; ``mock`` models are free. Built-in prices are a point-in-time snapshot —
+number; ``mock`` models are free. Built-in prices are a point-in-time snapshot,
 override them for anything that must be exact.
 """
 
@@ -19,7 +19,7 @@ from typing import Any
 # USD per 1,000,000 tokens, as of 2026-06. Keys are exact "provider:model" specs;
 # lookup also falls back to a "provider:" prefix default. Override with a JSON
 # file at $VULCANBENCH_PRICING ({"openai:gpt-4o": {"input": .., "output": ..}}).
-# These are a point-in-time snapshot — verify against the provider's pricing page
+# These are a point-in-time snapshot, verify against the provider's pricing page
 # before publishing numbers, and use the override file for anything that must be
 # exact.
 PRICES: dict[str, dict[str, float]] = {
@@ -58,6 +58,7 @@ PRICES: dict[str, dict[str, float]] = {
     "xai:grok-4.6": {"input": 2.00, "cached_input": 0.50, "output": 6.00},
     "xai:grok-4.5": {"input": 2.00, "cached_input": 0.30, "output": 6.00},
     "xai:grok-4.3": {"input": 1.25, "cached_input": 0.20, "output": 2.50},
+    "zai:glm-5.3": {"input": 1.40, "cached_input": 0.26, "output": 4.40},
     "zai:glm-5.2": {"input": 1.40, "output": 4.40},
     "zai:glm-5.1": {"input": 1.40, "output": 4.40},
     "zai:glm-5": {"input": 1.00, "output": 3.20},
@@ -65,9 +66,15 @@ PRICES: dict[str, dict[str, float]] = {
     # Cache-hit input is $0.30/M; we bill all input at the cache-miss rate, so
     # kimi costs are a slight overestimate on long multi-turn runs.
     "kimi:kimi-k3": {"input": 3.00, "output": 15.00},
+    # OpenRouter, pinned to AkashML bf16 (see harness.agent.providers pins).
+    "openrouter:qwen/qwen3.8-27b": {"input": 0.45, "cached_input": 0.05, "output": 3.20},
     # DashScope international list prices (≤256K / ≤32K tier as applicable).
-    # Long-context tiers and promo discounts are not modeled — override with
+    # Long-context tiers and promo discounts are not modeled, override with
     # VULCANBENCH_PRICING for exact numbers.
+    # qwen3.8-27b (open-weights, first-party DashScope). Implicit cache read is
+    # $0.10/M (the auto path; the harness sets no explicit cache breakpoints for
+    # Qwen). Explicit cache read ($0.05) is not used here.
+    "qwen:qwen3.8-27b": {"input": 0.50, "cached_input": 0.10, "output": 3.00},
     "qwen:qwen3.8-max": {"input": 2.00, "output": 6.00},
     "qwen:qwen3.7-plus": {"input": 0.40, "output": 1.60},
     "qwen:qwen3.7-max": {"input": 2.50, "output": 7.50},
@@ -77,7 +84,7 @@ PRICES: dict[str, dict[str, float]] = {
     "qwen:qwen-plus": {"input": 0.40, "output": 1.20},
     # DeepSeek V4 public-beta list prices. A peak/off-peak policy (2x during
     # Beijing peak hours) has been announced but is not yet in effect and is
-    # not modeled — override with VULCANBENCH_PRICING if/when it lands.
+    # not modeled, override with VULCANBENCH_PRICING if/when it lands.
     "deepseek:deepseek-v4-flash": {"input": 0.14, "output": 0.28},
     "deepseek:deepseek-v4-pro": {"input": 0.435, "output": 0.87},
     # Meta Model API standard tier. Contributor requests permit Meta to use
@@ -169,6 +176,21 @@ def has_cached_input_price(model: str) -> bool:
     """Whether the effective model price distinguishes cache reads."""
     rate = _rate(model)
     return rate is not None and "cached_input" in rate
+
+
+def cached_input_factor(model: str, default: float = 0.1) -> float:
+    """Cache-read price as a fraction of full input price, from the table.
+
+    OpenAI-compatible providers fold cache reads into the effective prompt
+    count at this factor (``effective = uncached + cached * factor``), so a
+    direct-API run's cost reflects the provider's own cache-read rate rather
+    than a generic guess. Falls back to ``default`` when a model has no
+    ``cached_input`` entry, preserving prior behavior for those models.
+    """
+    rate = _rate(model)
+    if rate and rate.get("input") and "cached_input" in rate:
+        return rate["cached_input"] / rate["input"]
+    return default
 
 
 def is_priced(model: str) -> bool:

@@ -46,6 +46,9 @@ from typing import Any
 from pydantic import BaseModel, Field
 from tenacity import Retrying, retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from harness.effort import zai_supports_effort
+from harness.pricing import cached_input_factor
+
 
 class ProviderError(RuntimeError):
     """Raised when a provider cannot produce a response."""
@@ -219,7 +222,7 @@ def _call_with_retry[T](fn: Callable[..., T], attempts: int, *args: Any) -> T:
     Transient stalls are the common failure: retrying a timed-out request
     usually succeeds, whereas before a single stall consumed the whole run.
     NonRetryableProviderError (refusals, output-cap truncation) is surfaced
-    immediately — a retry at the same settings cannot change the outcome.
+    immediately, a retry at the same settings cannot change the outcome.
     """
     retryer = Retrying(
         retry=retry_if_exception(_is_retryable),
@@ -240,7 +243,7 @@ _RETRY = retry(
 
 # Anthropic output ceiling by requested effort. Thinking bills against
 # ``max_tokens`` on always-on-thinking models (Fable 5) and adaptive models
-# (Sonnet 5), so the ceiling must scale with effort — the old fixed 16K cap
+# (Sonnet 5), so the ceiling must scale with effort, the old fixed 16K cap
 # truncated thinking-heavy steps to empty responses that were then scored as
 # wrong answers (see Report No. 10's harness note).
 _ANTHROPIC_MAX_TOKENS: dict[str, int] = {
@@ -640,7 +643,7 @@ class MockProvider(LLMProvider):
             )
         # Agentic-grader requests carry their own sentinel: approve any candidate
         # that actually changed something (a real diff), so offline grading is
-        # deterministic — gold passes, an empty pre-patch state fails.
+        # deterministic, gold passes, an empty pre-patch state fails.
         if any("VULCANBENCH_GRADER" in str(m.get("content", "")) for m in messages):
             has_change = any("diff --git" in str(m.get("content", "")) for m in messages)
             verdict = "true" if has_change else "false"
@@ -695,8 +698,10 @@ class MockProvider(LLMProvider):
 class ZaiProvider(LLMProvider):
     """Z.ai (Zhipu) OpenAI-compatible Chat Completions API.
 
-    Uses ``/chat/completions`` only. Reasoning effort is not supported; pass
-    ``--effort`` for metadata recording but it is ignored at the API layer.
+    Uses ``/chat/completions`` only. GLM 5.3+ exposes ``reasoning_effort``
+    (low/high/max) with always-on thinking, sent as ``reasoning_effort`` plus
+    ``thinking: {"type": "enabled"}``. Earlier GLMs (5, 5.1, 5.2) have no effort
+    knob; ``--effort`` is recorded as metadata but not sent for them.
     """
 
     @property
@@ -710,22 +715,32 @@ class ZaiProvider(LLMProvider):
         timeout_s: float | None = None,
         effort: str | None = None,
     ) -> LLMResponse:
-        del effort
         timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
         attempts = _budgeted_attempts(timeout_s, timeout)
-        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout, effort)
 
     def _complete_once(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         timeout: float,
+        effort: str | None,
     ) -> LLMResponse:
         api_key = os.environ.get("ZAI_API_KEY")
         if not api_key:
             raise ProviderError("ZAI_API_KEY is not set")
         base = os.environ.get("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4").rstrip("/")
-        return _chat_completions_complete(base, api_key, self.model, messages, tools, timeout)
+        extra_payload: dict[str, Any] | None = None
+        # Only GLM 5.3+ accepts the effort/thinking knobs; sending them to an
+        # earlier GLM would be silently ignored at best, so gate on model.
+        if effort and zai_supports_effort(self.model):
+            extra_payload = {
+                "thinking": {"type": "enabled"},
+                "reasoning_effort": effort,
+            }
+        return _chat_completions_complete(
+            base, api_key, self.model, messages, tools, timeout, extra_payload=extra_payload
+        )
 
 
 class OllamaProvider(LLMProvider):
@@ -778,14 +793,12 @@ class OllamaProvider(LLMProvider):
         except NonRetryableProviderError as e:
             if "HTTP 404" in str(e):
                 raise NonRetryableProviderError(
-                    f"{e} — is the model pulled? try: ollama pull {self.model}"
+                    f"{e}, is the model pulled? try: ollama pull {self.model}"
                 ) from e
             raise
         except ProviderError as e:
             if "network error" in str(e).lower():
-                raise ProviderError(
-                    f"{e} — is the Ollama server running? (base URL: {base})"
-                ) from e
+                raise ProviderError(f"{e}, is the Ollama server running? (base URL: {base})") from e
             raise
 
 
@@ -841,6 +854,109 @@ class KimiProvider(LLMProvider):
         )
 
 
+#: OpenRouter's default OpenAI-compatible base. ``OPENROUTER_BASE_URL`` overrides.
+_OPENROUTER_DEFAULT_BASE = "https://openrouter.ai/api/v1"
+
+#: Endpoint pins per wire model. OpenRouter fans a single model id out to several
+#: upstream providers at different quantizations; without a pin, runs in one
+#: column can land on different serving stacks (fp8 vs bf16), which is exactly
+#: the "delivery system, not the weights" variable a clean benchmark must hold
+#: fixed. Each entry pins one provider slug + quantization and disables
+#: fallbacks, so every run in a sweep hits the identical endpoint or fails loudly
+#: rather than silently substituting another. Verified against the endpoint's
+#: returned ``provider`` field on the first live call.
+_OPENROUTER_PINS: dict[str, dict[str, Any]] = {
+    # qwen3.8-27b: pin AkashML bf16 (full precision, the least-compromised
+    # serving) over the fp8 alternatives, so the number reflects the model
+    # rather than a quantized approximation.
+    "qwen/qwen3.8-27b": {
+        "only": ["akashml"],
+        "quantizations": ["bf16"],
+        "allow_fallbacks": False,
+    },
+}
+
+
+class OpenRouterProvider(LLMProvider):
+    """Generic OpenRouter provider (``openrouter:<vendor>/<model>``).
+
+    OpenRouter is an OpenAI-compatible aggregator, so this reuses the shared
+    ``/chat/completions`` path. Two things make it more than a base-URL swap:
+
+    * **Provider pinning.** A wire model such as ``qwen/qwen3.8-27b`` is served
+      by many upstreams at different quantizations. ``_OPENROUTER_PINS`` fixes
+      one endpoint (provider + quant, no fallbacks) so a results column stays a
+      single serving stack; :func:`route_manifest` records the pin. An unpinned
+      model routes to OpenRouter's default and records ``pinned: false``.
+    * **Effort is recorded-but-not-sent.** Some OpenRouter endpoints *accept*
+      ``reasoning_effort`` (the pinned qwen endpoint advertises it), but the
+      mapping to an open-weights model's thinking is provider-defined and
+      undocumented -- the same opacity noted for hosted effort dials elsewhere.
+      This provider runs the model at its default budget and marks effort
+      unsupported, matching the local Ollama run of the same weights. (Per-model
+      effort support can be added later if a routed model has a documented dial.)
+
+    Cost is priced from the table like any API provider; ``usage.include`` asks
+    OpenRouter to also return its own per-call cost for cross-checking in the
+    raw trace. The pinned endpoint's cache-read rate ($0.05/M in $0.45/M) sets
+    the ``cached_input_factor``; if the upstream reports no cache reads, the
+    fold is a no-op and full input rate applies.
+    """
+
+    MAX_REQUEST_TIMEOUT_S = 900.0
+
+    @property
+    def name(self) -> str:
+        return "openrouter"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        del effort  # recorded-but-not-sent; see class docstring
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
+        attempts = _budgeted_attempts(timeout_s, timeout)
+        return _call_with_retry(self._complete_once, attempts, messages, tools, timeout)
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout: float,
+    ) -> LLMResponse:
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ProviderError("OPENROUTER_API_KEY is not set")
+        base = os.environ.get("OPENROUTER_BASE_URL", _OPENROUTER_DEFAULT_BASE).rstrip("/")
+        extra: dict[str, Any] = {"usage": {"include": True}}
+        pin = _OPENROUTER_PINS.get(self.model)
+        if pin:
+            extra["provider"] = pin
+        try:
+            return _chat_completions_complete(
+                base,
+                api_key,
+                self.model,
+                messages,
+                tools,
+                timeout,
+                # Cache-read fraction from this model's table entry (AkashML
+                # bills 0.05/0.45 of full input); no-op if no cache is reported.
+                cached_input_factor=cached_input_factor(self.spec),
+                extra_payload=extra,
+            )
+        except NonRetryableProviderError as e:
+            if "HTTP 402" in str(e):
+                raise NonRetryableProviderError(
+                    f"{e}, OpenRouter balance exhausted; add credits at "
+                    "https://openrouter.ai/settings/credits"
+                ) from e
+            raise
+
+
 class QwenProvider(LLMProvider):
     """Alibaba Cloud DashScope (Qwen) OpenAI-compatible Chat Completions API.
 
@@ -849,10 +965,17 @@ class QwenProvider(LLMProvider):
     (``https://dashscope.aliyuncs.com/compatible-mode/v1``) or another region.
     Effort maps to the API's ``reasoning_effort`` field, supported on
     non-streaming calls since the Qwen3.8 series. The documented enum is
-    low/medium/xhigh (default xhigh) — there is no ``high``, so ``--effort
+    low/medium/xhigh (default xhigh), there is no ``high``, so ``--effort
     high`` is recorded as metadata only and the run executes at the model
     default. Pre-3.8 models may ignore the field.
     """
+
+    # A single xhigh reasoning turn on a hard task can exceed the 600s default
+    # per-request ceiling (observed: oss-pennylane-trotter-fragmented timed out
+    # mid-turn ~10 min in). Qwen at xhigh is a heavy thinker, so it gets a
+    # roomier ceiling like Kimi (900s) and Ollama (1800s); the run's own
+    # wall-clock budget still bounds the task overall.
+    MAX_REQUEST_TIMEOUT_S = 1200.0
 
     @property
     def name(self) -> str:
@@ -865,7 +988,7 @@ class QwenProvider(LLMProvider):
         timeout_s: float | None = None,
         effort: str | None = None,
     ) -> LLMResponse:
-        timeout = _http_timeout(timeout_s)
+        timeout = _http_timeout(timeout_s, self.MAX_REQUEST_TIMEOUT_S)
         if timeout_s is not None:
             return self._complete_once(messages, tools, timeout, effort)
         return self._complete_with_retry(messages, tools, timeout, effort)
@@ -902,6 +1025,10 @@ class QwenProvider(LLMProvider):
             tools,
             timeout,
             extra_payload={"reasoning_effort": effort} if effort else None,
+            # Price DashScope's implicit cache reads from this model's own table
+            # entry (e.g. qwen3.8-27b: $0.10/$0.50 = 0.20). Models without a
+            # cached_input rate fall back to the default, unchanged.
+            cached_input_factor=cached_input_factor(self.spec),
         )
 
 
@@ -967,7 +1094,7 @@ class DeepSeekProvider(LLMProvider):
     ``DEEPSEEK_BASE_URL``). ``low``/``high`` effort maps straight to the API's
     ``reasoning_effort`` field and ``extra-high`` maps to ``max`` (DeepSeek's
     documented enum is low/high/max, default high). ``medium`` is recorded as
-    metadata only — DeepSeek has no medium level and silently coerces it to
+    metadata only, DeepSeek has no medium level and silently coerces it to
     ``high``, so the harness never sends it.
     """
 
@@ -1274,6 +1401,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "deepseek": DeepSeekProvider,
     "meta": MetaProvider,
     "ollama": OllamaProvider,
+    "openrouter": OpenRouterProvider,
     "xai": XaiProvider,
     "mock": MockProvider,
 }
@@ -1323,6 +1451,20 @@ def route_manifest(spec: str) -> dict[str, Any] | None:
         provider, model = parse_model_spec(spec)
     except ValueError:
         return None
+    if provider == "openrouter":
+        # OpenRouter always routes through an upstream; record the pin (or its
+        # absence) so a results directory mixing pinned and unpinned columns
+        # stays auditable, exactly as for the Meta route.
+        pin = _OPENROUTER_PINS.get(model)
+        base = os.environ.get("OPENROUTER_BASE_URL", _OPENROUTER_DEFAULT_BASE)
+        manifest: dict[str, Any] = {"via": "openrouter", "base_url": base, "wire_model": model}
+        if pin:
+            manifest["pinned_provider"] = pin.get("only")
+            manifest["pinned_quantization"] = pin.get("quantizations")
+            manifest["allow_fallbacks"] = pin.get("allow_fallbacks", True)
+        else:
+            manifest["pinned"] = False
+        return manifest
     if provider != "meta":
         return None
     try:
@@ -1332,7 +1474,7 @@ def route_manifest(spec: str) -> dict[str, Any] | None:
         return None
     if route.via == "meta":
         return None
-    manifest: dict[str, Any] = {
+    manifest = {
         "via": route.via,
         "base_url": route.base,
         "wire_model": route.wire_model,

@@ -46,8 +46,8 @@ _KIMI_EFFORT_VALUES = {
 }
 
 # DeepSeek `reasoning_effort` (V4 API). The documented enum is low/high/max
-# (default high). "medium" does not exist — the API silently coerces it to
-# "high" — so medium is absent from this map and falls back to
+# (default high). "medium" does not exist, the API silently coerces it to
+# "high", so medium is absent from this map and falls back to
 # recorded-but-not-sent (the run then executes at the default, which is also
 # high; the metadata honestly says supported=False rather than pretending a
 # medium level ran).
@@ -58,7 +58,7 @@ _DEEPSEEK_EFFORT_VALUES = {
 }
 
 # Qwen `reasoning_effort` (DashScope compatible-mode, Qwen3.8+). The documented
-# enum is low/medium/xhigh with xhigh as the DEFAULT — there is no "high", so
+# enum is low/medium/xhigh with xhigh as the DEFAULT, there is no "high", so
 # "high" is absent from this map and falls back to recorded-but-not-sent (the
 # run then executes at the model default, which is xhigh; the metadata says
 # supported=False rather than pretending a distinct high level ran).
@@ -71,7 +71,7 @@ _QWEN_EFFORT_VALUES = {
 # Meta Model API `reasoning.effort` values for Muse Spark. The documented enum
 # is minimal/low/medium/high/xhigh (dev.meta.ai/docs/reasoning.md); `none`
 # returns HTTP 400 and is not part of VulcanBench's vocabulary anyway. An unset
-# request reasons at "a model-determined level" — Meta does not document which,
+# request reasons at "a model-determined level", Meta does not document which,
 # so omitting --effort is not a known effort point.
 _META_EFFORT_VALUES = {
     "minimal": "minimal",
@@ -83,7 +83,7 @@ _META_EFFORT_VALUES = {
 
 # xAI `reasoning_effort` (Grok). Documented enum is low/medium/high/xhigh with
 # high as the DEFAULT (reasoning cannot be disabled; an unset request runs at
-# high). `xhigh` is Grok 4.6+ — pre-4.6 models silently coerce it to high, so
+# high). `xhigh` is Grok 4.6+, pre-4.6 models silently coerce it to high, so
 # only sweep extra-high on 4.6+. No minimal/max/none levels exist.
 _XAI_EFFORT_VALUES = {
     "low": "low",
@@ -113,6 +113,32 @@ _GROK_BUILD_EFFORT_VALUES = {
     "high": "high",
     "extra-high": "xhigh",
 }
+
+# Z.ai GLM `reasoning_effort`. Only GLM 5.3+ exposes the knob; its documented
+# enum is low/high/max (default max, thinking always enabled, disabling is no
+# longer supported). "medium" does not exist. Like DeepSeek's identical
+# low/high/max enum, only extra-high reaches the API ceiling ("max"); medium and
+# max fall back to recorded-but-not-sent rather than pretending a level the API
+# lacks ran. Earlier GLMs (5, 5.1, 5.2) have no effort knob at all, see
+# ``zai_supports_effort``: so every level stays recorded-but-not-sent for them.
+_ZAI_EFFORT_VALUES = {
+    "low": "low",
+    "high": "high",
+    "extra-high": "max",
+}
+
+# GLM model families that expose reasoning_effort, matched by prefix so point
+# releases inherit support. Extend deliberately as new effort-capable GLMs ship.
+_ZAI_EFFORT_MODELS = ("glm-5.3",)
+
+
+def zai_supports_effort(model: str | None) -> bool:
+    """Whether a Z.ai GLM model exposes the ``reasoning_effort`` knob."""
+    if not model:
+        return False
+    name = model.strip().lower()
+    return any(name.startswith(prefix) for prefix in _ZAI_EFFORT_MODELS)
+
 
 _PROVIDER_EFFORT_MAPS = {
     "kimi": _KIMI_EFFORT_VALUES,
@@ -173,8 +199,14 @@ def parse_efforts(raw: str | None) -> list[str]:
     return deduped
 
 
-def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
-    """Resolve benchmark effort metadata for a provider."""
+def effort_config(
+    provider: str, requested: str | None, model: str | None = None
+) -> EffortConfig | None:
+    """Resolve benchmark effort metadata for a provider.
+
+    ``model`` is consulted only where effort support is model-dependent within a
+    provider (e.g. Z.ai, where only GLM 5.3+ exposes ``reasoning_effort``).
+    """
     effort = normalize_effort(requested)
     if effort is None:
         return None
@@ -187,37 +219,32 @@ def effort_config(provider: str, requested: str | None) -> EffortConfig | None:
             provider_value=_OPENAI_EFFORT_VALUES[effort],
             supported=True,
         )
-    # Map-driven providers: each API's documented reasoning_effort enum lives
-    # in its map above; levels absent from a map are recorded-but-not-sent.
+
+    # Every remaining provider resolves its sent value through a lookup map (a
+    # level absent from the map is recorded-but-not-sent). A ``None`` map means
+    # the provider never sends effort at all. Each API's documented
+    # reasoning_effort enum lives in its map above.
+    effort_map: dict[str, str] | None
     if provider_name in _PROVIDER_EFFORT_MAPS:
-        provider_value = _PROVIDER_EFFORT_MAPS[provider_name].get(effort)
-        return EffortConfig(
-            requested=effort,
-            provider=provider_name,
-            provider_value=provider_value,
-            supported=provider_value is not None,
+        effort_map = _PROVIDER_EFFORT_MAPS[provider_name]
+    elif provider_name == "claude-code":
+        effort_map = _CLAUDE_CODE_EFFORT_VALUES
+    elif provider_name == "anthropic":
+        effort_map = _ANTHROPIC_EFFORT_VALUES
+    elif provider_name == "zai":
+        # GLM 5.3+ exposes reasoning_effort; earlier GLMs are effort-less.
+        effort_map = _ZAI_EFFORT_VALUES if zai_supports_effort(model) else None
+    elif provider_name in {"mock", "ollama", "openrouter"}:
+        effort_map = None
+    else:
+        raise EffortNotSupportedError(
+            f"reasoning effort is not supported for provider {provider!r}"
         )
-    if provider_name == "claude-code":
-        provider_value = _CLAUDE_CODE_EFFORT_VALUES.get(effort)
-        return EffortConfig(
-            requested=effort,
-            provider=provider_name,
-            provider_value=provider_value,
-            supported=provider_value is not None,
-        )
-    if provider_name in {"mock", "zai", "ollama"}:
-        return EffortConfig(
-            requested=effort,
-            provider=provider_name,
-            provider_value=None,
-            supported=False,
-        )
-    if provider_name == "anthropic":
-        provider_value = _ANTHROPIC_EFFORT_VALUES.get(effort)
-        return EffortConfig(
-            requested=effort,
-            provider="anthropic",
-            provider_value=provider_value,
-            supported=provider_value is not None,
-        )
-    raise EffortNotSupportedError(f"reasoning effort is not supported for provider {provider!r}")
+
+    provider_value = effort_map.get(effort) if effort_map else None
+    return EffortConfig(
+        requested=effort,
+        provider=provider_name,
+        provider_value=provider_value,
+        supported=provider_value is not None,
+    )

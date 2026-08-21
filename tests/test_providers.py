@@ -592,7 +592,7 @@ def test_anthropic_effort_and_no_sampling_params(monkeypatch: pytest.MonkeyPatch
     )
     assert resp.content == "ok"
     assert seen["output_config"] == {"effort": "low"}
-    # Sampling params are rejected with a 400 by Opus 4.7+ — never send them.
+    # Sampling params are rejected with a 400 by Opus 4.7+, never send them.
     assert "temperature" not in seen
     assert "top_p" not in seen
 
@@ -666,19 +666,45 @@ def test_zai_complete_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
         ZaiProvider("glm-5.2").complete([], [])
 
 
-def test_zai_ignores_effort(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_zai_ignores_effort_pre_5_3(monkeypatch: pytest.MonkeyPatch) -> None:
+    # GLM 5.2 and earlier have no reasoning_effort knob: effort is recorded as
+    # metadata upstream but never reaches the API payload.
     monkeypatch.setenv("ZAI_API_KEY", "zai-test")
     seen: dict[str, object] = {}
 
     def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
         seen["url"] = url
+        seen["payload"] = payload
         return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
 
     monkeypatch.setattr(P, "_http_post_json", fake_post)
     resp = ZaiProvider("glm-5.2").complete([], [], effort="high")
     assert "chat/completions" in seen["url"]
     assert "responses" not in str(seen["url"])
+    assert "reasoning_effort" not in seen["payload"]  # type: ignore[operator]
+    assert "thinking" not in seen["payload"]  # type: ignore[operator]
     assert resp.content == "ok"
+
+
+def test_zai_glm_5_3_sends_effort_and_thinking(monkeypatch: pytest.MonkeyPatch) -> None:
+    # GLM 5.3 exposes reasoning_effort (low/high/max) with always-on thinking.
+    # The loop passes the mapped provider value ("max" for extra-high); the
+    # provider sends it verbatim alongside thinking.type=enabled.
+    monkeypatch.setenv("ZAI_API_KEY", "zai-test")
+    seen: dict[str, object] = {}
+
+    def fake_post(url, headers, payload, timeout=120):  # type: ignore[no-untyped-def]
+        seen["payload"] = payload
+        return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    monkeypatch.setattr(P, "_http_post_json", fake_post)
+    ZaiProvider("glm-5.3").complete([], [], effort="max")
+    assert seen["payload"]["reasoning_effort"] == "max"  # type: ignore[index]
+    assert seen["payload"]["thinking"] == {"type": "enabled"}  # type: ignore[index]
+    # No effort => nothing sent (server defaults to always-on max thinking).
+    ZaiProvider("glm-5.3").complete([], [])
+    assert "reasoning_effort" not in seen["payload"]  # type: ignore[operator]
+    assert "thinking" not in seen["payload"]  # type: ignore[operator]
 
 
 def test_anthropic_max_tokens_scales_with_effort(monkeypatch: pytest.MonkeyPatch) -> None:

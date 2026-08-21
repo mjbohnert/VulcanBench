@@ -87,11 +87,39 @@ def test_ollama_effort_is_noop_metadata() -> None:
     assert cfg.supported is False
 
 
-def test_zai_effort_is_noop_metadata() -> None:
-    cfg = effort_config("zai", "low")
+def test_zai_effort_is_noop_metadata_pre_5_3() -> None:
+    # GLM 5.2 (and an unspecified model) have no reasoning_effort knob.
+    for model in (None, "glm-5.2"):
+        cfg = effort_config("zai", "low", model)
+        assert cfg is not None
+        assert cfg.as_summary() == {
+            "requested": "low",
+            "provider": "zai",
+            "provider_value": None,
+            "supported": False,
+        }
+
+
+def test_zai_glm_5_3_effort_maps_low_high_and_max() -> None:
+    # GLM 5.3's documented enum is low/high/max (extra-high reaches the ceiling).
+    for requested, sent in (("low", "low"), ("high", "high"), ("extra-high", "max")):
+        cfg = effort_config("zai", requested, "glm-5.3")
+        assert cfg is not None
+        assert cfg.as_summary() == {
+            "requested": requested,
+            "provider": "zai",
+            "provider_value": sent,
+            "supported": True,
+        }
+
+
+def test_zai_glm_5_3_medium_is_noop_metadata() -> None:
+    # GLM 5.3 has no "medium" level, so it stays recorded-but-not-sent rather
+    # than pretending a level the API lacks ran.
+    cfg = effort_config("zai", "medium", "glm-5.3")
     assert cfg is not None
     assert cfg.as_summary() == {
-        "requested": "low",
+        "requested": "medium",
         "provider": "zai",
         "provider_value": None,
         "supported": False,
@@ -184,7 +212,7 @@ def test_openai_minimal_maps_directly() -> None:
 
 def test_minimal_is_noop_where_undocumented() -> None:
     # Only OpenAI and Meta document a minimal level. Everyone else records the
-    # label without sending it — including claude-code, whose CLI would reject
+    # label without sending it, including claude-code, whose CLI would reject
     # an --effort value it does not have.
     for provider in ("anthropic", "claude-code", "kimi", "qwen", "deepseek"):
         cfg = effort_config(provider, "minimal")
