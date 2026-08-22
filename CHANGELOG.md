@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   probes. The harness brings the stack up under a unique per-run project
   before the agent's clock starts, resolves ephemeral published ports into a
   gitignored `.vb_services.json` in the workspace, and always tears down with
-  `down -v` — in `vulcanbench run` and in task validation (fresh stack per
+  `down -v`, in `vulcanbench run` and in task validation (fresh stack per
   gold/base/determinism run). Validation rejects the isolation footguns
   (`container_name`, fixed host ports). Environment tasks require
   `--sandbox local`; the walking-skeleton template is
@@ -198,6 +198,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Python 3.13+ installs are usable again.** `audioop` left the stdlib in 3.13 (PEP 594),
+  and `harness/voice/audio.py` imports it at module scope, so on 3.13/3.14 *every*
+  `vulcanbench` command died at import, not just the voice suite. The `audioop-lts`
+  backport is now a dependency behind a `python_version >= '3.13'` marker.
+- **`make sandbox-image-all` builds the Node/TypeScript image.** It was missing
+  `vulcanbench/sandbox:node-ts`, so `make validate-cyber` (and Docker validation of the
+  JS/TS tasks in v3/v4) failed with a misleading "pull access denied" as Docker tried to
+  fetch the absent local tag from Docker Hub. Added a `sandbox-image-node-ts` target.
+- **CI runs a Python 3.14 smoke job** (`python-3-14-smoke`): install with `[test]` only,
+  `vulcanbench --version`, fast pytest. Light on purpose, no toolchains, no lint/mypy,
+  no coverage gate, it exists to catch exactly the stdlib-drift class above, which a
+  3.12-only job cannot see. `pytest-asyncio` moved from the `dev` extra to `test`, where
+  the other pytest plugins live, so `[test]` alone satisfies the `asyncio_mode` config.
+- **`test_security_rust_budget_exhausted` no longer depends on a local cargo install.**
+  `security._rust` checks for cargo before it checks the budget, so on a machine without
+  the Rust toolchain the test asserted the wrong branch and failed; it now mocks cargo
+  as present.
 - **Host-run CLI agents can no longer pip-install into the system Python.**
   `_subscription_env()` now sets `PIP_REQUIRE_VIRTUALENV=1` and
   `PYTHONNOUSERSITE=1` for every subscription CLI subprocess (claude-code,

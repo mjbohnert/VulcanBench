@@ -181,9 +181,9 @@ compose file and declares:
 
 Rules the validator enforces:
 
-- publish ports **ephemerally** (`ports: ["6379"]`) — never `"6379:6379"`;
+- publish ports **ephemerally** (`ports: ["6379"]`), never `"6379:6379"`;
   the harness resolves the real host ports per run,
-- no `container_name:` — per-run compose projects must not collide,
+- no `container_name:`, per-run compose projects must not collide,
 - every `ready` probe needs `service` and `cmd` (run via `docker compose
   exec` until it exits 0).
 
