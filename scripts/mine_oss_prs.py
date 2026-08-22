@@ -37,6 +37,21 @@ from dataclasses import asdict, dataclass
 # Seeds, not exhaustive — extend freely; discovery is the point. Keep the set
 # spread across domains so the mid band does not end up dominated by one library.
 DOMAIN_REPOS: dict[str, list[str]] = {
+    # App-scale, pure-Python frameworks whose PRs are real multi-module
+    # engineering (not one-file library edge fixes) — the shape that still
+    # discriminates the 2026 frontier. Mine these with a wider --max-loc.
+    "app-scale": [
+        "django/django",
+        "sqlalchemy/sqlalchemy",
+        "celery/celery",
+        "scrapy/scrapy",
+        "sphinx-doc/sphinx",
+        "dbt-labs/dbt-core",
+        "encode/django-rest-framework",
+        "pallets/werkzeug",
+        "python-poetry/poetry",
+        "mitmproxy/mitmproxy",
+    ],
     "web-async": [
         "pallets/flask",
         "encode/starlette",

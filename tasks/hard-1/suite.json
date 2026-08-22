@@ -1,0 +1,8 @@
+{
+  "_charter": "see tasks/python-1/CHARTER.md — hard-1 is the difficulty-first HARD TIER",
+  "_display_name": "VulcanBench Python Hard Tier v1",
+  "_status": "in-progress 2026-08-18: difficulty-first hard tier (measure-before-build). Admit ONLY tasks a frontier model fails at low effort.",
+  "_note": "Companion to python-1 (broad competence). Tasks here are sourced difficulty-first: mine hard-shaped PRs (multi-module reasoning, app-scale frameworks), and admit only tasks that a strong model (grok-4.5 low) does NOT solve. Built after python-1 measurement showed 19/23 were floor for cheap models.",
+  "tasks": ["oss-django-m2m-ondelete-check"],
+  "full": ["oss-django-m2m-ondelete-check"]
+}
