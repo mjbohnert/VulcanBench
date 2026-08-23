@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`composer:composer-2.5` provider** via the Cursor Python SDK (`cursor-sdk`): runs tasks
-  with Composer's native agent harness (like `claude-code:` / `codex:` specs). Requires
-  `CURSOR_API_KEY` and `--sandbox local`. Standard-tier list pricing ($0.50/$2.50 per 1M).
+- **`cursor-agent:composer-2.5` sessions** — benchmark Composer via Cursor cloud agents
+  (first-party tools; no API key). ``vulcanbench cursor-agent prepare/finalize`` prepares
+  a workspace, grades after the agent finishes, and estimates **input / reasoning /
+  output** tokens from the cloud-agent transcript for API-cost projection.
 
 ## [0.8.0] - 2026-07-29
 

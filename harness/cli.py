@@ -24,6 +24,7 @@ from harness.agent.providers import ProviderError
 from harness.calibration import calibrate_tasks, calibration_to_markdown
 from harness.compare import build_matrix
 from harness.cost_estimate import estimate_plan
+from harness.cursor_agent.cli import cursor_agent_app
 from harness.effort import DEFAULT_SWEEP_EFFORTS, parse_efforts
 from harness.leaderboard import aggregate_by_model, scan_leaderboard
 from harness.pricing import is_priced
@@ -48,6 +49,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(voice_app, name="voice")
+app.add_typer(cursor_agent_app, name="cursor-agent")
 
 console = Console()
 

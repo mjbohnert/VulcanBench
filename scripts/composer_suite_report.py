@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-task breakdown for a completed suite run directory."""
+"""Per-task breakdown for cursor-agent suite runs."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _load_summaries(runs_dir: Path, model: str, suite: str | None) -> list[dict[
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs-dir", type=Path, default=Path("runs"))
-    parser.add_argument("--model", required=True, help="e.g. composer:composer-2.5")
+    parser.add_argument("--model", default="cursor-agent:composer-2.5")
     parser.add_argument("--suite", default="v4")
     args = parser.parse_args()
 
@@ -37,32 +37,43 @@ def main() -> None:
         by_task[str(summary.get("task_id", "unknown"))].append(summary)
 
     if not by_task:
-        print(f"No runs found for model={args.model!r} suite={args.suite!r} under {args.runs_dir}")
+        print(f"No runs for model={args.model!r} suite={args.suite!r} under {args.runs_dir}")
         raise SystemExit(1)
 
     total_runs = sum(len(v) for v in by_task.values())
-    successes = sum(
-        1 for runs in by_task.values() for s in runs if (s.get("scores") or {}).get("functional") == 1.0
+    passed = sum(
+        1
+        for runs in by_task.values()
+        for s in runs
+        if (s.get("scores") or {}).get("functional") == 1.0
     )
-    errors = sum(1 for runs in by_task.values() for s in runs if s.get("error"))
+    failed = total_runs - passed
 
     print(f"# {args.model} on suite {args.suite}")
-    print(f"Tasks: {len(by_task)} | Runs: {total_runs} | Pass: {successes} | Fail: {total_runs - successes - errors} | Error: {errors}")
+    print(f"Tasks: {len(by_task)} | Runs: {total_runs} | Pass: {passed} | Fail: {failed}")
     print()
-    print("| task | runs | pass@runs | avg functional | avg time (s) | avg cost ($) |")
-    print("| --- | ---: | ---: | ---: | ---: | ---: |")
+    print(
+        "| task | runs | pass | avg functional | time (s) | "
+        "input tok | reasoning tok | output tok | est. cost ($) |"
+    )
+    print("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
 
     for task_id in sorted(by_task):
         runs = by_task[task_id]
         funcs = [(r.get("scores") or {}).get("functional") for r in runs]
-        passed = sum(1 for f in funcs if f == 1.0)
-        avg_func = sum(f for f in funcs if isinstance(f, (int, float))) / len(funcs)
+        n_pass = sum(1 for f in funcs if f == 1.0)
+        avg_func = sum(f for f in funcs if isinstance(f, (int, float))) / len(runs)
         avg_time = sum(float(r.get("duration_s") or 0) for r in runs) / len(runs)
+        tok = runs[0].get("tokens") or {}
+        avg_in = sum((r.get("tokens") or {}).get("input", 0) for r in runs) / len(runs)
+        avg_reason = sum((r.get("tokens") or {}).get("reasoning", 0) for r in runs) / len(runs)
+        avg_out = sum((r.get("tokens") or {}).get("output", 0) for r in runs) / len(runs)
         costs = [r.get("cost_usd") for r in runs if r.get("cost_usd") is not None]
         avg_cost = sum(costs) / len(costs) if costs else None
         cost_cell = f"{avg_cost:.4f}" if avg_cost is not None else "n/a"
         print(
-            f"| {task_id} | {len(runs)} | {passed}/{len(runs)} | {avg_func:.3f} | {avg_time:.1f} | {cost_cell} |"
+            f"| {task_id} | {len(runs)} | {n_pass}/{len(runs)} | {avg_func:.3f} | "
+            f"{avg_time:.1f} | {avg_in:.0f} | {avg_reason:.0f} | {avg_out:.0f} | {cost_cell} |"
         )
 
 

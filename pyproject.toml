@@ -39,9 +39,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-composer = [
-  "cursor-sdk>=1.0",
-]
 dev = [
   "ruff>=0.5.0",
   "mypy>=1.11.0",
