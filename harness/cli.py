@@ -76,7 +76,7 @@ def _execution_spec(model: str, harness_name: str, billing: str) -> str:
     if harness_name == "vulcan":
         if billing == "subscription":
             raise ValueError(
-                "--billing subscription requires --harness claude-code|codex|cursor|grok-build"
+                "--billing subscription requires --harness claude-code|codex|cursor|grok-build|zcode"
             )
         return model
     if harness_name not in CLI_AGENT_PROVIDERS:
@@ -142,7 +142,7 @@ def harness_doctor(
                 row["harness"],
                 str(row["version"] or "not installed"),
                 str(row["auth_mode"] or "none"),
-                str(row["plan_name"] or "—"),
+                str(row["plan_name"] or ""),
                 "yes" if row["ready"] else "no",
                 str(row["detail"] or ""),
             )
@@ -173,7 +173,7 @@ def main(
 
 
 @app.command()
-def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear guards + dispatch
+def run(  # noqa: PLR0912, PLR0915, CLI entry: option declarations + linear guards + dispatch
     task: str | None = typer.Option(None, "--task", "-t", help="Task ID e.g. swe-001"),
     suite: str | None = typer.Option(None, "--suite", help="Run a whole suite, e.g. v1 (tasks/v1)"),
     tasks_root: Path = typer.Option(  # noqa: B008
@@ -186,12 +186,12 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
         "--model",
         "-m",
         help="Model id. Use provider:model for Vulcan's API loop, or a bare model "
-        "with --harness claude-code|codex|cursor|grok-build.",
+        "with --harness claude-code|codex|cursor|grok-build|zcode.",
     ),
     harness_name: str = typer.Option(
         "vulcan",
         "--harness",
-        help="Execution harness: vulcan|claude-code|codex|cursor|grok-build",
+        help="Execution harness: vulcan|claude-code|codex|cursor|grok-build|zcode",
     ),
     billing: str = typer.Option(
         "auto",
@@ -405,10 +405,10 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
     if fail_under is not None:
         # Gate semantics: pass iff every unit ran AND pass@1 >= threshold.
         # An errored OR budget-skipped run, or an unavailable pass@1, fails
-        # closed — a CI gate must never go green on a partial/unknown result.
+        # closed, a CI gate must never go green on a partial/unknown result.
         if n_incomplete:
             console.print(
-                f"[red]FAIL[/red] {n_incomplete} run(s) errored or skipped — gate fails closed"
+                f"[red]FAIL[/red] {n_incomplete} run(s) errored or skipped, gate fails closed"
             )
             raise typer.Exit(code=4)
         if pass_at_1 is None or pass_at_1 < fail_under:
@@ -653,7 +653,7 @@ def _run_suite(
 
 
 @app.command("effort-sweep")
-def effort_sweep(  # noqa: PLR0912, PLR0915 — CLI entry: validation + per-effort dispatch
+def effort_sweep(  # noqa: PLR0912, PLR0915, CLI entry: validation + per-effort dispatch
     suite: str = typer.Option(..., "--suite", help="Suite to sweep, e.g. v1"),
     model: str = typer.Option(..., "--model", "-m", help="provider:model e.g. openai:gpt-5.1"),
     efforts: str = typer.Option(
@@ -851,7 +851,7 @@ def leaderboard(  # noqa: PLR0912
         return
 
     if by == "model":
-        table = Table(title=f"VulcanBench Leaderboard — by model ({track})")
+        table = Table(title=f"VulcanBench Leaderboard, by model ({track})")
         for col in (
             "Track",
             "Harness",
@@ -895,7 +895,7 @@ def leaderboard(  # noqa: PLR0912
                 str(a["avg_duration_s"]),
             )
     else:
-        table = Table(title=f"VulcanBench Leaderboard — by run ({track})")
+        table = Table(title=f"VulcanBench Leaderboard, by run ({track})")
         for col in (
             "Run ID",
             "Track",
@@ -1032,9 +1032,9 @@ def calibrate(  # noqa: PLR0912
         for e in cal["tasks"]:
             sr = e["solve_rate"]
             se = e["solve_rate_stderr"]
-            sr_str = f"{sr:.4f} ± {se:.4f}" if sr is not None else "—"
-            label = e["labeled_difficulty"] or "—"
-            emp = e["empirical_difficulty"] or "—"
+            sr_str = f"{sr:.4f} ± {se:.4f}" if sr is not None else ""
+            label = e["labeled_difficulty"] or ""
+            emp = e["empirical_difficulty"] or ""
             style = "[bold red]" if e["agreement"] is False else ""
             table.add_row(
                 e["task_id"],
@@ -1220,7 +1220,7 @@ def compare(
     Re-runs nothing: every cell comes from ``./runs``, filtered to the suite's
     current task hashes (stale runs, scored against an older task definition, are
     excluded). To add a model to the comparison, run just that one model against
-    the suite, then re-run ``compare`` — the baselines are read from cache.
+    the suite, then re-run ``compare``: the baselines are read from cache.
     """
     try:
         matrix = build_matrix(suite, runs_dir=runs_dir, tasks_base=tasks_base)

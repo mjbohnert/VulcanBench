@@ -390,7 +390,7 @@ def _resolve_run_engine(
         # exempt: with --sandbox docker their agent runs on the host workspace
         # while VulcanBench's setup and hidden-test verifier run in Docker over
         # the same directory. Forcing Cursor to local also forced the VERIFIER
-        # to the host, where toolchains don't match the sandbox image — every
+        # to the host, where toolchains don't match the sandbox image, every
         # Python task failed verification with "pytest is unavailable".
         if adapter.harness_id == "claude-code" and sandbox != "local":
             raise SandboxError(
@@ -400,7 +400,7 @@ def _resolve_run_engine(
             )
         return adapter, None, effort_config(adapter.harness_id, effort)
     provider = provider or get_provider(model)
-    return None, provider, effort_config(provider.name, effort)
+    return None, provider, effort_config(provider.name, effort, provider.model)
 
 
 def _execute_agent(
@@ -617,7 +617,7 @@ def _budget_exceeded_scores(functional: float, total_tokens: int, steps: int) ->
     )
 
 
-def _run_model_loop(  # noqa: PLR0912 — linear ReAct loop with budget + cost guards
+def _run_model_loop(  # noqa: PLR0912, linear ReAct loop with budget + cost guards
     provider: LLMProvider,
     tools: list[dict[str, Any]],
     messages: list[dict[str, Any]],
@@ -664,7 +664,7 @@ def _run_model_loop(  # noqa: PLR0912 — linear ReAct loop with budget + cost g
 
         # Per-run cost ceiling: once this run's own agent spend crosses the cap,
         # stop before paying for another (expensive) model call. The partial work
-        # is still verified and scored honestly — "hit the cap" is a real outcome,
+        # is still verified and scored honestly, "hit the cap" is a real outcome,
         # not an error. Only enforceable when the model is priced.
         if max_run_cost is not None and model is not None:
             run_cost = cost_usd(model, prompt_tokens, completion_tokens)
@@ -1114,14 +1114,14 @@ def _verify(
     return functional, payload
 
 
-# .cursor/ and .grok/ hold harness-written config, not agent work. The build
+# .cursor/, .grok/ and .zcode/ hold harness-written config, not agent work. The build
 # dirs matter beyond patch noise: node_modules/.cache/nyc/*.js and similar
 # generated files carry scored extensions, so an un-ignored build dir doesn't
 # just bloat final.patch -- group_by_language() picks them up and quality/
 # security analyzers score them as if they were the agent's real changes
 # (observed live: nyc cache JS files scored on oss-hono-client-header-merge).
 _WORKSPACE_GITIGNORE = (
-    ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n.grok/\n"
+    ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n.grok/\n.zcode/\n"
     "target/\nnode_modules/\ndist/\nbuild/\n.gocache/\n.nyc_output/\n*.egg-info/\n"
 )
 

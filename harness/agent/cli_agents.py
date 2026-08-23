@@ -1,12 +1,13 @@
 """Run models inside their own agent CLI (subscription billing).
 
-``claude-code:<model>``, ``codex:<model>``, and ``cursor:<model>`` run a task
+``claude-code:<model>``, ``codex:<model>``, ``cursor:<model>``, ``grok-build:<model>``
+and ``zcode:<model>`` run a task
 in the product's headless CLI instead of the VulcanBench agent loop.  The
 external harness owns its prompts, context management, and tools; everything
 downstream (git diff, verifier, evaluator, scoring) remains under VulcanBench.
 
 Why this exists: Claude Code authenticates with a Claude subscription
-(Pro/Max), so runs bill the subscription instead of API rates — and it is also
+(Pro/Max), so runs bill the subscription instead of API rates, and it is also
 a legitimate benchmark target in its own right, since most people use the
 model *through* its vendor harness. Two honesty rules follow:
 
@@ -30,8 +31,10 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import threading
+import time
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -48,7 +51,7 @@ from harness.agent.providers import (
 from harness.pricing import cost_usd
 from harness.redaction import sanitize
 
-CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex", "cursor", "grok-build"})
+CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex", "cursor", "grok-build", "zcode"})
 
 # Claude Code's headless result text when a subscription window is exhausted
 # (e.g. "Claude AI usage limit reached|...", "5-hour limit reached ∙ resets 3am").
@@ -70,6 +73,14 @@ _SAFE_ENV_KEYS = frozenset(
         "CODEX_HOME",
         "CLAUDE_CONFIG_DIR",
         "GROK_HOME",
+        # ZCode: alternate node binary for the npm launcher, and the storage /
+        # credential roots a user may have relocated. No ZCODE_API_KEY /
+        # ZCODE_BASE_URL: those select API-key billing and are deliberately absent.
+        "ZCODE_NODE",
+        "ZCODE_HOME",
+        "ZCODE_DATA_BASE_DIR",
+        "ZCODE_STORAGE_DIR",
+        "NVM_DIR",
     }
 )
 
@@ -103,7 +114,7 @@ _JUDGE_DISALLOWED_TOOLS = (
 _ISSUE_SUFFIX = (
     "\n\nSolve this issue in the current repository. Make the smallest correct "
     "change and run the tests to verify it. Leave your changes uncommitted in "
-    "the working tree — do not create git commits."
+    "the working tree, do not create git commits."
 )
 
 
@@ -412,7 +423,7 @@ def _cursor_preflight(cursor_bin: str = "cursor-agent") -> HarnessPreflight:
     )
 
 
-def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
+def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
     *,
     workspace: Path,
     prompt: str,
@@ -433,7 +444,7 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     Cursor's stream-json reports no token usage or cost, so the outcome carries
     zero token counts and the economics receipt honestly records the
-    API-equivalent value as unavailable — Cursor's own dashboard is the only
+    API-equivalent value as unavailable, Cursor's own dashboard is the only
     ledger for what a run consumed. ``max_turns`` cannot be forwarded (no such
     flag) and ``max_run_cost`` cannot be enforced live (no streamed usage).
     """
@@ -605,7 +616,7 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         detail = tail or "no stderr"
         if _LIMIT_PATTERN.search(detail):
             raise SubscriptionQuotaError(
-                "cursor usage limit hit — rerun after topping up credits "
+                "cursor usage limit hit, rerun after topping up credits "
                 f"(use --only-missing to resume): {detail[:300]}"
             )
         raise ProviderError(
@@ -618,7 +629,7 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     if result_msg.get("is_error") or outcome.subtype != "success":
         if _LIMIT_PATTERN.search(result_text):
             raise SubscriptionQuotaError(
-                "cursor usage limit hit — rerun after topping up credits "
+                "cursor usage limit hit, rerun after topping up credits "
                 f"(use --only-missing to resume): {result_text[:300]}"
             )
         raise ProviderError(f"cursor-agent run failed ({outcome.subtype}): {result_text[:300]}")
@@ -692,7 +703,7 @@ def _grok_build_preflight(grok_bin: str = "grok") -> HarnessPreflight:
 # Tools Grok Build must not have on a decontaminated suite. Removal via
 # --disallowed-tools is airtight (the model cannot call a tool that does not
 # exist), at the cost of the "refused attempts" telemetry the Cursor study
-# had — a deliberate trade after Harness Study No. 01 showed how fussy
+# had, a deliberate trade after Harness Study No. 01 showed how fussy
 # permission-layer denies are. --deny WebFetch rides along as a second layer.
 _GROK_WEB_TOOLS = "web_search,web_fetch"
 
@@ -709,7 +720,7 @@ def _grok_session_dir(session_id: str) -> Path | None:
     return None
 
 
-def _harvest_grok_trace(  # noqa: PLR0912 — linear artifact-copy + fold loop
+def _harvest_grok_trace(  # noqa: PLR0912, linear artifact-copy + fold loop
     session_dir: Path,
     run_dir: Path,
     stream_f: Any,
@@ -718,7 +729,7 @@ def _harvest_grok_trace(  # noqa: PLR0912 — linear artifact-copy + fold loop
     """Copy session artifacts into the run dir and fold them into the stream.
 
     Grok's live streaming-json is text/thought/end only; every tool call
-    (with ``toolCallId`` and ``rawInput`` — the audit substrate) lives in the
+    (with ``toolCallId`` and ``rawInput``: the audit substrate) lives in the
     session's ``updates.jsonl``. Appending those records to the stream log is
     what lets ``run_audit`` see grok runs at all.
     """
@@ -765,7 +776,7 @@ def _harvest_grok_trace(  # noqa: PLR0912 — linear artifact-copy + fold loop
             outcome.sandbox_profile = str(summary["sandbox_profile"])
 
 
-def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
+def run_grok_build_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
     *,
     workspace: Path,
     prompt: str,
@@ -788,14 +799,14 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     surface had a trap: ``--effort`` parsed and was silently IGNORED for
     reasoning (the session kept the default "high"); 1.0.5 makes it an alias
     of ``--reasoning-effort``, which is the flag this adapter always sends
-    (accepted: none/minimal/low/medium/high/xhigh — confirmed by reading
+    (accepted: none/minimal/low/medium/high/xhigh, confirmed by reading
     back ``reasoning_effort`` from the session summary on both versions).
     On 0.2.69 the live stream carried no tool calls or usage; 1.0.5 streams
     ``tool_call``/``tool_call_update``/``usage`` events and a final ``end``
     event with the full split (input/output/cache-read/reasoning tokens,
     ``num_turns``, and the CLI's own ``total_cost_usd``), so token receipts
     and a live API-equivalent cost cap both work. The session trace is still
-    harvested post-run as the audit substrate — the session id is chosen up
+    harvested post-run as the audit substrate, the session id is chosen up
     front with ``-s`` so a timeout can still find its trace.
 
     ``--sandbox strict`` is Seatbelt/Landlock-enforced: reads outside the
@@ -813,7 +824,7 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     session_id = str(uuid.uuid4())
     # Custom kernel sandbox: toolchain parity with other harnesses (read
-    # everywhere, write CWD — `strict` also denied ~/.cargo and homebrew,
+    # everywhere, write CWD, `strict` also denied ~/.cargo and homebrew,
     # crippling non-Python tasks), plus a kernel deny on this checkout so the
     # answer keys are unreadable even if the agent learns the repo path.
     # Grok fails closed if the profile cannot be applied.
@@ -859,7 +870,7 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     )
     env = _subscription_env(env_overrides)
     env["GROK_DISABLE_AUTOUPDATER"] = "1"
-    # Cross-session memory would let run N+1 remember run N's task —
+    # Cross-session memory would let run N+1 remember run N's task,
     # repeat-to-repeat contamination inside one sweep. Grok 1.0 dropped the
     # --no-memory flag; GROK_MEMORY=0 force-disables regardless of the
     # user's config.toml, which a flag never did.
@@ -922,7 +933,7 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     # Running totals from per-call ``usage`` events (grok >= 1.0). Grok's
     # output_tokens already includes reasoning (verified: per-call outputs sum
     # to the end event's output_tokens, and end total = input + cache reads +
-    # output) — no completion_excludes_reasoning fold here, unlike raw xAI.
+    # output), no completion_excludes_reasoning fold here, unlike raw xAI.
     acc = {"prompt": 0, "completion": 0, "cached": 0, "reasoning": 0}
     stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
     try:
@@ -1012,7 +1023,7 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
         tail = (error_msg or "").strip() or "".join(stderr_chunks)[-500:].strip() or "no stderr"
         if _LIMIT_PATTERN.search(tail):
             raise SubscriptionQuotaError(
-                "grok usage limit hit — rerun after the window resets "
+                "grok usage limit hit, rerun after the window resets "
                 f"(use --only-missing to resume): {tail[:300]}"
             )
         raise ProviderError(f"grok exited without an end event (exit {proc.returncode}): {tail}")
@@ -1041,6 +1052,711 @@ def run_grok_build_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     outcome.finished = True
     collector.record("cli_agent_result", outcome.summary())
     return outcome
+
+
+# ---------------------------------------------------------------------------
+# ZCode (Z.ai's coding harness for GLM)
+# ---------------------------------------------------------------------------
+
+#: The ZCode tool names that reach the public web. ``WebFetch``/``WebSearch``
+#: are the built-in tool ids; ``web_search`` is the catalog alias the runtime
+#: also registers. Removed via ``--disallowed-tools`` (the runtime's headless
+#: denylist) and mirrored into the per-run project config so subagents inherit
+#: the deny. The Browser Use plugin (a headless Chromium the npm launcher
+#: enables by default for ``--prompt`` sessions) is a second web channel and is
+#: switched off through the same config.
+_ZCODE_WEB_TOOLS = ("WebFetch", "WebSearch", "web_search")
+_ZCODE_BROWSER_PLUGIN_ID = "browser-use@zcode-plugins-official"
+
+#: ZCode ``model_usage.query_source`` values that are NOT agent turns: title
+#: generation, memory synthesis, internal tool model calls, and web processing.
+#: These run on the lite model, so they must not vote for the run's reported
+#: model/effort (agent turns are ``main_turn``). A denylist keeps a future
+#: turn-source name counted rather than silently dropped.
+_ZCODE_AUX_QUERY_SOURCES = frozenset(
+    {
+        "session_title_generation",
+        "memory_synthesize",
+        "tool_internal_model_call",
+        "web_fetch_processing",
+        "web_search",
+        "workspace_generate_text",
+        "git_commit_message",
+    }
+)
+
+#: Z.ai / BigModel endpoints that bill a GLM Coding Plan rather than metered
+#: API usage. A key configured against any other base URL is a pay-as-you-go
+#: key, and the preflight fails closed on it exactly as it does for
+#: ``XAI_API_KEY`` on Grok Build.
+_ZCODE_PLAN_ENDPOINT_MARKERS = (
+    "api.z.ai/api/anthropic",
+    "api.z.ai/api/coding/",
+    "open.bigmodel.cn/api/anthropic",
+    "open.bigmodel.cn/api/coding/",
+)
+
+# Coding Plan exhaustion surfaces as provider errors from Z.ai. The process
+# often exits 1 with only a generic stack on stderr, while the real cause
+# ("[1308][Usage limit reached for 5 hour...]" or "[1302][Rate limit...]")
+# lands in the harvested session's model_usage.error_message, so both the
+# stderr tail and the session rows are scanned. Codes: 1302 rate limit,
+# 1308 5-hour/weekly window limit.
+_ZCODE_LIMIT_PATTERN = re.compile(
+    r"usage limit|rate limit|limit reached|limit will reset|quota|"
+    r"insufficient balance|too many requests|\b429\b|\[130[28]\]",
+    re.I,
+)
+
+
+def _zcode_home() -> Path:
+    """Root of ZCode's CLI state (``~/.zcode`` unless relocated)."""
+    override = os.environ.get("ZCODE_STORAGE_DIR") or os.environ.get("ZCODE_HOME")
+    return Path(override).expanduser() if override else Path.home() / ".zcode"
+
+
+def _zcode_user_config_path() -> Path:
+    return _zcode_home() / "cli" / "config.json"
+
+
+def _zcode_credentials_path() -> Path:
+    """Shared Z.ai login store (``~/.zcode/v2/credentials.json``)."""
+    base = os.environ.get("ZCODE_DATA_BASE_DIR")
+    root = Path(base).expanduser() if base else Path.home()
+    return root / ".zcode" / "v2" / "credentials.json"
+
+
+def _zcode_session_db_path(user_config: dict[str, Any] | None = None) -> Path:
+    storage = user_config.get("storage") if isinstance(user_config, dict) else None
+    configured = storage.get("sessionDbPath") if isinstance(storage, dict) else None
+    if isinstance(configured, str) and configured.strip():
+        return Path(configured).expanduser()
+    return _zcode_home() / "cli" / "db" / "db.sqlite"
+
+
+def _read_json_file(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _zcode_version(zcode_bin: str) -> str | None:
+    """Both lines of ``zcode --version`` (launcher and runtime), joined."""
+    if shutil.which(zcode_bin) is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [zcode_bin, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            env=_subscription_env(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    lines = [ln.strip() for ln in (proc.stdout or proc.stderr).splitlines() if ln.strip()]
+    return "; ".join(lines[:2]) if lines else None
+
+
+def _zcode_preflight(zcode_bin: str = "zcode") -> HarnessPreflight:
+    """Readiness receipt for ZCode without launching a model run.
+
+    Authentication is read from ZCode's own stores, presence only, never the
+    values: the shared OAuth credential file (``zcode login``, bills the GLM
+    Coding Plan) or a Coding Plan API key configured in the user config against
+    a plan endpoint. A key against any other endpoint is metered API billing
+    and fails closed, matching the XAI_API_KEY / CURSOR_API_KEY rule.
+    """
+    version = _zcode_version(zcode_bin)
+    if version is None:
+        return HarnessPreflight(
+            harness="zcode",
+            available=False,
+            version=None,
+            authenticated=False,
+            auth_mode=None,
+            detail=(
+                f"{zcode_bin!r} not found on PATH; install with "
+                "`npm install -g zcode-app-cli@latest` (Node >= 22.19) and run `zcode login`"
+            ),
+        )
+    creds = _read_json_file(_zcode_credentials_path()) or {}
+    if creds.get("oauth:zai:access_token") or creds.get("oauth:zai:refresh_token"):
+        return HarnessPreflight(
+            harness="zcode",
+            available=True,
+            version=version,
+            authenticated=True,
+            auth_mode="subscription",
+            plan_name=_zcode_plan_name(creds),
+            detail="Z.ai OAuth login (GLM Coding Plan)",
+        )
+    config = _read_json_file(_zcode_user_config_path()) or {}
+    raw_providers = config.get("provider")
+    providers: dict[str, Any] = raw_providers if isinstance(raw_providers, dict) else {}
+    model_block = config.get("model")
+    main_model = str(model_block.get("main") or "") if isinstance(model_block, dict) else ""
+    provider_id = main_model.partition("/")[0] if "/" in main_model else ""
+    candidates = [providers.get(provider_id)] if provider_id else list(providers.values())
+    for entry in candidates:
+        if not isinstance(entry, dict):
+            continue
+        raw_options = entry.get("options")
+        options: dict[str, Any] = raw_options if isinstance(raw_options, dict) else {}
+        if not str(options.get("apiKey") or "").strip():
+            continue
+        base_url = str(options.get("baseURL") or "")
+        if any(marker in base_url for marker in _ZCODE_PLAN_ENDPOINT_MARKERS):
+            return HarnessPreflight(
+                harness="zcode",
+                available=True,
+                version=version,
+                authenticated=True,
+                auth_mode="subscription",
+                detail=f"Coding Plan API key in {_zcode_user_config_path()} ({base_url})",
+            )
+        return HarnessPreflight(
+            harness="zcode",
+            available=True,
+            version=version,
+            authenticated=True,
+            auth_mode="api-key",
+            detail=(
+                f"API key configured against {base_url or 'a custom endpoint'}: metered "
+                "billing, not the GLM Coding Plan; run `zcode login` for a subscription run"
+            ),
+        )
+    return HarnessPreflight(
+        harness="zcode",
+        available=True,
+        version=version,
+        authenticated=False,
+        auth_mode=None,
+        detail=f"signed out; run `{zcode_bin} login` (Z.ai OAuth) to bill the GLM Coding Plan",
+    )
+
+
+def _zcode_plan_name(creds: dict[str, Any]) -> str | None:
+    """Non-secret plan label from the OAuth user-info blob, if it carries one."""
+    info = creds.get("oauth:zai:user_info")
+    if isinstance(info, str):
+        try:
+            info = json.loads(info)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(info, dict):
+        return None
+    for key in ("plan", "planName", "plan_name", "package", "packageName", "subscription"):
+        value = info.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            label = value.get("name") or value.get("title")
+            if isinstance(label, str) and label.strip():
+                return label.strip()
+    return None
+
+
+def _zcode_model_ref(model: str, user_config: dict[str, Any] | None) -> tuple[str, str]:
+    """Resolve ``(provider_id, "<provider>/<model>")`` for a bare or qualified model.
+
+    The provider id is taken from the user config's own default model
+    (``model.main``) when the caller passed a bare model, so we pin exactly the
+    provider ZCode is already authenticated against (e.g. ``zai``) rather than
+    guessing. A slash-qualified model is honored as-is.
+    """
+    if "/" in model:
+        provider_id = model.split("/", 1)[0]
+        return provider_id, model
+    default_main = ""
+    if isinstance(user_config, dict):
+        model_block = user_config.get("model")
+        if isinstance(model_block, dict):
+            default_main = str(model_block.get("main") or "")
+    provider_id = default_main.split("/", 1)[0] if "/" in default_main else "zai"
+    return provider_id, f"{provider_id}/{model}"
+
+
+def _zcode_project_config(
+    model: str,
+    *,
+    network: bool,
+    effort: str | None,
+    user_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Per-run ``<workspace>/.zcode/config.json`` (merged over the user config).
+
+    Only the keys a clean benchmark must pin: the model, the thought level
+    (effort), permission mode, no cross-session memory (repeat N+1 must not
+    remember repeat N's task), and the web denies when web is off. Everything
+    else (skills, MCP, subagents, the product's default lite model) stays at
+    ZCode's defaults, because the column measures model + product harness.
+
+    The referenced provider block is copied verbatim from the user config into
+    the project scope. This is required, not cosmetic: setting ``model.main`` in
+    a project config makes ZCode resolve the provider in project scope, and
+    without the provider's ``baseURL`` (and credential) there it fails with
+    "Model provider <id> is missing baseURL" or an auth error. The copied block
+    carries the credential, so :func:`_redact_project_config` must be used
+    before logging this config anywhere.
+    """
+    if user_config is None:
+        user_config = _read_json_file(_zcode_user_config_path())
+    provider_id, model_ref = _zcode_model_ref(model, user_config)
+    config: dict[str, Any] = {
+        "model": {"main": model_ref},
+        "permission": {"mode": "yolo"},
+        "features": {"memory": False},
+        "memory": {"use": False, "write": False, "autoConsolidate": False},
+    }
+    providers = user_config.get("provider") if isinstance(user_config, dict) else None
+    if isinstance(providers, dict) and isinstance(providers.get(provider_id), dict):
+        config["provider"] = {provider_id: providers[provider_id]}
+    if effort:
+        config["modelCatalog"] = {"overrides": {model_ref: {"reasoning": {"defaultLevel": effort}}}}
+    if not network:
+        config["permission"]["disallowedTools"] = list(_ZCODE_WEB_TOOLS)
+        config["plugins"] = {"enabledPlugins": {_ZCODE_BROWSER_PLUGIN_ID: False}}
+    return config
+
+
+def _redact_project_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Deep copy with any provider ``options.apiKey`` masked, for safe logging."""
+    redacted: dict[str, Any] = json.loads(json.dumps(config))
+    providers = redacted.get("provider")
+    if isinstance(providers, dict):
+        for entry in providers.values():
+            options = entry.get("options") if isinstance(entry, dict) else None
+            if isinstance(options, dict) and options.get("apiKey"):
+                options["apiKey"] = "***"
+    return redacted
+
+
+def _zcode_find_session(
+    db_path: Path, workspace: Path, started_ms: int
+) -> tuple[str | None, list[str]]:
+    """Locate the session ZCode created for this workspace (plus subagent children)."""
+    if not db_path.exists():
+        return None, []
+    candidates = {str(workspace), os.path.realpath(workspace)}
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            placeholders = ",".join("?" for _ in candidates)
+            rows = con.execute(
+                f"select id from session where directory in ({placeholders}) "
+                "and parent_id is null and time_created >= ? "
+                "order by time_created desc limit 1",
+                (*candidates, started_ms),
+            ).fetchall()
+            if not rows:
+                return None, []
+            root = str(rows[0][0])
+            children = [
+                str(r[0])
+                for r in con.execute(
+                    "select id from session where parent_id = ? order by time_created",
+                    (root,),
+                ).fetchall()
+            ]
+            return root, children
+        finally:
+            con.close()
+    except Exception:  # sqlite availability is environmental; treat as no session
+        return None, []
+
+
+def _harvest_zcode_session(  # noqa: PLR0912, PLR0915, linear copy + fold loop
+    db_path: Path,
+    session_id: str,
+    child_ids: list[str],
+    run_dir: Path,
+    stream_f: Any,
+    outcome: CliAgentOutcome,
+) -> dict[str, int]:
+    """Fold ZCode's sqlite session store into the run artifacts.
+
+    ZCode's headless mode prints only the assistant's final text; every
+    message, tool call (``part`` rows with ``callID``/``tool``/``state.input``,
+    the audit substrate) and per-request token receipt (``model_usage``) lives
+    in ``~/.zcode/cli/db/db.sqlite``. This copies the session's rows into
+    ``<run_dir>/zcode-session/`` as JSONL, appends message/tool records to the
+    stream log so ``run_audit`` can see them, and sums usage into the outcome.
+    """
+    totals = {"prompt": 0, "completion": 0, "cached": 0, "reasoning": 0, "requests": 0}
+    dest = run_dir / "zcode-session"
+    dest.mkdir(exist_ok=True)
+    ids = [session_id, *child_ids]
+    placeholders = ",".join("?" for _ in ids)
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        with (dest / "messages.jsonl").open("w", encoding="utf-8") as mf:
+            rows = con.execute(
+                f"select m.id, m.session_id, m.sequence, m.time_created, m.data "
+                f"from message m where m.session_id in ({placeholders}) "
+                "order by m.session_id, m.sequence, m.time_created",
+                ids,
+            ).fetchall()
+            for row in rows:
+                try:
+                    data = json.loads(row["data"])
+                except (TypeError, json.JSONDecodeError):
+                    data = {"raw": str(row["data"])[:2000]}
+                record = {
+                    "type": "message",
+                    "session_id": row["session_id"],
+                    "message_id": row["id"],
+                    "sequence": row["sequence"],
+                    "time_created": row["time_created"],
+                    "data": data,
+                }
+                json.dump(sanitize(record), mf)
+                mf.write("\n")
+                if stream_f is not None:
+                    json.dump(sanitize(record), stream_f)
+                    stream_f.write("\n")
+                parts = con.execute(
+                    "select id, sequence, time_created, data from part "
+                    "where message_id = ? order by sequence, time_created",
+                    (row["id"],),
+                ).fetchall()
+                for part in parts:
+                    try:
+                        pdata = json.loads(part["data"])
+                    except (TypeError, json.JSONDecodeError):
+                        pdata = {"raw": str(part["data"])[:2000]}
+                    precord: dict[str, Any] = {
+                        "type": "part",
+                        "session_id": row["session_id"],
+                        "message_id": row["id"],
+                        "part_id": part["id"],
+                        "data": pdata,
+                    }
+                    if isinstance(pdata, dict) and pdata.get("type") == "tool":
+                        raw_state = pdata.get("state")
+                        state: dict[str, Any] = raw_state if isinstance(raw_state, dict) else {}
+                        # Normalized tool-call line: the audit keys on
+                        # toolCallId and reads path/command args verbatim.
+                        precord["tool_call"] = {
+                            "toolCallId": pdata.get("callID") or pdata.get("callId"),
+                            "name": pdata.get("tool"),
+                            "status": state.get("status"),
+                            "input": state.get("input"),
+                        }
+                    json.dump(sanitize(precord), mf)
+                    mf.write("\n")
+                    if stream_f is not None:
+                        json.dump(sanitize(precord), stream_f)
+                        stream_f.write("\n")
+        models: dict[str, int] = {}
+        variants: dict[str, int] = {}
+        with (dest / "model_usage.jsonl").open("w", encoding="utf-8") as uf:
+            usage_rows = con.execute(
+                f"select * from model_usage where session_id in ({placeholders}) "
+                "order by started_at",
+                ids,
+            ).fetchall()
+            for u in usage_rows:
+                urec = {k: u[k] for k in u.keys()}  # noqa: SIM118, sqlite3.Row
+                json.dump(sanitize(urec), uf)
+                uf.write("\n")
+                if u["status"] == "cancelled":
+                    continue
+                totals["requests"] += 1
+                cache_read = int(u["cache_read_input_tokens"] or 0)
+                cache_write = int(u["cache_creation_input_tokens"] or 0)
+                totals["prompt"] += int(u["input_tokens"] or 0) + cache_read + cache_write
+                totals["completion"] += int(u["output_tokens"] or 0)
+                totals["cached"] += cache_read
+                totals["reasoning"] += int(u["reasoning_tokens"] or 0)
+                # Attribute the run's model/effort from the root session's
+                # agent turns. ZCode tags those ``query_source == "main_turn"``;
+                # auxiliary calls (title/memory/tool-internal/web) run on the
+                # lite model and must not vote. Denylist, not allowlist, so a
+                # future turn source is still counted.
+                if (
+                    u["session_id"] == session_id
+                    and (u["query_source"] or "") not in _ZCODE_AUX_QUERY_SOURCES
+                ):
+                    ref = f"{u['provider_id']}/{u['model_id']}"
+                    models[ref] = models.get(ref, 0) + 1
+                    if u["variant"]:
+                        variants[str(u["variant"])] = variants.get(str(u["variant"]), 0) + 1
+        for name in ("turn_usage", "tool_usage"):
+            with (dest / f"{name}.jsonl").open("w", encoding="utf-8") as tf:
+                for t in con.execute(
+                    f"select * from {name} where session_id in ({placeholders})", ids
+                ).fetchall():
+                    json.dump(sanitize({k: t[k] for k in t.keys()}), tf)  # noqa: SIM118
+                    tf.write("\n")
+        if models:
+            main_ref = max(models.items(), key=lambda kv: kv[1])[0]
+            outcome.reported_model = main_ref
+            outcome.model_identity_confidence = "cli-reported"
+        if variants:
+            outcome.reported_effort = max(variants.items(), key=lambda kv: kv[1])[0]
+    finally:
+        con.close()
+    outcome.prompt_tokens = totals["prompt"]
+    outcome.completion_tokens = totals["completion"]
+    outcome.cached_input_tokens = totals["cached"]
+    outcome.reasoning_output_tokens = totals["reasoning"]
+    outcome.num_turns = totals["requests"] or None
+    return totals
+
+
+def _harvest_zcode_log(session_id: str, run_dir: Path) -> None:
+    """Copy this session's lines from ZCode's daily JSONL log into the run dir."""
+    log_dir = _zcode_home() / "cli" / "log"
+    if not log_dir.is_dir():
+        return
+    dest = run_dir / "zcode-session"
+    dest.mkdir(exist_ok=True)
+    out_path = dest / "log.jsonl"
+    with out_path.open("w", encoding="utf-8") as out:
+        for path in sorted(log_dir.glob("zcode-*.jsonl")):
+            try:
+                with path.open(encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        if session_id in line:
+                            try:
+                                out.write(json.dumps(sanitize(json.loads(line))) + "\n")
+                            except json.JSONDecodeError:
+                                continue
+            except OSError:
+                continue
+
+
+def run_zcode_task(  # noqa: PLR0912, PLR0915, linear process + harvest
+    *,
+    workspace: Path,
+    prompt: str,
+    model: str,
+    priced_spec: str,
+    max_turns: int,
+    collector: _Collector,
+    stream_log_path: Path | None = None,
+    timeout_s: float | None = None,
+    network: bool = False,
+    max_run_cost: float | None = None,
+    effort: str | None = None,
+    zcode_bin: str = "zcode",
+    env_overrides: dict[str, str] | None = None,
+    preflight: HarnessPreflight | None = None,
+) -> CliAgentOutcome:
+    """Run one task through ``zcode --prompt`` billed to a GLM Coding Plan.
+
+    ZCode is Z.ai's desktop harness for GLM; the ``zcode`` command is the
+    ``zcode-app-cli`` npm launcher around the same agent runtime
+    (``zcode-runtime`` 0.16.x at the time of writing). Verified headless
+    surface on that runtime: ``--prompt``/``-p``, ``--cwd``, ``--mode``,
+    ``--disallowed-tools``, ``--verbose``, ``--no-color``. The launcher's help
+    also advertises ``--max-turns``, ``--settings`` and ``--allowed-tools``,
+    but the runtime's strict parser rejects them, so ``max_turns`` cannot be
+    forwarded (the run's wall clock bounds it) and per-run settings travel
+    through the project-level ``<workspace>/.zcode/config.json`` instead,
+    which the runtime merges over the user config.
+
+    Headless mode prints only the assistant's final text; tool calls,
+    messages and per-request usage are harvested from ZCode's sqlite session
+    store after the run (see :func:`_harvest_zcode_session`), so token
+    receipts exist but a live ``--max-run-cost`` cap cannot be enforced.
+    """
+    del priced_spec, max_turns
+    workspace = workspace.resolve()
+    if timeout_s is not None and timeout_s <= 0:
+        raise ProviderError("run budget exhausted before CLI agent start")
+    if max_run_cost is not None:
+        raise ProviderError(
+            "zcode streams no usage during a run (tokens are harvested from its "
+            "session store afterwards), so --max-run-cost cannot be enforced; "
+            "use a wall-clock --timeout for subscription runs"
+        )
+
+    checked = preflight or _zcode_preflight(zcode_bin)
+    _require_subscription(checked)
+
+    zcode_dir = workspace / ".zcode"
+    zcode_dir.mkdir(exist_ok=True)
+    project_config = _zcode_project_config(model, network=network, effort=effort)
+    (zcode_dir / "config.json").write_text(
+        json.dumps(project_config, indent=1) + "\n", encoding="utf-8"
+    )
+
+    cmd = [
+        zcode_bin,
+        "--prompt",
+        prompt,
+        "--cwd",
+        str(workspace),
+        "--mode",
+        "yolo",
+        "--no-color",
+        "--verbose",
+    ]
+    if not network:
+        # Variadic flag: keep it last so it cannot swallow a following value.
+        cmd += ["--disallowed-tools", *_ZCODE_WEB_TOOLS]
+
+    collector.record(
+        "cli_agent_start",
+        {
+            "harness": "zcode",
+            "argv": [cmd[0], "--prompt", "<prompt omitted>", *cmd[3:]],
+            "harness_version": checked.version,
+            "project_config": _redact_project_config(project_config),
+        },
+    )
+    env = _subscription_env(env_overrides)
+    env["ZCODE_DISABLE_UPDATE_CHECK"] = "1"
+    env["NO_UPDATE_NOTIFIER"] = "1"
+    env["NO_COLOR"] = "1"
+    user_config = _read_json_file(_zcode_user_config_path())
+    db_path = _zcode_session_db_path(user_config)
+    started_ms = int(time.time() * 1000) - 1000
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=workspace,
+            env=env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as exc:
+        raise ProviderError(
+            f"{zcode_bin!r} not found on PATH; install with "
+            "`npm install -g zcode-app-cli@latest` and run `zcode login`"
+        ) from exc
+
+    stderr_chunks: list[str] = []
+
+    def _drain_stderr() -> None:
+        assert proc.stderr is not None
+        for chunk in proc.stderr:
+            stderr_chunks.append(chunk)
+
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    stderr_thread.start()
+
+    outcome = CliAgentOutcome(
+        harness="zcode",
+        execution_boundary=(
+            "host-workspace; zcode-mode=yolo; memory-off; "
+            + ("web-allowed" if network else "web-tools-removed+browser-plugin-off")
+        ),
+        requested_model=model,
+        harness_version=checked.version,
+        auth_method=checked.auth_mode,
+        plan_name=checked.plan_name,
+    )
+    killed = {"timeout": False}
+
+    def _kill_on_timeout() -> None:
+        killed["timeout"] = True
+        proc.kill()
+
+    watchdog: threading.Timer | None = None
+    if timeout_s is not None:
+        watchdog = threading.Timer(timeout_s, _kill_on_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+
+    stdout_parts: list[str] = []
+    stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
+    try:
+        assert proc.stdout is not None
+        for raw_line in proc.stdout:
+            stdout_parts.append(raw_line)
+            if stream_f:
+                json.dump(sanitize({"type": "stdout", "text": raw_line.rstrip("\n")}), stream_f)
+                stream_f.write("\n")
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        proc.wait()
+        stderr_thread.join(timeout=5)
+        text = "".join(stdout_parts)
+        if text.strip():
+            collector.record("llm_response", {"text": text[:4000]})
+        session_id, child_ids = _zcode_find_session(db_path, workspace, started_ms)
+        if session_id:
+            outcome.session_id = session_id
+        if session_id and stream_log_path is not None:
+            try:
+                _harvest_zcode_session(
+                    db_path, session_id, child_ids, stream_log_path.parent, stream_f, outcome
+                )
+                _harvest_zcode_log(session_id, stream_log_path.parent)
+            except Exception as exc:  # harvest must never mask the run itself
+                collector.record("cli_agent_harvest_error", {"error": str(exc)[:500]})
+        if stream_f:
+            stream_f.close()
+
+    outcome.timed_out = killed["timeout"]
+    stderr_text = "".join(stderr_chunks)
+    if proc.returncode != 0 or killed["timeout"]:
+        if killed["timeout"]:
+            # Partial work still counts; the caller diffs and verifies it.
+            return outcome
+        tail = stderr_text[-600:].strip() or "no stderr"
+        # The plan-limit cause is usually buried in the session, not on stderr.
+        limit_detail = (
+            tail
+            if _ZCODE_LIMIT_PATTERN.search(tail)
+            else _zcode_session_limit_error(db_path, outcome.session_id)
+        )
+        if limit_detail:
+            raise SubscriptionQuotaError(
+                "zcode Coding Plan limit hit, rerun after the window resets "
+                f"(use --only-missing to resume): {limit_detail[:300]}"
+            )
+        raise ProviderError(f"zcode exited with status {proc.returncode}: {tail[:400]}")
+    if outcome.session_id is None:
+        raise ProviderError(
+            "zcode exited 0 but no session for this workspace was found in "
+            f"{db_path}; cannot attribute usage or tool calls to the run"
+        )
+    outcome.subtype = "success"
+    outcome.finished = True
+    collector.record("cli_agent_result", outcome.summary())
+    return outcome
+
+
+def _zcode_session_limit_error(db_path: Path, session_id: str | None) -> str | None:
+    """Return a Coding Plan limit message from the session's usage rows, if any.
+
+    When ZCode hits a 5-hour/weekly window (code 1308) or a rate limit (1302),
+    the process exits 1 with only a generic stack on stderr; the real cause is
+    recorded in ``model_usage.error_message``. Scanning it lets the suite pause
+    on a quota exhaustion (``SubscriptionQuotaError``) instead of hot-retrying.
+    """
+    if not session_id or not db_path.exists():
+        return None
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            rows = con.execute(
+                "select error_message from model_usage "
+                "where session_id = ? and error_message is not null "
+                "order by started_at desc limit 20",
+                (session_id,),
+            ).fetchall()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+    for (msg,) in rows:
+        if msg and _ZCODE_LIMIT_PATTERN.search(str(msg)):
+            return str(msg)
+    return None
 
 
 def _require_subscription(preflight: HarnessPreflight) -> None:
@@ -1077,7 +1793,7 @@ class CliAgentOutcome:
     cli_reported_cost_usd: float | None = None
     # Cumulative context+output total when a CLI reports only that (Grok
     # Build's trace `_meta.totalTokens`); no prompt/completion split exists,
-    # so it never feeds pricing — it is provenance, not a bill.
+    # so it never feeds pricing, it is provenance, not a bill.
     cli_total_tokens: int | None = None
     reported_effort: str | None = None
     sandbox_profile: str | None = None
@@ -1107,7 +1823,7 @@ class CliAgentOutcome:
         }
 
 
-def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
+def run_claude_code_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
     *,
     workspace: Path,
     prompt: str,
@@ -1291,7 +2007,7 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
 
     if result_msg is None:
         # Killed by the budget/cost watchdog (partial work still counts), or
-        # the CLI died without reporting — approximate usage from the stream.
+        # the CLI died without reporting, approximate usage from the stream.
         outcome.prompt_tokens, outcome.completion_tokens = _fold_usage_totals(usage_by_msg.values())
         if not (killed["timeout"] or killed["cost"]):
             tail = "".join(stderr_chunks)[-500:].strip()
@@ -1313,7 +2029,7 @@ def run_claude_code_task(  # noqa: PLR0912, PLR0915 — linear stream-parse loop
     if result_msg.get("is_error") or outcome.subtype != "success":
         if _LIMIT_PATTERN.search(result_text):
             raise SubscriptionQuotaError(
-                "claude code subscription limit hit — rerun after the window "
+                "claude code subscription limit hit, rerun after the window "
                 f"resets (use --only-missing to resume): {result_text[:300]}"
             )
         if outcome.subtype == "error_max_turns":
@@ -1366,7 +2082,7 @@ def _codex_item_trace_data(item: dict[str, Any]) -> tuple[str, dict[str, Any]] |
     return None
 
 
-def run_codex_task(  # noqa: PLR0912, PLR0915 — linear process/stream adapter
+def run_codex_task(  # noqa: PLR0912, PLR0915, linear process/stream adapter
     *,
     workspace: Path,
     prompt: str,
@@ -1533,7 +2249,7 @@ def run_codex_task(  # noqa: PLR0912, PLR0915 — linear process/stream adapter
         detail = terminal_error or "".join(stderr_chunks)[-500:].strip() or "no error detail"
         if _LIMIT_PATTERN.search(detail):
             raise SubscriptionQuotaError(
-                "codex subscription limit hit — rerun after the window resets "
+                "codex subscription limit hit, rerun after the window resets "
                 f"(use --only-missing to resume): {detail[:300]}"
             )
         raise ProviderError(f"codex exec failed (exit {proc.returncode}): {detail[:500]}")
@@ -1641,11 +2357,39 @@ class GrokBuildAdapter:
         return run_grok_build_task(**kwargs)
 
 
+@dataclass(frozen=True)
+class ZCodeAdapter:
+    harness_id: str = "zcode"
+
+    def capabilities(self) -> HarnessCapabilities:
+        return HarnessCapabilities(
+            harness=self.harness_id,
+            display_name="ZCode",
+            executable="zcode",
+            # Headless stdout is plain text; the structured record (messages,
+            # tool calls with inputs, per-request usage) is harvested from
+            # ZCode's sqlite session store after the run.
+            structured_events=True,
+            reports_tokens=True,
+            reports_model=True,
+            supports_effort=True,
+            supports_live_cost_cap=False,
+            sandbox="zcode-mode=yolo; host workspace (web tools removed)",
+        )
+
+    def preflight(self) -> HarnessPreflight:
+        return _zcode_preflight()
+
+    def run_task(self, **kwargs: Any) -> CliAgentOutcome:
+        return run_zcode_task(**kwargs)
+
+
 _CLI_AGENT_ADAPTERS: dict[str, CliAgentAdapter] = {
     "claude-code": ClaudeCodeAdapter(),
     "codex": CodexAdapter(),
     "cursor": CursorAdapter(),
     "grok-build": GrokBuildAdapter(),
+    "zcode": ZCodeAdapter(),
 }
 
 
@@ -1668,7 +2412,7 @@ class ClaudeCodeProvider(LLMProvider):
     """Single-shot completions through Claude Code headless.
 
     Used for judge/grader calls when the run model is a ``claude-code:`` spec,
-    so evaluation also bills the subscription. Tool calling is not supported —
+    so evaluation also bills the subscription. Tool calling is not supported,
     judges and graders are plain prompt-in/JSON-out completions.
     """
 

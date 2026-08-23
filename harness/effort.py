@@ -131,6 +131,19 @@ _ZAI_EFFORT_VALUES = {
 # releases inherit support. Extend deliberately as new effort-capable GLMs ship.
 _ZAI_EFFORT_MODELS = ("glm-5.3",)
 
+# ZCode (Z.ai's coding harness) "thought level". The harness exposes the same
+# low/high/max enum as the GLM 5.3 API (ZCode's model catalog lists exactly
+# those three for glm-5.3, default max) and the adapter pins the level through
+# the per-run project config's ``modelCatalog.overrides[...].reasoning.
+# defaultLevel``, then reads the level ZCode actually ran back from its usage
+# ledger (``model_usage.variant``) as ``reported_effort``. "medium" does not
+# exist, so it stays recorded-but-not-sent.
+_ZCODE_EFFORT_VALUES = {
+    "low": "low",
+    "high": "high",
+    "extra-high": "max",
+}
+
 
 def zai_supports_effort(model: str | None) -> bool:
     """Whether a Z.ai GLM model exposes the ``reasoning_effort`` knob."""
@@ -148,6 +161,7 @@ _PROVIDER_EFFORT_MAPS = {
     "xai": _XAI_EFFORT_VALUES,
     "cursor": _CURSOR_EFFORT_VALUES,
     "grok-build": _GROK_BUILD_EFFORT_VALUES,
+    "zcode": _ZCODE_EFFORT_VALUES,
 }
 
 

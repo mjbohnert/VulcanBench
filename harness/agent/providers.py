@@ -738,9 +738,20 @@ class ZaiProvider(LLMProvider):
                 "thinking": {"type": "enabled"},
                 "reasoning_effort": effort,
             }
-        return _chat_completions_complete(
-            base, api_key, self.model, messages, tools, timeout, extra_payload=extra_payload
-        )
+        try:
+            return _chat_completions_complete(
+                base, api_key, self.model, messages, tools, timeout, extra_payload=extra_payload
+            )
+        except ProviderError as e:
+            # Code 1113 ("Insufficient balance or no resource package") arrives
+            # as HTTP 429, which is otherwise retryable. Retrying a drained
+            # balance only burns the run budget, so surface it immediately with
+            # a recharge hint, the same fail-fast treatment as a refusal.
+            if "1113" in str(e) or "insufficient balance" in str(e).lower():
+                raise NonRetryableProviderError(
+                    f"{e}. Recharge Z.ai credits at https://z.ai, then resume with --only-missing"
+                ) from e
+            raise
 
 
 class OllamaProvider(LLMProvider):

@@ -108,6 +108,7 @@ _SPEC_ALIASES = {
     "claude-code:": "anthropic:",
     "codex:": "openai:",
     "grok-build:": "xai:",
+    "zcode:": "zai:",
 }
 
 

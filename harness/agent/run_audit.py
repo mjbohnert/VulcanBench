@@ -94,7 +94,7 @@ def _line_hits(line: str, refs: dict[str, str]) -> tuple[bool, bool]:
     return repo_hit, solution
 
 
-_CALL_ID_RE = re.compile(r'"(?:toolCallId|call_id)"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_CALL_ID_RE = re.compile(r'"(?:toolCallId|call_id|callID|callId)"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 
 def _call_id(line: str) -> str:
@@ -189,7 +189,7 @@ def _candidate_paths(line: str) -> list[str]:
     return out
 
 
-def audit_filesystem(
+def audit_filesystem(  # noqa: PLR0912, linear path-scan over one stream
     stream_path: Path,
     workspace: Path | None,
     task_id: str,

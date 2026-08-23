@@ -1,14 +1,15 @@
 """Tests for the vendor agent-CLI runner (``claude-code:`` specs).
 
 A fake ``claude`` binary on PATH emits canned ``stream-json`` output (and
-writes the hello-world solution), so the full run_agent pipeline — workspace,
-diff, verifier, scoring, hypothetical-API pricing — is exercised offline.
+writes the hello-world solution), so the full run_agent pipeline, workspace,
+diff, verifier, scoring, hypothetical-API pricing, is exercised offline.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import stat
 from pathlib import Path
 from typing import Any
@@ -17,11 +18,15 @@ import pytest
 
 from harness.agent import loop as loop_mod
 from harness.agent.cli_agents import (
+    _ZCODE_LIMIT_PATTERN,
     SubscriptionQuotaError,
+    _zcode_preflight,
+    _zcode_session_limit_error,
     is_cli_agent_spec,
     run_claude_code_task,
     run_codex_task,
     run_cursor_task,
+    run_zcode_task,
 )
 from harness.agent.loop import _resolve_run_engine, run_agent
 from harness.agent.providers import ProviderError, get_provider
@@ -238,7 +243,7 @@ def test_run_agent_via_claude_code(tmp_path: Path, fake_claude: Path) -> None:
     assert economics["api_equivalent_cost_usd"] == summary["cost_usd"]
     assert economics["plan_name"] == "max"
 
-    # Raw stream persisted for audit — and the API key never reached the CLI.
+    # Raw stream persisted for audit, and the API key never reached the CLI.
     stream_path = tmp_path / res["run_id"] / "cli-agent-stream.jsonl"
     events = [json.loads(line) for line in stream_path.read_text().splitlines()]
     init = next(e for e in events if e.get("type") == "system")
@@ -578,3 +583,397 @@ def test_codex_resolves_relative_workspace_before_passing_cd(
     start = next(data for event, data in collector.events if event == "cli_agent_start")
     cd_value = start["argv"][start["argv"].index("--cd") + 1]
     assert Path(cd_value).is_absolute()
+
+
+# ---------------------------------------------------------------------------
+# ZCode (Z.ai's GLM harness): fake `zcode` launcher that writes the sqlite
+# session store the adapter harvests tool calls and usage from.
+# ---------------------------------------------------------------------------
+
+FAKE_ZCODE = """#!/usr/bin/env python3
+import json, os, sqlite3, sys, time
+
+args = sys.argv[1:]
+mode = "__MODE__"
+if "--version" in args or "-v" in args:
+    print("zcode-app-cli 3.8.1-15")
+    print("zcode-runtime 0.16.3")
+    sys.exit(0)
+if "--prompt" not in args:
+    print("unsupported", file=sys.stderr)
+    sys.exit(1)
+
+cwd = os.path.realpath(args[args.index("--cwd") + 1])
+if mode == "limit":
+    print("Error: Turn execution failed (traceId: t-1)", file=sys.stderr)
+    print("Cause: AiSdkModelAdapterError: 429 Too Many Requests: quota exceeded", file=sys.stderr)
+    sys.exit(1)
+if mode == "crash":
+    print("Error: Turn execution failed (traceId: t-2)", file=sys.stderr)
+    print("Cause: AiSdkModelAdapterError: Model provider is missing an API key: zai", file=sys.stderr)
+    sys.exit(1)
+
+with open(os.path.join(cwd, "hello.py"), "w") as f:
+    f.write('print("hello from vulcanbench")\\n')
+
+root = os.environ["ZCODE_STORAGE_DIR"]
+db_dir = os.path.join(root, "cli", "db")
+os.makedirs(db_dir, exist_ok=True)
+con = sqlite3.connect(os.path.join(db_dir, "db.sqlite"))
+con.executescript('''
+create table if not exists session (id text primary key, project_id text, parent_id text,
+  slug text, directory text, title text, version text, time_created integer, time_updated integer);
+create table if not exists message (id text primary key, session_id text, sequence integer,
+  time_created integer, time_updated integer, data text);
+create table if not exists part (id text primary key, message_id text, session_id text,
+  sequence integer, time_created integer, time_updated integer, data text);
+create table if not exists model_usage (id text primary key, session_id text, query_source text,
+  provider_id text, model_id text, variant text, status text, started_at integer,
+  input_tokens integer, output_tokens integer, reasoning_tokens integer,
+  cache_creation_input_tokens integer, cache_read_input_tokens integer,
+  provider_total_tokens integer, finish_reason text, raw_usage_json text);
+create table if not exists turn_usage (session_id text, turn_id text, status text,
+  input_tokens integer, output_tokens integer);
+create table if not exists tool_usage (id text primary key, session_id text, tool_name text,
+  tool_call_id text, status text);
+''')
+now = int(time.time() * 1000)
+sid = "sess_fake-1"
+con.execute("insert into session values (?,?,?,?,?,?,?,?,?)",
+            (sid, "proj", None, sid, cwd, "fix", "0.16.3", now, now))
+con.execute("insert into message values (?,?,?,?,?,?)",
+            ("msg_u1", sid, 0, now, now, json.dumps({"role": "user", "id": "msg_u1"})))
+con.execute("insert into message values (?,?,?,?,?,?)",
+            ("msg_a1", sid, 1, now, now, json.dumps({"role": "assistant", "id": "msg_a1",
+             "modelID": "glm-5.3", "providerID": "zai"})))
+con.execute("insert into part values (?,?,?,?,?,?,?)",
+            ("prt_1", "msg_a1", sid, 0, now, now, json.dumps({"type": "tool", "callID": "call_1",
+             "tool": "Write", "state": {"status": "completed",
+             "input": {"filePath": os.path.join(cwd, "hello.py")}}})))
+con.execute("insert into part values (?,?,?,?,?,?,?)",
+            ("prt_2", "msg_a1", sid, 1, now, now, json.dumps({"type": "text",
+             "text": "Implemented and tested."})))
+con.execute("insert into model_usage values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("mu_1", sid, "main_turn", "zai", "glm-5.3", "__VARIANT__", "completed", now,
+             1000, 200, 0, 0, 500, None, "stop", "{}"))
+con.execute("insert into model_usage values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("mu_2", sid, "main_turn", "zai", "glm-5.3", "__VARIANT__", "completed", now + 1,
+             100, 50, 0, 0, 0, None, "stop", "{}"))
+con.execute("insert into turn_usage values (?,?,?,?,?)", (sid, "turn_1", "completed", 1100, 250))
+con.execute("insert into tool_usage values (?,?,?,?,?)", ("tu_1", sid, "Write", "call_1", "completed"))
+con.commit()
+con.close()
+print("Done. Wrote hello.py and ran the tests.")
+"""
+
+
+def _write_fake_zcode(bin_dir: Path, *, mode: str = "success", variant: str = "max") -> Path:
+    script = bin_dir / "zcode"
+    script.write_text(
+        FAKE_ZCODE.replace("__MODE__", mode).replace("__VARIANT__", variant), encoding="utf-8"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return script
+
+
+@pytest.fixture
+def fake_zcode(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    bin_dir = tmp_path_factory.mktemp("fake-zcode-bin")
+    script = _write_fake_zcode(bin_dir)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    # ZCode's own state roots: the fake writes its session DB under the storage
+    # dir and the preflight reads (presence only) the OAuth credential store.
+    state = tmp_path_factory.mktemp("zcode-state")
+    monkeypatch.setenv("ZCODE_STORAGE_DIR", str(state / "storage"))
+    monkeypatch.setenv("ZCODE_DATA_BASE_DIR", str(state / "data"))
+    creds = state / "data" / ".zcode" / "v2" / "credentials.json"
+    creds.parent.mkdir(parents=True)
+    creds.write_text(
+        json.dumps(
+            {
+                "oauth:active_provider": "zai",
+                "oauth:zai:access_token": "tok-should-never-be-copied",
+                "oauth:zai:user_info": {"plan": "Pro"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ZAI_API_KEY", "zai-secret-should-not-reach-zcode")
+    # ZCode user config: the provider block (with baseURL + Coding Plan key) the
+    # adapter must copy into the per-run project config so `model.main` resolves.
+    user_cfg = state / "storage" / "cli" / "config.json"
+    user_cfg.parent.mkdir(parents=True)
+    user_cfg.write_text(
+        json.dumps(
+            {
+                "provider": {
+                    "zai": {
+                        "kind": "anthropic",
+                        "options": {
+                            "apiKeyRequired": True,
+                            "baseURL": "https://api.z.ai/api/anthropic",
+                            "apiKey": "codingplan-key-copied-not-logged",
+                        },
+                        "models": {"glm-5.3": {"name": "GLM-5.3"}, "glm-5.2": {"name": "GLM-5.2"}},
+                    }
+                },
+                "model": {"main": "zai/glm-5.2", "lite": "zai/glm-5-turbo"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return script
+
+
+def test_zcode_spec_detection_and_pricing_alias() -> None:
+    assert is_cli_agent_spec("zcode:glm-5.3")
+    assert is_priced("zcode:glm-5.3")
+    assert cost_usd("zcode:glm-5.3", 1_000_000, 1_000_000) == cost_usd(
+        "zai:glm-5.3", 1_000_000, 1_000_000
+    )
+
+
+def test_run_agent_via_zcode_subscription(tmp_path: Path, fake_zcode: Path) -> None:
+    res = run_agent(
+        task_id="hello-world",
+        model="zcode:glm-5.3",
+        output_dir=tmp_path,
+        tasks_root=Path("tasks/v1"),
+        judges=False,
+        sandbox="local",
+        effort="extra-high",
+    )
+    summary = res["summary"]
+    assert summary["scores"]["functional"] == 1.0
+    assert summary["finished"] is True
+    # Usage harvested from the session store: two completed requests,
+    # 1000+500 (cache read) + 100 prompt, 250 completion.
+    assert summary["tokens"]["prompt"] == 1600
+    assert summary["tokens"]["completion"] == 250
+    assert summary["tokens"]["cached_input"] == 500
+    assert summary["cost_usd"] is not None and summary["cost_usd"] > 0
+    assert summary["economics"]["billing_mode"] == "subscription-included"
+    assert (
+        summary["economics"]["measurement_quality"]["api_equivalent_cost_usd"]
+        == "estimated-from-reported-tokens-with-cache-pricing"
+    )
+    cli = summary["cli_agent"]
+    assert cli["harness"] == "zcode"
+    assert cli["harness_version"] == "zcode-app-cli 3.8.1-15; zcode-runtime 0.16.3"
+    assert cli["auth_method"] == "subscription"
+    assert cli["plan_name"] == "Pro"
+    assert cli["session_id"] == "sess_fake-1"
+    assert cli["requested_model"] == "glm-5.3"
+    assert cli["reported_model"] == "zai/glm-5.3"
+    assert cli["model_identity_confidence"] == "cli-reported"
+    # extra-high -> ZCode "max", read back from the usage ledger's variant.
+    assert summary["effort"]["provider_value"] == "max"
+    assert cli["reported_effort"] == "max"
+    assert cli["num_turns"] == 2
+    run_dir = tmp_path / res["run_id"]
+    # Harvested session artifacts land beside the trace.
+    assert (run_dir / "zcode-session" / "messages.jsonl").exists()
+    assert (run_dir / "zcode-session" / "model_usage.jsonl").exists()
+    stream = (run_dir / "cli-agent-stream.jsonl").read_text()
+    assert "tok-should-never-be-copied" not in stream
+    assert '"toolCallId": "call_1"' in stream
+    # The per-run project config must not leak into the captured patch.
+    assert ".zcode" not in (run_dir / "final.patch").read_text()
+    audit = summary["integrity_audit"]
+    assert audit["web"]["verdict"] == "no_web"
+    assert audit["contaminated"] is False
+
+
+def test_zcode_project_config_pins_model_effort_memory_and_web(
+    tmp_path: Path, fake_zcode: Path
+) -> None:
+    collector = _Collector()
+    outcome = run_zcode_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="glm-5.3",
+        priced_spec="zcode:glm-5.3",
+        max_turns=10,
+        collector=collector,
+        effort="low",
+    )
+    cfg = json.loads((tmp_path / ".zcode" / "config.json").read_text())
+    assert cfg["model"]["main"] == "zai/glm-5.3"
+    assert cfg["permission"]["mode"] == "yolo"
+    assert cfg["features"]["memory"] is False
+    assert cfg["memory"] == {"use": False, "write": False, "autoConsolidate": False}
+    assert cfg["modelCatalog"]["overrides"]["zai/glm-5.3"]["reasoning"]["defaultLevel"] == "low"
+    assert set(cfg["permission"]["disallowedTools"]) == {"WebFetch", "WebSearch", "web_search"}
+    assert cfg["plugins"]["enabledPlugins"] == {"browser-use@zcode-plugins-official": False}
+    assert "web-tools-removed" in (outcome.execution_boundary or "")
+    assert outcome.finished is True
+    # The provider block is copied from the user config so `model.main`
+    # resolves (baseURL) with the same credential ZCode is authed against.
+    assert cfg["provider"]["zai"]["options"]["baseURL"] == "https://api.z.ai/api/anthropic"
+    assert cfg["provider"]["zai"]["options"]["apiKey"] == "codingplan-key-copied-not-logged"
+    # ...but that credential must never reach the trace.
+    start = next(d for e, d in collector.events if e == "cli_agent_start")
+    assert start["project_config"]["provider"]["zai"]["options"]["apiKey"] == "***"
+    assert "codingplan-key-copied-not-logged" not in json.dumps(collector.events)
+
+
+def test_zcode_network_flag_keeps_web(tmp_path: Path, fake_zcode: Path) -> None:
+    outcome = run_zcode_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="glm-5.3",
+        priced_spec="zcode:glm-5.3",
+        max_turns=10,
+        collector=_Collector(),
+        network=True,
+    )
+    cfg = json.loads((tmp_path / ".zcode" / "config.json").read_text())
+    assert "disallowedTools" not in cfg["permission"]
+    assert "plugins" not in cfg
+    assert "modelCatalog" not in cfg  # no effort requested -> ZCode default level
+    assert "web-allowed" in (outcome.execution_boundary or "")
+
+
+def test_zcode_rejects_unenforceable_live_cost_cap(tmp_path: Path, fake_zcode: Path) -> None:
+    with pytest.raises(ProviderError, match="max-run-cost"):
+        run_zcode_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="glm-5.3",
+            priced_spec="zcode:glm-5.3",
+            max_turns=10,
+            collector=_Collector(),
+            max_run_cost=1.0,
+        )
+
+
+def test_zcode_allows_docker_verifier() -> None:
+    adapter, provider, effort = _resolve_run_engine(
+        model="zcode:glm-5.3", provider=None, effort="high", sandbox="docker"
+    )
+    assert adapter is not None and adapter.harness_id == "zcode"
+    assert provider is None
+    assert effort is not None and effort.provider_value == "high" and effort.supported
+    # medium has no ZCode level: recorded-but-not-sent.
+    _, _, medium = _resolve_run_engine(
+        model="zcode:glm-5.3", provider=None, effort="medium", sandbox="docker"
+    )
+    assert medium is not None and medium.supported is False
+
+
+def test_zcode_signed_out_fails_closed(
+    tmp_path: Path, fake_zcode: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Truly signed out: no OAuth credentials AND no configured Coding Plan key.
+    creds = Path(os.environ["ZCODE_DATA_BASE_DIR"]) / ".zcode" / "v2" / "credentials.json"
+    creds.unlink()
+    (Path(os.environ["ZCODE_STORAGE_DIR"]) / "cli" / "config.json").unlink()
+    with pytest.raises(ProviderError, match="signed out"):
+        run_zcode_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="glm-5.3",
+            priced_spec="zcode:glm-5.3",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_zcode_metered_api_key_fails_closed(
+    tmp_path: Path, fake_zcode: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # No OAuth login, and the user config carries a key against the general
+    # pay-as-you-go endpoint: that bills metered usage, not the Coding Plan.
+    creds = Path(os.environ["ZCODE_DATA_BASE_DIR"]) / ".zcode" / "v2" / "credentials.json"
+    creds.unlink()
+    cfg_path = Path(os.environ["ZCODE_STORAGE_DIR"]) / "cli" / "config.json"
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "provider": {
+                    "zai": {
+                        "kind": "openai-compatible",
+                        "options": {
+                            "apiKey": "sk-metered",
+                            "baseURL": "https://api.z.ai/api/paas/v4",
+                        },
+                    }
+                },
+                "model": {"main": "zai/glm-5.3"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ProviderError, match="metered billing"):
+        run_zcode_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="glm-5.3",
+            priced_spec="zcode:glm-5.3",
+            max_turns=10,
+            collector=_Collector(),
+        )
+    # ...whereas the same key against the Coding Plan endpoint is a plan run.
+    cfg = json.loads(cfg_path.read_text())
+    cfg["provider"]["zai"]["options"]["baseURL"] = "https://api.z.ai/api/anthropic"
+    cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+    receipt = _zcode_preflight().as_summary()
+    assert receipt["ready"] is True
+    assert receipt["auth_mode"] == "subscription"
+    assert "sk-metered" not in json.dumps(receipt)
+
+
+def test_zcode_quota_exhaustion_raises_quota_error(tmp_path: Path, fake_zcode: Path) -> None:
+    _write_fake_zcode(fake_zcode.parent, mode="limit")
+    with pytest.raises(SubscriptionQuotaError, match="Coding Plan limit"):
+        run_zcode_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="glm-5.3",
+            priced_spec="zcode:glm-5.3",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_zcode_runtime_error_is_provider_error(tmp_path: Path, fake_zcode: Path) -> None:
+    _write_fake_zcode(fake_zcode.parent, mode="crash")
+    with pytest.raises(ProviderError, match="missing an API key"):
+        run_zcode_task(
+            workspace=tmp_path,
+            prompt="fix",
+            model="glm-5.3",
+            priced_spec="zcode:glm-5.3",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_zcode_session_limit_error_detects_buried_1308(tmp_path: Path) -> None:
+    # The 5-hour window limit (code 1308) lands in model_usage.error_message,
+    # not on stderr; the helper must surface it so the suite pauses cleanly.
+    db = tmp_path / "db.sqlite"
+    con = sqlite3.connect(db)
+    con.execute(
+        "create table model_usage(id text, session_id text, started_at integer, "
+        "error_message text, status text)"
+    )
+    con.execute(
+        "insert into model_usage values (?,?,?,?,?)",
+        (
+            "m1",
+            "sess-x",
+            1,
+            "[1308][Usage limit reached for 5 hour. Your limit will reset at 2026-08-22 16:58:09]",
+            "error",
+        ),
+    )
+    con.commit()
+    con.close()
+    assert _ZCODE_LIMIT_PATTERN.search("[1308] whatever")
+    assert _ZCODE_LIMIT_PATTERN.search("[1302][Rate limit reached]")
+    assert "1308" in (_zcode_session_limit_error(db, "sess-x") or "")
+    # A different session, or a missing db, is not a limit.
+    assert _zcode_session_limit_error(db, "sess-other") is None
+    assert _zcode_session_limit_error(tmp_path / "missing.sqlite", "sess-x") is None
