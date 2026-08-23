@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xhigh` as the default — an unset request already runs at xhigh. Built-in pricing adds
   `qwen3.8-max` ($2/$6 per 1M, flat across the 1M context).
 
+## [0.8.1] - 2026-08-23
+
+### Added
+
+- **`cursor-agent:composer-2.5` sessions** — benchmark Composer via Cursor cloud agents
+  (first-party tools; no API key). ``vulcanbench cursor-agent prepare/finalize`` prepares
+  a workspace, grades after the agent finishes, and estimates **input / reasoning /
+  output** tokens from the cloud-agent transcript for API-cost projection.
+
 ## [0.8.0] - 2026-07-29
 
 ### Added

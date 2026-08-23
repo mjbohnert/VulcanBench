@@ -69,6 +69,8 @@ PRICES: dict[str, dict[str, float]] = {
     "deepseek:deepseek-v4-flash": {"input": 0.14, "output": 0.28},
     "deepseek:deepseek-v4-pro": {"input": 0.435, "output": 0.87},
     "xai:grok-4.5": {"input": 2.00, "output": 6.00},
+    # Cursor Composer 2.5 standard tier (not fast). See cursor.com/docs/models.
+    "composer:composer-2.5": {"input": 0.50, "output": 2.50},
     # Free / offline.
     "mock:": {"input": 0.0, "output": 0.0},
 }
@@ -79,7 +81,11 @@ _PER_MILLION = 1_000_000.0
 # rates, so their ``cost_usd`` is the *hypothetical* API cost of the same
 # tokens. The run summary marks these with ``cli_agent.billing`` so the
 # number is never mistaken for actual spend.
-_SPEC_ALIASES = {"claude-code:": "anthropic:", "codex:": "openai:"}
+_SPEC_ALIASES = {
+    "claude-code:": "anthropic:",
+    "codex:": "openai:",
+    "cursor-agent:": "composer:",
+}
 
 
 def _canonical_spec(model: str) -> str:

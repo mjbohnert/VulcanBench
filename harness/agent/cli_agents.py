@@ -135,13 +135,15 @@ class CliAgentOutcome:
     cli_reported_cost_usd: float | None = None
 
     harness: str = "claude-code"
+    billing: str = "subscription"
+    cost_basis: str = "hypothetical-api-pricing"
 
     def summary(self) -> dict[str, Any]:
         """Provenance block persisted into the run summary."""
         return {
             "harness": self.harness,
-            "billing": "subscription",
-            "cost_basis": "hypothetical-api-pricing",
+            "billing": self.billing,
+            "cost_basis": self.cost_basis,
             "session_id": self.session_id,
             "subtype": self.subtype,
             "num_turns": self.num_turns,
