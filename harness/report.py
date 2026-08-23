@@ -4,7 +4,8 @@
 renders it for humans. A report has:
 
 - ``models``      - the per-model ranking (pass@1 ± stderr, pass@k, cost, latency)
-- ``tasks``       - per-task breakdown (per-model attempts / solve rate)
+- ``tasks``       - per-task × per-model cells (solve counts, pass@1, scores,
+  cost, latency, tokens; effort slices when runs are tagged)
 - ``discrimination`` - how well the suite separates the models: per-task whether
   they split, and per model pair how many tasks tell them apart (McNemar
   discordant counts). Surfaces ties that aggregate pass@1 hides.
@@ -84,6 +85,41 @@ def _solve_rate(attempts: list[dict[str, Any]]) -> float:
         return 0.0
     solved = sum(1 for a in attempts if (a.get("functional") or 0) >= 1.0)
     return solved / len(attempts)
+
+
+def _attempts_metrics(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Roll repeated attempts of one (task, model[, effort]) cell into metrics.
+
+    Headline fields match what published v1–v3 reports used at model level
+    (pass@1, avg total, cost, time, tokens) plus succeed/fail counts. ``avg_total``
+    keeps partial functional credit that pass@1 zeros out.
+    """
+    n = len(attempts)
+    solved = sum(1 for a in attempts if (a.get("functional") or 0) >= 1.0)
+    costs = [a["cost_usd"] for a in attempts if a.get("cost_usd") is not None]
+    durations = [a["duration_s"] for a in attempts if a.get("duration_s") is not None]
+    tokens = [
+        a.get("total_tokens")
+        for a in attempts
+        if isinstance(a.get("total_tokens"), (int, float))
+    ]
+    out: dict[str, Any] = {
+        "attempts": n,
+        "solved": solved,
+        "failed": n - solved,
+        "solve_rate": round(solved / n, 4) if n else 0.0,
+        "pass_at_k": 1.0 if solved else 0.0,
+        "avg_total": _mean([a.get("total") for a in attempts]),
+        "avg_duration_s": _mean(durations),
+        "total_cost_usd": round(sum(costs), 6) if costs else None,
+        "avg_cost_usd": _mean(costs),
+        "cost_known": bool(n) and len(costs) == n,
+        "total_tokens": int(sum(tokens)) if tokens else 0,
+        "avg_tokens": _mean(tokens),
+    }
+    for key in ("functional", "quality", "security", "efficiency", "human_like"):
+        out[f"avg_{key}"] = _mean([a.get(key) for a in attempts])
+    return out
 
 
 def build_discrimination(
@@ -212,15 +248,19 @@ def _per_task(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         model_stats = []
         for model in sorted(by_model):
             ms = by_model[model]
-            solved = sum(1 for a in ms if (a.get("functional") or 0) >= 1.0)
-            model_stats.append(
-                {
-                    "model": model,
-                    "attempts": len(ms),
-                    "solved": solved,
-                    "solve_rate": round(solved / len(ms), 4),
-                }
-            )
+            cell = _attempts_metrics(ms)
+            cell["model"] = model
+            by_effort: dict[str, list[dict[str, Any]]] = defaultdict(list)
+            for a in ms:
+                effort = a.get("effort_requested")
+                if effort:
+                    by_effort[str(effort)].append(a)
+            if by_effort:
+                cell["efforts"] = [
+                    {"effort": effort, **_attempts_metrics(by_effort[effort])}
+                    for effort in sorted(by_effort)
+                ]
+            model_stats.append(cell)
         out.append({"task_id": task_id, "n_runs": len(attempts), "models": model_stats})
     return out
 
@@ -471,6 +511,112 @@ def _fmt(n: Any) -> str:
     return "-" if n is None else (f"{n:.4f}" if isinstance(n, float) else str(n))
 
 
+def _cell_cost(cell: dict[str, Any]) -> str:
+    if not cell.get("cost_known"):
+        return "?"
+    return _fmt(cell.get("total_cost_usd"))
+
+
+def _per_task_markdown(tasks: list[dict[str, Any]]) -> list[str]:
+    """Task × model matrices (pass@1, cost, time) plus the detailed cell table."""
+    if not tasks:
+        return ["", "## Per-task", "", "_No recorded runs._"]
+
+    models: list[str] = []
+    seen: set[str] = set()
+    for task in tasks:
+        for cell in task.get("models") or []:
+            name = str(cell.get("model") or "?")
+            if name not in seen:
+                seen.add(name)
+                models.append(name)
+    models.sort()
+
+    lines = [
+        "",
+        "## Per-task",
+        "",
+        "Each cell is one (task, model): **pass@1** is the fraction of attempts with "
+        "`functional == 1.0`; **avg total** keeps partial credit; **cost** and **time** "
+        "are summed / averaged over those attempts. Effort-tagged runs are also listed "
+        "as nested slices so a high-only solve is not pooled into a misleading 2/3.",
+        "",
+        "### pass@1",
+        "",
+        "| Task | " + " | ".join(models) + " |",
+        "|" + "---|" * (len(models) + 1),
+    ]
+    for task in tasks:
+        by_model = {c["model"]: c for c in task.get("models") or []}
+        cells = []
+        for model in models:
+            cell = by_model.get(model)
+            cells.append("-" if cell is None else _fmt(cell.get("solve_rate")))
+        lines.append(f"| {task['task_id']} | " + " | ".join(cells) + " |")
+
+    lines += [
+        "",
+        "### Cost $ (total)",
+        "",
+        "| Task | " + " | ".join(models) + " |",
+        "|" + "---|" * (len(models) + 1),
+    ]
+    for task in tasks:
+        by_model = {c["model"]: c for c in task.get("models") or []}
+        cells = []
+        for model in models:
+            cell = by_model.get(model)
+            cells.append("-" if cell is None else _cell_cost(cell))
+        lines.append(f"| {task['task_id']} | " + " | ".join(cells) + " |")
+
+    lines += [
+        "",
+        "### Avg time (s)",
+        "",
+        "| Task | " + " | ".join(models) + " |",
+        "|" + "---|" * (len(models) + 1),
+    ]
+    for task in tasks:
+        by_model = {c["model"]: c for c in task.get("models") or []}
+        cells = []
+        for model in models:
+            cell = by_model.get(model)
+            cells.append("-" if cell is None else _fmt(cell.get("avg_duration_s")))
+        lines.append(f"| {task['task_id']} | " + " | ".join(cells) + " |")
+
+    lines += [
+        "",
+        "### Cells",
+        "",
+        "| Task | Model | Effort | Solved | Failed | pass@1 | Avg total | Cost $ | Avg time | Tokens |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for task in tasks:
+        for cell in task.get("models") or []:
+            model = str(cell.get("model") or "?")
+            lines.append(_cell_row(task["task_id"], cell, model=model, effort="—"))
+            for slice_ in cell.get("efforts") or []:
+                lines.append(
+                    _cell_row(
+                        task["task_id"],
+                        slice_,
+                        model=model,
+                        effort=str(slice_["effort"]),
+                    )
+                )
+    return lines
+
+
+def _cell_row(task_id: Any, cell: dict[str, Any], *, model: str, effort: str) -> str:
+    return (
+        f"| {task_id} | {model} | {effort} | "
+        f"{cell.get('solved', 0)}/{cell.get('attempts', 0)} | {cell.get('failed', 0)} | "
+        f"{_fmt(cell.get('solve_rate'))} | {_fmt(cell.get('avg_total'))} | "
+        f"{_cell_cost(cell)} | {_fmt(cell.get('avg_duration_s'))} | "
+        f"{cell.get('total_tokens', 0)} |"
+    )
+
+
 def _discrimination_markdown(disc: dict[str, Any]) -> list[str]:
     if not disc.get("available"):
         return []
@@ -582,13 +728,7 @@ def to_markdown(report: dict[str, Any]) -> str:
                 f"{_fmt(row.get('high_latency_ratio'))} | {row['classification']} |"
             )
 
-    lines += ["", "## Per-task", "", "| Task | Runs | Model | Solve rate |", "|---|---|---|---|"]
-    for t in report["tasks"]:
-        for ms in t["models"]:
-            lines.append(
-                f"| {t['task_id']} | {ms['attempts']} | {ms['model']} | "
-                f"{ms['solved']}/{ms['attempts']} ({_fmt(ms['solve_rate'])}) |"
-            )
+    lines += _per_task_markdown(report.get("tasks") or [])
 
     env = report["environment"]
     lines += ["", "## Environment", ""]
