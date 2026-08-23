@@ -18,5 +18,9 @@ python scripts/export_results_pdf.py docs/results/v1-compare-2026-06.json \
 `<suite>-<slug>-<YYYY-MM>.{md,json,pdf}` — e.g. `v1-compare-2026-06` for the June 2026
 three-model v1 comparison (GLM 5.2, Opus 4.8, GPT 5.5).
 
+Compiled **v3 task × model** tables (pass@1, effort splits, the few published
+per-task costs) are in `v3-task-model-metrics.{md,json}` — assembled from the
+snapshots below, not regenerated from `./runs`.
+
 Raw run artifacts stay in `./runs/` (gitignored). Commit only the exported summaries here
 when you want a permanent link in the repo or release notes.
