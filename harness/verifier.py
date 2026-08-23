@@ -20,6 +20,7 @@ verification happens in the same isolated, reproducible environment as the run.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -33,8 +34,37 @@ DEFAULT_TIMEOUT = 120
 Runner = Callable[[str, Path, int], int]
 
 
+def _host_test_cmd(cmd: str) -> str:
+    """Avoid parent-repo pytest addopts (e.g. --cov-fail-under) breaking OSS workspaces."""
+    if cmd.startswith("tsx ") or cmd.startswith("tsx\t"):
+        tsx = Path(__file__).resolve().parents[1] / "node_modules" / ".bin" / "tsx"
+        if tsx.is_file():
+            cmd = f"{tsx} {cmd[4:]}"
+        else:
+            cmd = f"npx --yes tsx {cmd[4:]}"
+    if "pytest" not in cmd:
+        return cmd
+    if "-o addopts" in cmd or "-c /dev/null" in cmd:
+        return cmd
+    return cmd.replace("python -m pytest", "python -m pytest -o addopts=", 1)
+
+
+def _host_test_env() -> dict[str, str]:
+    env = {**os.environ}
+    cargo_bin = "/usr/local/cargo/bin"
+    if Path(cargo_bin).is_dir():
+        env["PATH"] = f"{cargo_bin}:{env.get('PATH', '')}"
+        env.setdefault("RUSTUP_TOOLCHAIN", "1.90.0")
+    go123 = "/usr/local/go1.23/bin"
+    if Path(f"{go123}/go").is_file():
+        env["PATH"] = f"{go123}:{env.get('PATH', '')}"
+    env.setdefault("GOTOOLCHAIN", "local")
+    return env
+
+
 def host_runner(cmd: str, workspace: Path, timeout: int) -> int:
     """Run a test command on the host, in the workspace; returns its exit code."""
+    cmd = _host_test_cmd(cmd)
     try:
         proc = subprocess.run(
             cmd,
@@ -44,6 +74,7 @@ def host_runner(cmd: str, workspace: Path, timeout: int) -> int:
             text=True,
             timeout=timeout,
             check=False,
+            env=_host_test_env(),
         )
     except subprocess.TimeoutExpired:
         return 124  # conventional timeout exit code
