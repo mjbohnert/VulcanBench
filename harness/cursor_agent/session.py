@@ -147,7 +147,7 @@ def finalize_session(
     verifier_payload = run_declarative_verifier(task, workspace, runner=host_runner)
     verify_s = round(time.monotonic() - t0, 3)
 
-    functional = float(verifier_payload.get("functional", 0.0))
+    functional = float((verifier_payload.get("scores") or {}).get("functional", 0.0))
     scores = {
         "functional": functional,
         "quality": None,
