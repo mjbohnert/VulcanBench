@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xhigh` as the default — an unset request already runs at xhigh. Built-in pricing adds
   `qwen3.8-max` ($2/$6 per 1M, flat across the 1M context).
 
+## [0.9.0] - 2026-08-23
+
+### Added
+
+- **Task × model metrics** in `vulcanbench report`: each (task, model) cell now includes
+  succeed/fail counts, pass@1, mean total/functional (and the other four scores), total
+  and average USD, mean wall-clock, and tokens — the same quantities model rankings
+  already used, which prior published snapshots only stored as `solved/attempts` per
+  task. Effort-tagged runs are nested under `efforts[]` so a high-only solve is not
+  pooled into a 2/3. Markdown adds pass@1 / cost / time matrices plus a Cells table.
+
 ## [0.8.0] - 2026-07-29
 
 ### Added

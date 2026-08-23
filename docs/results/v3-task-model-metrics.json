@@ -1,0 +1,1843 @@
+{
+  "suite": "v3",
+  "n_tasks": 23,
+  "note": "Compiled from published snapshots. Raw ./runs are not in this checkout, so per-task cost/time exist only where a report published them (Opus 5 Report 09, 13/23 tasks). Grok/Fable/Sol n=3 in the pooled table is low+medium+high, not three repeats of one effort.",
+  "not_v3": {
+    "v1": {
+      "n_tasks": 52,
+      "models": [
+        "openai:gpt-5.5",
+        "anthropic:claude-opus-4-8",
+        "zai:glm-5.2"
+      ],
+      "source": "docs/results/v1-compare-2026-06.json",
+      "overlap_with_v3": 0
+    },
+    "v2": {
+      "n_tasks": 35,
+      "models": [
+        "openai:gpt-5.5",
+        "anthropic:claude-opus-4-8",
+        "zai:glm-5.2"
+      ],
+      "source": "docs/results/v2-results.json",
+      "overlap_with_v3": 0
+    }
+  },
+  "model_rollups": [
+    {
+      "model": "openai:grok-4.5",
+      "n_tasks": 23,
+      "n_runs": 69,
+      "pass_at_1": 0.8841,
+      "pass_at_k": 0.913,
+      "avg_total": 0.82,
+      "cost_usd": 18.8179,
+      "avg_duration_s": 225.3028,
+      "source": "v3-kimi-k3-2026-07"
+    },
+    {
+      "model": "anthropic:claude-fable-5",
+      "n_tasks": 23,
+      "n_runs": 69,
+      "pass_at_1": 0.8551,
+      "pass_at_k": 0.913,
+      "avg_total": 0.7711,
+      "cost_usd": 49.3259,
+      "avg_duration_s": 228.5318,
+      "source": "v3-kimi-k3-2026-07"
+    },
+    {
+      "model": "openai:gpt-5.6-sol",
+      "n_tasks": 23,
+      "n_runs": 69,
+      "pass_at_1": 0.8261,
+      "pass_at_k": 0.8696,
+      "avg_total": 0.7804,
+      "cost_usd": 28.5886,
+      "avg_duration_s": 168.8253,
+      "source": "v3-kimi-k3-2026-07"
+    },
+    {
+      "model": "anthropic:claude-haiku-4-5",
+      "n_tasks": 23,
+      "n_runs": 23,
+      "pass_at_1": 0.7826,
+      "pass_at_k": 0.7826,
+      "avg_total": 0.7398,
+      "cost_usd": 9.1362,
+      "avg_duration_s": 304.5591,
+      "source": "v3-kimi-k3-2026-07"
+    },
+    {
+      "model": "kimi:kimi-k3",
+      "n_tasks": 23,
+      "n_runs": 23,
+      "pass_at_1": 0.7391,
+      "pass_at_k": 0.7391,
+      "avg_total": 0.6566,
+      "cost_usd": 16.8387,
+      "avg_duration_s": 1086.5893,
+      "source": "v3-kimi-k3-2026-07"
+    },
+    {
+      "model": "anthropic:claude-opus-4-8",
+      "n_tasks": 5,
+      "n_runs": 5,
+      "pass_at_1": 0.6,
+      "note": "partial coverage: only 5/23 tasks",
+      "cost_usd": 5.4427,
+      "avg_duration_s": 305.5536,
+      "source": "v3-kimi-k3-2026-07"
+    },
+    {
+      "model": "anthropic:claude-opus-5",
+      "effort_sweep": {
+        "low": {
+          "solved": 20,
+          "pass_at_1": 0.87,
+          "cost_usd": 14.07,
+          "avg_min": 5.2
+        },
+        "medium": {
+          "solved": 19,
+          "pass_at_1": 0.826,
+          "cost_usd": 24.09,
+          "avg_min": 7.6
+        },
+        "high": {
+          "solved": 18,
+          "pass_at_1": 0.783,
+          "cost_usd": 43.6,
+          "avg_min": 13.6
+        }
+      },
+      "source": "v3-opus5-effort-2026-07"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "oss-flask-teardown-robust",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 2,
+          "attempts": 3,
+          "failed": 1,
+          "pass_at_1": 0.6667,
+          "effort": {
+            "low": 0,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 3,
+          "failed": 2,
+          "pass_at_1": 0.3333,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 2,
+          "attempts": 3,
+          "failed": 1,
+          "pass_at_1": 0.6667,
+          "effort": {
+            "low": 0,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 0.67
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 0.67
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 431.7,
+            "steps": 200,
+            "cost_usd": 1.5499,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-aiohttp-upgrade-deferred",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          },
+          "note": "Fable refused (cyber); Opus 4.8 fallback passed all 3 efforts"
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 2,
+          "attempts": 3,
+          "failed": 1,
+          "pass_at_1": 0.6667,
+          "effort": {
+            "low": 0,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 2,
+          "attempts": 3,
+          "failed": 1,
+          "pass_at_1": 0.6667,
+          "effort": {
+            "low": 0,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 0.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 0.0
+          },
+          "notes": {
+            "high_note": "DNF 45min (solved 3.9min at low)"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-sqlglot-qualify-lateral-star",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-sqlglot-iso8601-nanos",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 2,
+          "attempts": 3,
+          "failed": 1,
+          "pass_at_1": 0.6667,
+          "effort": {
+            "low": 1,
+            "medium": 0,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 0.67,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 0.67,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-packaging-range-prerelease-policy",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-more-itertools-interleave-empty",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-networkx-leiden-communities",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 3,
+          "failed": 2,
+          "pass_at_1": 0.3333,
+          "effort": {
+            "low": 1,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "anthropic:claude-opus-4-8": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 0.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 0.0
+          },
+          "notes": {
+            "high_note": "DNF 60min (solved 11.6min at low)"
+          },
+          "report_09_medium": {
+            "functional": 0.0,
+            "duration_s": 3606.0,
+            "steps": 274,
+            "cost_usd": 7.6818,
+            "outcome": "wall_clock"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-sqlglot-canonicalize-internal-names",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "anthropic:claude-opus-4-8": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 0.5,
+            "medium": 0.5,
+            "high": 0.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 0.5,
+            "medium": 0.5,
+            "high": 0.0
+          },
+          "notes": {
+            "high_note": "DNF 45min"
+          },
+          "report_09_medium": {
+            "functional": 0.5,
+            "duration_s": 1743.9,
+            "steps": 298,
+            "cost_usd": 4.9048,
+            "outcome": "genuine_miss"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-pennylane-trotter-fragmented",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "anthropic:claude-opus-4-8": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 0.4,
+            "medium": 0.0,
+            "high": 0.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 0.4,
+            "medium": 0.0,
+            "high": 0.0
+          },
+          "notes": {
+            "medium_note": "DNF 60min",
+            "high_note": "DNF 60min"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-itertools-strip-prefix",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "anthropic:claude-opus-4-8": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 3,
+          "failed": 3,
+          "pass_at_1": 0.0,
+          "effort": {
+            "low": 0,
+            "medium": 0,
+            "high": 0
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 0.0,
+            "medium": 0.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 0.0,
+            "medium": 0.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 315.8,
+            "steps": 104,
+            "cost_usd": 0.4224,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-jiff-signdur-panic",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 59.8,
+            "steps": 58,
+            "cost_usd": 0.1201,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-jiff-date-day-lt1",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 80.9,
+            "steps": 74,
+            "cost_usd": 0.1259,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-jiff-strftime-negpad",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 192.9,
+            "steps": 142,
+            "cost_usd": 0.5108,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-zod-invert-codec",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 229.7,
+            "steps": 130,
+            "cost_usd": 0.5267,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-zod-proto-catchall",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 61.5,
+            "steps": 62,
+            "cost_usd": 0.1404,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-hono-request-bytes",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 115.2,
+            "steps": 42,
+            "cost_usd": 0.0732,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-hono-client-header-merge",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-semver-truncate",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 0,
+          "attempts": 1,
+          "failed": 1,
+          "pass_at_1": 0.0
+        },
+        "anthropic:claude-opus-4-8": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 178.5,
+            "steps": 52,
+            "cost_usd": 0.1158,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-semver-inc-dotted-prerelease",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-semver-xrange-order",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    },
+    {
+      "task_id": "oss-chi-readfrom-tee-doublecount",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 185.4,
+            "steps": 42,
+            "cost_usd": 0.1142,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-cobra-noduplicateargs",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {},
+          "report_09_medium": {
+            "functional": 1.0,
+            "duration_s": 95.7,
+            "steps": 42,
+            "cost_usd": 0.0693,
+            "outcome": "solved"
+          }
+        }
+      }
+    },
+    {
+      "task_id": "oss-pflag-uintslice-hex",
+      "models": {
+        "anthropic:claude-fable-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-haiku-4-5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "kimi:kimi-k3": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 1,
+          "attempts": 1,
+          "failed": 0,
+          "pass_at_1": 1.0
+        },
+        "openai:gpt-5.6-sol": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "openai:grok-4.5": {
+          "source": "v3-kimi-k3-2026-07 (pooled)",
+          "solved": 3,
+          "attempts": 3,
+          "failed": 0,
+          "pass_at_1": 1.0,
+          "effort": {
+            "low": 1,
+            "medium": 1,
+            "high": 1
+          }
+        },
+        "anthropic:claude-opus-5": {
+          "source": "Report 10 (v3-opus5-effort-2026-07)",
+          "effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "pass_at_1_by_effort": {
+            "low": 1.0,
+            "medium": 1.0,
+            "high": 1.0
+          },
+          "notes": {}
+        }
+      }
+    }
+  ]
+}

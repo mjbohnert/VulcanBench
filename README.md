@@ -9,8 +9,7 @@ engineering tasks. VulcanBench measures how models perform across reasoning
 effort, language, codebase scale, and task complexity — with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.8.0** — adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
-so Alibaba Cloud models can be benchmarked like OpenAI / Anthropic / Z.ai / Kimi.
+**v0.9.0** — `vulcanbench report` now emits **task × model metrics** (pass@1, succeed/fail, score, cost, time, tokens, effort slices) instead of solve-rate-only per-task rows. See [docs/METRICS.md](docs/METRICS.md). Previous: **v0.8.0** — Voice Eval Suite v1 (`vulcanbench voice`).
 Builds on v0.6's frontier-hard task tier and cost-efficient reporting
 (`--max-run-cost`, `compare`, `regrade`, `--only-missing`), and on v0.5's 52
 gold-verified tasks, tool-calling agent, Docker sandbox, pre-run cost estimates,
@@ -82,8 +81,9 @@ vulcanbench leaderboard            # by model: pass@1 ± stderr, pass@k, cost, l
 vulcanbench leaderboard --by run   # per-run drill-down
 vulcanbench report -o report.md    # shareable Markdown/JSON report (ranking,
                                    #   model-separation/discrimination, effort
-                                   #   sensitivity, per-task breakdown,
-                                   #   environment, drift flags)
+                                   #   sensitivity, per-task × model metrics
+                                   #   (pass@1, score, cost, time), environment,
+                                   #   drift flags)
 vulcanbench calibrate              # empirical difficulty calibration from recorded runs
 vulcanbench replay <id>
 

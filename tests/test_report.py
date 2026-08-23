@@ -3,7 +3,7 @@
 Claims ledger (promise -> proving test):
 - "builds a JSON-serializable report with the documented sections" -> test_structure
 - "ranks models (pass@1 ± stderr, pass@k, cost, latency)"          -> test_models_ranking
-- "includes a per-task breakdown (per-model solve rate)"           -> test_per_task
+- "includes a per-task breakdown (per-model solve rate, cost, time)" -> test_per_task
 - "summarizes the environment from run manifests"                  -> test_environment
 - "flags runs scored against a now-stale task version"             -> test_integrity_flags_drift
 - "filters by suite"                                               -> test_suite_filter
@@ -112,14 +112,41 @@ def test_models_ranking(tmp_path: Path) -> None:
 
 def test_per_task(tmp_path: Path) -> None:
     runs = tmp_path / "runs"
-    _summary(runs, "r1", model="m", task_id="t1", functional=1.0)
-    _summary(runs, "r2", model="m", task_id="t1", functional=0.0)
-    _summary(runs, "r3", model="m", task_id="t2", functional=1.0)
+    _summary(runs, "r1", model="m", task_id="t1", functional=1.0, cost_usd=0.10, duration_s=4.0)
+    _summary(runs, "r2", model="m", task_id="t1", functional=0.0, cost_usd=0.20, duration_s=6.0)
+    _summary(runs, "r3", model="m", task_id="t2", functional=1.0, cost_usd=0.05, duration_s=2.0)
     rep = build_report(runs_dir=runs, tasks_root=tmp_path / "tasks")
     by_id = {t["task_id"]: t for t in rep["tasks"]}
-    assert by_id["t1"]["models"][0]["attempts"] == 2
-    assert by_id["t1"]["models"][0]["solve_rate"] == 0.5
+    t1 = by_id["t1"]["models"][0]
+    assert t1["attempts"] == 2
+    assert t1["solved"] == 1
+    assert t1["failed"] == 1
+    assert t1["solve_rate"] == 0.5
+    assert t1["pass_at_k"] == 1.0
+    assert t1["avg_total"] == 0.5
+    assert t1["avg_functional"] == 0.5
+    assert t1["avg_duration_s"] == 5.0
+    assert t1["total_cost_usd"] == 0.3
+    assert t1["avg_cost_usd"] == 0.15
+    assert t1["cost_known"] is True
+    assert t1["total_tokens"] == 200
     assert by_id["t2"]["models"][0]["solve_rate"] == 1.0
+    assert "efforts" not in t1
+
+
+def test_per_task_effort_slices(tmp_path: Path) -> None:
+    """Effort-tagged repeats stay pooled at (task, model) and split under efforts."""
+    runs = tmp_path / "runs"
+    _summary(runs, "lo", model="m", task_id="t1", functional=0.0, effort="low", cost_usd=0.01)
+    _summary(runs, "hi", model="m", task_id="t1", functional=1.0, effort="high", cost_usd=0.04)
+    cell = build_report(runs_dir=runs, tasks_root=tmp_path / "tasks")["tasks"][0]["models"][0]
+    assert cell["solved"] == 1
+    assert cell["failed"] == 1
+    assert cell["solve_rate"] == 0.5
+    by_effort = {e["effort"]: e for e in cell["efforts"]}
+    assert by_effort["low"]["solve_rate"] == 0.0
+    assert by_effort["high"]["solve_rate"] == 1.0
+    assert by_effort["high"]["total_cost_usd"] == 0.04
 
 
 def test_environment(tmp_path: Path) -> None:
@@ -188,6 +215,8 @@ def test_markdown(tmp_path: Path) -> None:
     assert "# VulcanBench report" in md
     assert "## Models" in md
     assert "## Per-task" in md
+    assert "### pass@1" in md
+    assert "### Cells" in md
     assert "## Environment" in md
     assert "pass@1" in md
 
