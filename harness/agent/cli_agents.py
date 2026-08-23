@@ -29,6 +29,7 @@ as a 0.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -48,7 +49,7 @@ from harness.agent.providers import (
 from harness.pricing import cost_usd
 from harness.redaction import sanitize
 
-CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex"})
+CLI_AGENT_PROVIDERS = frozenset({"claude-code", "codex", "composer"})
 
 # Claude Code's headless result text when a subscription window is exhausted
 # (e.g. "Claude AI usage limit reached|...", "5-hour limit reached ∙ resets 3am").
@@ -135,13 +136,15 @@ class CliAgentOutcome:
     cli_reported_cost_usd: float | None = None
 
     harness: str = "claude-code"
+    billing: str = "subscription"
+    cost_basis: str = "hypothetical-api-pricing"
 
     def summary(self) -> dict[str, Any]:
         """Provenance block persisted into the run summary."""
         return {
             "harness": self.harness,
-            "billing": "subscription",
-            "cost_basis": "hypothetical-api-pricing",
+            "billing": self.billing,
+            "cost_basis": self.cost_basis,
             "session_id": self.session_id,
             "subtype": self.subtype,
             "num_turns": self.num_turns,
@@ -742,3 +745,246 @@ class CodexProvider(LLMProvider):
             usage=TokenUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens),
             raw={"stdout_tail": proc.stdout[-1000:]},
         )
+
+
+def _fold_cursor_usage(usage: Any) -> tuple[int, int]:
+    """Cursor SDK ``TokenUsage`` -> (prompt, completion) for pricing."""
+    if usage is None:
+        return 0, 0
+    cache_read = int(getattr(usage, "cache_read_tokens", 0) or 0)
+    cache_write = int(getattr(usage, "cache_write_tokens", 0) or 0)
+    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+    output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+    prompt = round(input_tokens + cache_read * 0.1 + cache_write * 1.25)
+    return prompt, output_tokens
+
+
+def run_composer_task(  # noqa: PLR0912, PLR0915 — SDK stream loop
+    *,
+    workspace: Path,
+    prompt: str,
+    model: str,
+    priced_spec: str,
+    collector: _Collector,
+    stream_log_path: Path | None = None,
+    timeout_s: float | None = None,
+    network: bool = False,
+    max_run_cost: float | None = None,
+) -> CliAgentOutcome:
+    """Run one task with Composer via the Cursor Python SDK in ``workspace``.
+
+    Uses ``Agent.create(local=...)`` so the SDK edits files directly in the
+    prepared workspace. ``cost_usd`` is computed from token usage at Cursor's
+    published Composer 2.5 list rates (standard tier, not fast).
+    """
+    del network  # SDK manages its own tool/network policy
+    if timeout_s is not None and timeout_s <= 0:
+        raise ProviderError("run budget exhausted before Composer agent start")
+    api_key = os.environ.get("CURSOR_API_KEY")
+    if not api_key:
+        raise ProviderError(
+            "CURSOR_API_KEY is not set; create one at https://cursor.com/dashboard/api"
+        )
+    try:
+        from cursor_sdk import (  # noqa: PLC0415
+            Agent,
+            LocalAgentOptions,
+            ModelParameterValue,
+            ModelSelection,
+        )
+    except ImportError as e:
+        raise ProviderError("cursor-sdk is not installed; pip install cursor-sdk") from e
+
+    model_id = model if model != "composer-2.5" else "composer-2.5"
+    selection = ModelSelection(
+        id=model_id,
+        params=[ModelParameterValue(id="fast", value="false")],
+    )
+    collector.record(
+        "cli_agent_start",
+        {"harness": "composer", "model": model_id, "workspace": str(workspace)},
+    )
+
+    outcome = CliAgentOutcome(
+        harness="composer",
+        billing="api",
+        cost_basis="cursor-list-pricing",
+    )
+    killed = {"timeout": False, "cost": False}
+    error_text: str | None = None
+    turns = 0
+    prompt_total = completion_total = 0
+    stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
+
+    def _record_usage(usage: Any) -> None:
+        nonlocal prompt_total, completion_total
+        p, c = _fold_cursor_usage(usage)
+        prompt_total = p
+        completion_total = c
+        if max_run_cost is not None:
+            run_cost = cost_usd(priced_spec, prompt_total, completion_total)
+            if run_cost is not None and run_cost >= max_run_cost:
+                collector.record(
+                    "cost_cap_exceeded",
+                    {"cost_usd": run_cost, "max_run_cost": max_run_cost},
+                )
+                outcome.cost_capped = True
+                killed["cost"] = True
+
+    try:
+        with Agent.create(
+            model=selection,
+            api_key=api_key,
+            local=LocalAgentOptions(cwd=str(workspace)),
+        ) as agent:
+            outcome.session_id = agent.agent_id
+            run = agent.send(prompt)
+            watchdog: threading.Timer | None = None
+
+            def _cancel_on_timeout() -> None:
+                killed["timeout"] = True
+                with contextlib.suppress(Exception):
+                    run.cancel()
+
+            if timeout_s is not None:
+                watchdog = threading.Timer(timeout_s, _cancel_on_timeout)
+                watchdog.daemon = True
+                watchdog.start()
+
+            try:
+                for message in run.messages():
+                    payload = {"type": getattr(message, "type", None)}
+                    if stream_f:
+                        json.dump(sanitize(payload), stream_f)
+                        stream_f.write("\n")
+                    mtype = str(getattr(message, "type", "") or "")
+                    if mtype == "assistant":
+                        text_parts: list[str] = []
+                        msg = getattr(message, "message", None)
+                        for block in getattr(msg, "content", None) or []:
+                            if getattr(block, "type", None) == "text":
+                                text_parts.append(str(getattr(block, "text", "") or ""))
+                        if text_parts:
+                            collector.record(
+                                "llm_response",
+                                {"content": "\n".join(text_parts), "tool_calls": [], "usage": {}},
+                            )
+                    elif mtype == "tool_call":
+                        collector.record(
+                            "tool_observation",
+                            {
+                                "tool": str(getattr(message, "name", "") or "tool"),
+                                "result": str(getattr(message, "status", "") or "")[:2000],
+                                "error": None,
+                            },
+                        )
+                    elif mtype == "usage":
+                        turns += 1
+                        _record_usage(getattr(message, "usage", None))
+                        if killed["cost"]:
+                            with contextlib.suppress(Exception):
+                                run.cancel()
+                            break
+
+                if not killed["cost"] and not killed["timeout"]:
+                    result = run.wait()
+                    outcome.subtype = str(getattr(result, "status", None) or "")
+                    if getattr(result, "usage", None) is not None:
+                        _record_usage(result.usage)
+                    if outcome.subtype not in {"finished", "success"}:
+                        error_text = str(getattr(result, "result", None) or outcome.subtype)
+            finally:
+                if watchdog is not None:
+                    watchdog.cancel()
+                if getattr(run, "usage", None) is not None:
+                    _record_usage(run.usage)
+    except Exception as e:
+        if _LIMIT_PATTERN.search(str(e)):
+            raise ProviderError(
+                "Composer usage limit hit — rerun after the window resets "
+                f"(use --only-missing to resume): {str(e)[:300]}"
+            ) from e
+        raise ProviderError(f"Composer SDK run failed: {e}") from e
+    finally:
+        if stream_f:
+            stream_f.close()
+
+    outcome.timed_out = killed["timeout"]
+    outcome.prompt_tokens = prompt_total
+    outcome.completion_tokens = completion_total
+    outcome.num_turns = turns or None
+
+    if killed["timeout"] or killed["cost"]:
+        return outcome
+
+    if error_text and outcome.subtype not in {"finished", "success"}:
+        if _LIMIT_PATTERN.search(error_text):
+            raise ProviderError(
+                "Composer usage limit hit — rerun after the window resets "
+                f"(use --only-missing to resume): {error_text[:300]}"
+            )
+        raise ProviderError(f"Composer run failed: {error_text[:300]}")
+
+    outcome.finished = True
+    if not outcome.subtype:
+        outcome.subtype = "finished"
+    collector.record("cli_agent_result", outcome.summary())
+    return outcome
+
+
+class ComposerProvider(LLMProvider):
+    """Single-shot completions through the Cursor SDK (judges/graders only)."""
+
+    @property
+    def name(self) -> str:
+        return "composer"
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        del tools, effort
+        prompt = "\n\n".join(str(m.get("content", "")) for m in messages)
+        api_key = os.environ.get("CURSOR_API_KEY")
+        if not api_key:
+            raise ProviderError("CURSOR_API_KEY is not set")
+        try:
+            from cursor_sdk import (  # noqa: PLC0415
+                Agent,
+                LocalAgentOptions,
+                ModelParameterValue,
+                ModelSelection,
+            )
+        except ImportError as e:
+            raise ProviderError("cursor-sdk is not installed") from e
+
+        selection = ModelSelection(
+            id=self.model,
+            params=[ModelParameterValue(id="fast", value="false")],
+        )
+        with Agent.create(
+            model=selection,
+            api_key=api_key,
+            local=LocalAgentOptions(cwd=os.getcwd()),
+        ) as agent:
+            run = agent.send(prompt)
+            result = run.wait()
+            if timeout_s is not None and timeout_s <= 0:
+                raise ProviderError("run budget exhausted before Composer judge call")
+            usage = getattr(result, "usage", None) or getattr(run, "usage", None)
+            prompt_tokens, completion_tokens = _fold_cursor_usage(usage)
+            text = str(getattr(result, "result", None) or run.text() or "")
+            status = str(getattr(result, "status", "") or "")
+            if status not in {"finished", "success"}:
+                raise ProviderError(f"Composer judge call failed: {status or text[:300]}")
+            return LLMResponse(
+                content=text or None,
+                usage=TokenUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                ),
+                raw={"status": status},
+            )

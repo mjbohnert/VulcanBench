@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xhigh` as the default — an unset request already runs at xhigh. Built-in pricing adds
   `qwen3.8-max` ($2/$6 per 1M, flat across the 1M context).
 
+## [0.8.1] - 2026-08-23
+
+### Added
+
+- **`composer:composer-2.5` provider** via the Cursor Python SDK (`cursor-sdk`): runs tasks
+  with Composer's native agent harness (like `claude-code:` / `codex:` specs). Requires
+  `CURSOR_API_KEY` and `--sandbox local`. Standard-tier list pricing ($0.50/$2.50 per 1M).
+
 ## [0.8.0] - 2026-07-29
 
 ### Added

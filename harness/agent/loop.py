@@ -33,6 +33,7 @@ from harness.agent.cli_agents import (
     is_cli_agent_spec,
     run_claude_code_task,
     run_codex_task,
+    run_composer_task,
 )
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
@@ -366,6 +367,18 @@ def _execute_agent(
                 network=network,
                 max_run_cost=max_run_cost,
                 effort=effort_meta.requested if effort_meta else None,
+            )
+        elif cli_provider == "composer":
+            outcome = run_composer_task(
+                workspace=workspace,
+                prompt=build_cli_prompt(task.issue),
+                model=cli_model,
+                priced_spec=model,
+                collector=collector,
+                stream_log_path=run_dir / "cli-agent-stream.jsonl",
+                timeout_s=deadline.remaining_s(),
+                network=network,
+                max_run_cost=max_run_cost,
             )
         else:
             outcome = run_claude_code_task(
