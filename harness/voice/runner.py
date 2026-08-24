@@ -3,7 +3,7 @@
 Determinism
 -----------
 The condition matrix and its seeded subset are computed up front from a fixed
-seed (default ``20260729``) so every run — including resumed runs — plans the
+seed (default ``20260729``) so every run, including resumed runs, plans the
 identical set of (model, mode, item, condition) work units. Sampling
 parameters we control are pinned (temperature 0 where the API accepts it).
 
@@ -124,7 +124,7 @@ def _completed_keys(results_path: Path) -> set[str]:
             continue
         row = json.loads(line)
         # A judge-error row is scored wrong only because the judge was
-        # unavailable — treat it as incomplete so a resume re-attempts it
+        # unavailable, treat it as incomplete so a resume re-attempts it
         # rather than freezing a non-verdict into the results.
         if row.get("error") is None and row.get("score_method") != "judge-error":
             done.add(f"{row['model']}|{row['mode']}|{row['question_id']}|{row['condition_slug']}")

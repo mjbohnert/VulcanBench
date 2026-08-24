@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from harness.tasks import load_task, prepare_workspace
-from harness.verifier import run_declarative_verifier
+from harness.verifier import RunnerOutcome, VerifierInfrastructureError, run_declarative_verifier
 
 pytestmark = pytest.mark.skipif(shutil.which("pytest") is None, reason="pytest not on PATH")
 
@@ -92,6 +92,18 @@ def test_custom_runner_is_used(tmp_path: Path) -> None:
     assert payload["scores"]["functional"] == 1.0  # runner said pass
     assert any("t_f2p" in c for c in seen)
     assert any("t_p2p" in c for c in seen)
+
+
+def test_missing_pytest_is_an_infrastructure_error(tmp_path: Path) -> None:
+    _make_task(tmp_path / "tasks", f_returns=2)
+    task = load_task("fix-f", tmp_path / "tasks")
+    ws = prepare_workspace(task, tmp_path / "ws")
+
+    def missing_pytest(cmd: str, workspace: Path, timeout: int) -> RunnerOutcome:
+        return RunnerOutcome(1, stderr="python: No module named pytest")
+
+    with pytest.raises(VerifierInfrastructureError, match="pytest is unavailable"):
+        run_declarative_verifier(task, ws, runner=missing_pytest)
 
 
 def test_hidden_tests_not_in_prepared_workspace(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # Probe image for the starlette task: base + starlette's runtime deps and the
 # test-client stack. starlette itself is overlaid from the workspace via
-# PYTHONPATH=. — the image deliberately does NOT contain starlette.
+# PYTHONPATH=., the image deliberately does NOT contain starlette.
 #
 # Build: docker build -t vulcanbench/sandbox:starlette-3431 -f sandbox/Dockerfile.starlette-3431 .
 FROM vulcanbench/sandbox:base

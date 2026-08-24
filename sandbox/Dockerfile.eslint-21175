@@ -1,6 +1,6 @@
 # Probe image for the eslint task: node-ts + eslint's runtime deps.
 #
-# Build (context is the TASK REPO, not the repo root — .dockerignore excludes tasks/):
+# Build (context is the TASK REPO, not the repo root, .dockerignore excludes tasks/):
 #   docker build -t vulcanbench/sandbox:eslint-21175 \
 #     -f sandbox/Dockerfile.eslint-21175 \
 #     tasks/cii-v1/oss-eslint-loop-condition-ternary/repo

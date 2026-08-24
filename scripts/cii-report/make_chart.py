@@ -83,7 +83,7 @@ def main():  # noqa: PLR0915
     fig.text(
         0.115,
         0.905,
-        "Coding Intelligence Index v1 — frontier results",
+        "Coding Intelligence Index v1, frontier results",
         family=CHAKRA_MED,
         fontsize=12.5,
         color="#0b0b0b",
@@ -157,7 +157,7 @@ def main():  # noqa: PLR0915
     axR.set_xticklabels(["0/3", "1/3", "2/3", "3/3"], family=CHAKRA, fontsize=9)
     axR.spines[["top", "right", "left"]].set_visible(False)
     axR.set_title(
-        "per-task solve rate — every task either model missed",
+        "per-task solve rate, every task either model missed",
         family=CHAKRA_MED,
         fontsize=11.5,
         pad=12,
@@ -178,7 +178,7 @@ def main():  # noqa: PLR0915
     fig.text(
         0.06,
         0.045,
-        "Both models billed via subscriptions (Codex CLI / Claude Code CLI agent harnesses — scores are model+harness, not raw API). "
+        "Both models billed via subscriptions (Codex CLI / Claude Code CLI agent harnesses, scores are model+harness, not raw API). "
         "All tasks from upstream PRs merged May\N{EN DASH}Aug 2026, after both models' training cutoffs. Whiskers: ±1 stderr across tasks.",
         family=CHAKRA,
         fontsize=8,

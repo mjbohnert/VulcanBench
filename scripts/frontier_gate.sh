@@ -41,7 +41,7 @@ print(max(counts.values(), default=0))
 PY
 )
     if [ "$best" -ge 3 ]; then
-      echo "[gate] early exit: a model already solved $best runs — verdict is REJECT regardless of remaining runs"
+      echo "[gate] early exit: a model already solved $best runs, verdict is REJECT regardless of remaining runs"
       break 2
     fi
     echo "[gate] $TASK $model run $((have+1))/$N $(date '+%H:%M:%S')"

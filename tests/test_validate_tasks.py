@@ -233,7 +233,7 @@ def test_oss_valid_provenance_passes_decontamination(
 
 def test_real_oss_task_passes() -> None:
     res = validate.validate_task(Path("tasks/v1") / "oss-inflection-titleize")
-    # PASS where pytest is available; SKIP otherwise — never FAIL.
+    # PASS where pytest is available; SKIP otherwise, never FAIL.
     assert res.status in (validate.PASS, validate.SKIP), res.reasons
 
 

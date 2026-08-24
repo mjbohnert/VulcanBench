@@ -5,3 +5,10 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: no-emdash
+        name: no em-dashes (U+2014)
+        entry: python scripts/check_no_emdash.py
+        language: system
+        pass_filenames: true

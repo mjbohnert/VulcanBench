@@ -20,6 +20,24 @@ def test_known_model_cost() -> None:
     assert pricing.cost_usd("openai:gpt-4o", 1000, 500) == 0.0075
 
 
+def test_gpt_56_sol_cost_uses_cached_input_rate() -> None:
+    # 1M total input, 800K cache reads: 200K*$5 + 800K*$0.50 + 100K*$30.
+    assert (
+        pricing.cost_usd(
+            "openai:gpt-5.6-sol",
+            1_000_000,
+            100_000,
+            cached_input_tokens=800_000,
+        )
+        == 4.4
+    )
+    assert pricing.has_cached_input_price("codex:gpt-5.6-sol") is True
+
+
+def test_cached_count_is_clamped_to_total_input() -> None:
+    assert pricing.cost_usd("openai:gpt-5.6-sol", 100, 0, cached_input_tokens=1_000) == 0.00005
+
+
 def test_unknown_model_is_none() -> None:
     assert pricing.cost_usd("openai:does-not-exist-9000", 1000, 500) is None
     assert pricing.is_priced("foo:bar") is False
@@ -39,6 +57,19 @@ def test_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert pricing.cost_usd("custom:model", 1_000_000, 1_000_000) == 3.0
 
 
+def test_env_override_merges_fields_into_builtin_rate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    override = tmp_path / "prices.json"
+    override.write_text(json.dumps({"openai:gpt-5.6-sol": {"input": 6.0}}))
+    monkeypatch.setenv("VULCANBENCH_PRICING", str(override))
+    pricing.reset_cache()
+    # The local input override must not erase the official cached-input field.
+    assert (
+        pricing.cost_usd("openai:gpt-5.6-sol", 1_000_000, 0, cached_input_tokens=1_000_000) == 0.5
+    )
+
+
 def test_provider_prefix_fallback() -> None:
     # mock: prefix matches any mock model even without an exact entry.
     assert pricing.cost_usd("mock:whatever", 100, 100) == 0.0
@@ -47,6 +78,9 @@ def test_provider_prefix_fallback() -> None:
 def test_zai_glm_priced() -> None:
     assert pricing.is_priced("zai:glm-5.2")
     assert pricing.cost_usd("zai:glm-5.2", 1_000_000, 1_000_000) == 5.80
+    # GLM 5.3: input 1.40/1M, output 4.40/1M -> 5.80 (same headline as 5.2).
+    assert pricing.is_priced("zai:glm-5.3")
+    assert pricing.cost_usd("zai:glm-5.3", 1_000_000, 1_000_000) == 5.80
 
 
 def test_kimi_k3_priced() -> None:
@@ -65,6 +99,25 @@ def test_deepseek_v4_flash_priced() -> None:
     # Public-beta list: input 0.14/1M, output 0.28/1M -> 1M+1M = 0.42.
     assert pricing.is_priced("deepseek:deepseek-v4-flash")
     assert pricing.cost_usd("deepseek:deepseek-v4-flash", 1_000_000, 1_000_000) == 0.42
+
+
+def test_grok_46_priced_with_cached_input() -> None:
+    # 1M in + 1M out at the <200K tier: $2 + $6.
+    assert pricing.cost_usd("xai:grok-4.6", 1_000_000, 1_000_000) == 8.00
+    # Cache reads bill at $0.50/M.
+    assert pricing.cost_usd("xai:grok-4.6", 1_000_000, 0, cached_input_tokens=1_000_000) == 0.50
+
+
+def test_ollama_local_runs_are_free_not_unknown() -> None:
+    # $0 (a real, known cost), not None (cost unknown), which would exclude
+    # local runs from cost reporting entirely.
+    assert pricing.cost_usd("ollama:muse-glimmer:30b", 1_000_000, 1_000_000) == 0.0
+    assert pricing.is_priced("ollama:muse-glimmer:30b")
+
+
+def test_muse_spark_12_tiers_priced() -> None:
+    assert pricing.cost_usd("meta:muse-spark-1.2", 1_000_000, 1_000_000) == 5.50
+    assert pricing.cost_usd("meta:muse-spark-1.2-contributor", 1_000_000, 1_000_000) == 0.30
 
 
 def test_anthropic_frontier_models_priced() -> None:

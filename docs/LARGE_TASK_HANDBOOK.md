@@ -1,7 +1,7 @@
 # Large-Task Handbook (OSS-Heavy)
 
 This guide explains how to add **medium** and **large** tasks that stress navigation in
-realistic codebases—not single-file toy puzzles.
+realistic codebases, not single-file toy puzzles.
 
 ## Scale tiers (`repo_scale`)
 
@@ -23,7 +23,7 @@ Prioritize issues/PRs where:
 
 1. The symptom spans **2+ modules** (imports, config, shared helpers).
 2. The fix is **localized** (gold patch usually &lt; 500 lines) but discovery is hard.
-3. Upstream already has tests—you run **targeted** `fail_to_pass` / `pass_to_pass`, not full CI.
+3. Upstream already has tests, you run **targeted** `fail_to_pass` / `pass_to_pass`, not full CI.
 4. License is permissive (MIT/BSD/Apache); **LICENSE** is preserved in the slice.
 5. Verifier finishes in **&lt; 2 minutes** on CI.
 
@@ -132,9 +132,9 @@ the agent/verifier time budget:
 
 ## Suites
 
-- `vulcanbench run --suite v1` — full corpus
-- `vulcanbench run --suite v1-micro` — fast micro/small tasks (CI-friendly)
-- `vulcanbench run --suite v1-large` — medium/large navigation tasks (nightly)
+- `vulcanbench run --suite v1`: full corpus
+- `vulcanbench run --suite v1-micro`: fast micro/small tasks (CI-friendly)
+- `vulcanbench run --suite v1-large`: medium/large navigation tasks (nightly)
 
 Manifests: [`tasks/v1/suite.json`](../tasks/v1/suite.json) and named suite aliases in
 [`harness/suite.py`](../harness/suite.py).

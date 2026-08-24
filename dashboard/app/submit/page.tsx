@@ -107,7 +107,7 @@ export default function Submit() {
           </div>
 
           <label className="block">
-            <span className="text-sm text-zinc-400">Issue (what the agent must do — no solution)</span>
+            <span className="text-sm text-zinc-400">Issue (what the agent must do, no solution)</span>
             <textarea
               value={issue}
               onChange={(e) => setIssue(e.target.value)}

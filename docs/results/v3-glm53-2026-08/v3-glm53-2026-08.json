@@ -1,0 +1,359 @@
+{
+  "suite": "v3",
+  "n_tasks": 23,
+  "repeat": 1,
+  "model": "glm-5.3",
+  "category_defs": {
+    "solved": "functional==1.0",
+    "wrong": "failed, returned an answer",
+    "timeout": "failed, did not finish (wall-clock)"
+  },
+  "api": {
+    "low": {
+      "n": 23,
+      "solved": 18,
+      "wrong": 0,
+      "timeout": 5,
+      "passat1": 78.3,
+      "cost": 7.29,
+      "cost_per_solved": 0.405,
+      "tokens_per_task": 189533,
+      "min_per_task": 8.4
+    },
+    "high": {
+      "n": 23,
+      "solved": 17,
+      "wrong": 0,
+      "timeout": 6,
+      "passat1": 73.9,
+      "cost": 10.23,
+      "cost_per_solved": 0.602,
+      "tokens_per_task": 267207,
+      "min_per_task": 13.5
+    },
+    "extra-high": {
+      "n": 23,
+      "solved": 15,
+      "wrong": 1,
+      "timeout": 7,
+      "passat1": 65.2,
+      "cost": 17.96,
+      "cost_per_solved": 1.197,
+      "tokens_per_task": 437304,
+      "min_per_task": 22.8
+    }
+  },
+  "zcode": {
+    "low": {
+      "n": 23,
+      "solved": 19,
+      "wrong": 4,
+      "timeout": 0,
+      "passat1": 82.6,
+      "cost": 27.64,
+      "cost_per_solved": 1.454,
+      "tokens_per_task": 1389948,
+      "min_per_task": 4.8
+    },
+    "high": {
+      "n": 23,
+      "solved": 19,
+      "wrong": 4,
+      "timeout": 0,
+      "passat1": 82.6,
+      "cost": 26.34,
+      "cost_per_solved": 1.386,
+      "tokens_per_task": 1332949,
+      "min_per_task": 4.6
+    },
+    "extra-high": {
+      "n": 23,
+      "solved": 20,
+      "wrong": 3,
+      "timeout": 0,
+      "passat1": 87.0,
+      "cost": 32.77,
+      "cost_per_solved": 1.638,
+      "tokens_per_task": 1657227,
+      "min_per_task": 5.3
+    }
+  },
+  "matrix": {
+    "oss-flask-teardown-robust": {
+      "api": {
+        "low": "solved",
+        "high": "timeout",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "wrong",
+        "extra-high": "wrong"
+      }
+    },
+    "oss-aiohttp-upgrade-deferred": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-sqlglot-qualify-lateral-star": {
+      "api": {
+        "low": "solved",
+        "high": "timeout",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-sqlglot-iso8601-nanos": {
+      "api": {
+        "low": "timeout",
+        "high": "timeout",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-packaging-range-prerelease-policy": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-more-itertools-interleave-empty": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-networkx-leiden-communities": {
+      "api": {
+        "low": "timeout",
+        "high": "timeout",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "wrong"
+      }
+    },
+    "oss-sqlglot-canonicalize-internal-names": {
+      "api": {
+        "low": "timeout",
+        "high": "timeout",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "wrong",
+        "high": "wrong",
+        "extra-high": "wrong"
+      }
+    },
+    "oss-pennylane-trotter-fragmented": {
+      "api": {
+        "low": "timeout",
+        "high": "timeout",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "wrong",
+        "high": "wrong",
+        "extra-high": "solved"
+      }
+    },
+    "oss-itertools-strip-prefix": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-jiff-signdur-panic": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-jiff-date-day-lt1": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-jiff-strftime-negpad": {
+      "api": {
+        "low": "timeout",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "wrong",
+        "high": "wrong",
+        "extra-high": "solved"
+      }
+    },
+    "oss-zod-invert-codec": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-zod-proto-catchall": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-hono-request-bytes": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-hono-client-header-merge": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-semver-truncate": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "wrong"
+      },
+      "zcode": {
+        "low": "wrong",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-semver-inc-dotted-prerelease": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-semver-xrange-order": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "timeout"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-chi-readfrom-tee-doublecount": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-cobra-noduplicateargs": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    },
+    "oss-pflag-uintslice-hex": {
+      "api": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      },
+      "zcode": {
+        "low": "solved",
+        "high": "solved",
+        "extra-high": "solved"
+      }
+    }
+  }
+}

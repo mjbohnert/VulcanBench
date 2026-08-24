@@ -1,7 +1,7 @@
 # Metrics (v1)
 
 VulcanBench scores each run on five metrics plus a weighted **total**. Any metric
-may be `null` with a `reason` when its analyzer or judge is unavailable — scores
+may be `null` with a `reason` when its analyzer or judge is unavailable, scores
 are never fabricated.
 
 ## functional

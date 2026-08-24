@@ -3,18 +3,18 @@
 Grading code with an LLM is only useful if the grader (a) agrees with ground
 truth and (b) does not flip its verdict run to run. This evaluates a task's
 agentic grader against a *labeled* set of candidate diffs in
-``grader_cases.json`` — known-correct and known-incorrect changes — and reports:
+``grader_cases.json``: known-correct and known-incorrect changes, and reports:
 
-- ``accuracy``       — fraction of labeled cases graded as labeled,
-- ``false_pass``     — graded correct but labeled incorrect (the dangerous one:
+- ``accuracy``     , fraction of labeled cases graded as labeled,
+- ``false_pass``   , graded correct but labeled incorrect (the dangerous one:
   a benchmark that rubber-stamps wrong answers is worse than none),
-- ``false_fail``     — graded incorrect but labeled correct,
-- ``mean_self_consistency`` — over ``--samples`` repeats, how stable each grade
+- ``false_fail``   , graded incorrect but labeled correct,
+- ``mean_self_consistency``: over ``--samples`` repeats, how stable each grade
   was (1.0 = identical every time).
 
 Run it with a real ``--model`` to get real numbers; the offline mock grader only
 exercises the wiring (it approves any non-empty diff, so it will show a high
-false-pass rate by construction — that is the mock telling you it is not a real
+false-pass rate by construction, that is the mock telling you it is not a real
 grader).
 """
 

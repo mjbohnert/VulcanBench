@@ -2,20 +2,20 @@
 
 A task lives at ``tasks/v1/<id>/`` and contains at minimum:
 
-- ``metadata.json``  — id, category, languages, difficulty, source, and a
+- ``metadata.json``, id, category, languages, difficulty, source, and a
   declarative ``tests`` block (``fail_to_pass`` / ``pass_to_pass``).
-- ``issue.md``       — the natural-language problem statement given to the agent.
+- ``issue.md``     , the natural-language problem statement given to the agent.
 
 Starting state, supplied as either:
 
-- ``repo/``                 — plain files (preferred for hand-authored tasks; git-reviewable), or
-- ``repo_snapshot.tar.gz``  — a tarball (for large imported repos).
+- ``repo/``               , plain files (preferred for hand-authored tasks; git-reviewable), or
+- ``repo_snapshot.tar.gz``, a tarball (for large imported repos).
 
 And, used only at verification time (never shown to the agent):
 
-- ``tests/``          — HIDDEN tests, copied into the workspace by the verifier.
-- ``gold_patch.diff`` — the reference solution (for the validator, not the run).
-- ``verifier.py``     — legacy per-task verifier (declarative ``tests`` preferred).
+- ``tests/``        , HIDDEN tests, copied into the workspace by the verifier.
+- ``gold_patch.diff``: the reference solution (for the validator, not the run).
+- ``verifier.py``   , legacy per-task verifier (declarative ``tests`` preferred).
 """
 
 from __future__ import annotations
@@ -189,7 +189,7 @@ def prepare_workspace(task: Task, workspace: Path) -> Path:
     """Materialize the task's starting state into ``workspace``.
 
     Copies the ``repo/`` directory (or extracts the snapshot), then writes
-    ``issue.md``. The hidden ``tests/`` are deliberately NOT copied here — they
+    ``issue.md``. The hidden ``tests/`` are deliberately NOT copied here, they
     are added by the verifier at scoring time so the agent never sees them.
     """
     workspace.mkdir(parents=True, exist_ok=True)
@@ -224,7 +224,7 @@ def install_hidden_tests(task: Task, workspace: Path) -> None:
 def run_setup(
     task: Task,
     workspace: Path,
-    runner: Callable[[str, Path, int], int] | None = None,
+    runner: Callable[[str, Path, int], Any] | None = None,
     timeout: int | None = None,
     collector: Any | None = None,
 ) -> list[dict[str, Any]]:
@@ -237,7 +237,7 @@ def run_setup(
     the collector (if provided). A non-zero exit aborts subsequent setup
     commands and raises ``RuntimeError``.
     """
-    from harness.verifier import host_runner  # noqa: PLC0415 — avoid circular import
+    from harness.verifier import host_runner  # noqa: PLC0415, avoid circular import
 
     runner = runner or host_runner
     timeout = timeout or task.setup_timeout_s
@@ -247,7 +247,8 @@ def run_setup(
         name = entry["name"]
         cmd = entry["cmd"]
         started = time.monotonic()
-        exit_code = runner(cmd, workspace, timeout)
+        raw_outcome = runner(cmd, workspace, timeout)
+        exit_code = int(getattr(raw_outcome, "exit_code", raw_outcome))
         duration = round(time.monotonic() - started, 3)
         result = {"name": name, "cmd": cmd, "exit_code": exit_code, "duration_s": duration}
         results.append(result)

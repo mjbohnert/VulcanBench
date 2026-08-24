@@ -15,12 +15,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from harness.agent.cli_agents import is_cli_agent_spec
 from harness.agent.loop import run_agent
-from harness.agent.providers import ProviderError
+from harness.agent.providers import NonRetryableProviderError, ProviderError
 from harness.leaderboard import aggregate_by_model, scan_leaderboard
 from harness.sandbox.docker_executor import SandboxError
 from harness.task_metadata import repo_scale
 from harness.tasks import list_task_ids, load_task
+from harness.verifier import VerifierInfrastructureError
 
 DEFAULT_TASKS_BASE = Path("tasks")
 SUITE_ALIASES = {
@@ -44,7 +46,7 @@ SUITE_NAME_ALIASES = {
 #: provider call, a sandbox that would not start. Scoring these as a task failure
 #: (or dropping the task from the suite) attributes an infrastructure problem to
 #: the model, so they are retried instead.
-INFRASTRUCTURE_ERRORS = (ProviderError, SandboxError)
+INFRASTRUCTURE_ERRORS = (ProviderError, SandboxError, VerifierInfrastructureError)
 
 
 def is_infrastructure_error(exc: BaseException) -> bool:
@@ -54,7 +56,7 @@ def is_infrastructure_error(exc: BaseException) -> bool:
     it does not raise. Anything reaching here is the harness failing to obtain a
     verdict at all.
     """
-    return isinstance(exc, INFRASTRUCTURE_ERRORS)
+    return isinstance(exc, INFRASTRUCTURE_ERRORS) and not isinstance(exc, NonRetryableProviderError)
 
 
 @dataclass
@@ -103,7 +105,7 @@ def load_suite(name: str, tasks_base: Path = DEFAULT_TASKS_BASE) -> Suite:
     and ``v1-large`` read ``tasks/v1/suite.json`` keys ``micro`` / ``large``.
     ``v1-rust`` filters by language ``rust`` in metadata.languages. ``v1-diamond``
     and ``v1-carbyne`` read the ``diamond`` / ``carbyne`` keys: rubric-graded
-    mergeability tiers (carbyne is the harder one — the naive solution is subtly
+    mergeability tiers (carbyne is the harder one, the naive solution is subtly
     wrong). Run them with a ``--judge-model`` different from the model under test
     to avoid self-grading.
     """
@@ -146,7 +148,7 @@ def load_suite(name: str, tasks_base: Path = DEFAULT_TASKS_BASE) -> Suite:
     return Suite(name=dir_name, tasks_root=tasks_root, task_ids=task_ids, display_name=display_name)
 
 
-def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budget loop + summary
+def run_suite(  # noqa: PLR0912, PLR0915, linear scheduler: validation + budget loop + summary
     name: str,
     model: str,
     output_dir: Path = Path("./runs"),
@@ -164,20 +166,21 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
     With ``max_concurrency > 1`` the (task x repeat) units run on a thread pool.
     Each unit is a fully isolated :func:`run_agent` call (its own run dir, git
     workspace, collector and provider), so results are identical to sequential
-    execution — only wall-clock differs. One unit raising does not sink the
+    execution, only wall-clock differs. One unit raising does not sink the
     suite; its failure is recorded in ``errors``.
 
-    ``max_cost`` is a USD spend cap: once the accumulated cost of completed runs
-    reaches it, no *new* runs are launched and the remainder are recorded in
-    ``skipped``. It is not a hard ceiling — runs already in flight finish, so the
-    total can exceed ``max_cost`` by up to ``max_concurrency`` runs' worth. It
-    **fails closed**: if a completed run reports no cost (e.g. an unpriced model),
-    the budget can't be guaranteed, so launching stops (``cost_unknown=True`` in
-    the summary) rather than silently running the whole suite.
+    ``max_cost`` is a metered-cash cap for API runs and an API-equivalent cap
+    for subscription runs. Once the accumulated value reaches it, no *new* runs
+    are launched and the remainder are recorded in ``skipped``. It is not a
+    hard ceiling, runs already in flight finish, so the total can exceed
+    ``max_cost`` by up to ``max_concurrency`` runs' worth. It **fails closed**:
+    if a completed run reports no cost (e.g. an unpriced model), the budget
+    cannot be guaranteed, so launching stops (``cost_unknown=True``) rather
+    than silently running the whole suite.
 
     ``max_infra_retries`` re-queues a unit whose failure was environmental (a
     stalled provider call, a sandbox that would not start) rather than a verdict
-    about the model — see :func:`is_infrastructure_error`. Without it a single
+    about the model, see :func:`is_infrastructure_error`. Without it a single
     stalled request silently shrinks the denominator: the suite still reports a
     tidy pass@1, computed over whichever tasks happened not to get unlucky, and a
     different task drops on each run. Retries obey the spend cap like any other
@@ -198,11 +201,11 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
     started_at = datetime.now(UTC)
 
     # ``only_missing`` reuses cached, non-stale runs for this model+effort and
-    # launches only enough runs to top each task up to ``repeat`` — so a partly
+    # launches only enough runs to top each task up to ``repeat``: so a partly
     # finished column is resumed instead of re-run from scratch.
     covered: list[str] = []
     if only_missing:
-        from harness.compare import fresh_run_counts  # noqa: PLC0415 — avoid import cycle
+        from harness.compare import fresh_run_counts  # noqa: PLC0415, avoid import cycle
 
         counts = fresh_run_counts(
             list(suite.task_ids),
@@ -231,12 +234,17 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
             **run_kwargs,
         )
         summary = res["summary"]
+        cli_agent = summary.get("cli_agent") or {}
+        economics = summary.get("economics") or {}
         return {
             "task_id": task_id,
             "run_id": res["run_id"],
             "total": summary.get("scores", {}).get("total"),
             "functional": summary.get("scores", {}).get("functional"),
             "cost_usd": summary.get("cost_usd"),
+            "execution_harness": cli_agent.get("harness") or "vulcan",
+            "track": "subscription" if cli_agent else "api",
+            "economics": economics,
             "duration_s": summary.get("duration_s"),
             "effort": summary.get("effort"),
             "experiment_id": summary.get("experiment_id"),
@@ -248,6 +256,11 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
     attempts: dict[str, int] = {}
     skipped: list[str] = []
     spent = 0.0
+    spend_basis = (
+        "api-equivalent pricing; not subscription cash or quota"
+        if is_cli_agent_spec(model)
+        else "metered API pricing"
+    )
     cost_unknown = False  # a completed run reported no cost while a budget is set
 
     def _budget_reached() -> bool:
@@ -313,6 +326,8 @@ def run_suite(  # noqa: PLR0912, PLR0915 — linear scheduler: validation + budg
         "max_concurrency": max_concurrency,
         "max_cost": max_cost,
         "spent_usd": round(spent, 6),
+        "budget_accounted_usd": round(spent, 6),
+        "spend_basis": spend_basis,
         "cost_unknown": cost_unknown,
         "started_at": started_at.isoformat(),
         "finished_at": datetime.now(UTC).isoformat(),

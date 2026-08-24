@@ -7,7 +7,7 @@ common credential shapes plus the literal values of known secret env vars;
 per-string length cap.
 
 This is defense-in-depth: best-effort pattern matching, not a guarantee. It
-errs toward over-redaction (a code line that looks like a key gets masked) —
+errs toward over-redaction (a code line that looks like a key gets masked),
 acceptable for an artifact whose point is to be publishable.
 """
 
@@ -39,6 +39,10 @@ _SECRET_ENV = (
     "MOONSHOT_API_KEY",
     "DASHSCOPE_API_KEY",
     "DEEPSEEK_API_KEY",
+    "MODEL_API_KEY",
+    "META_MUSE_SPARK_API",
+    "OPENROUTER_API_KEY",
+    "XAI_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
     "AWS_SECRET_ACCESS_KEY",

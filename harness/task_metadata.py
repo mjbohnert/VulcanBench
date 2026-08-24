@@ -46,7 +46,7 @@ SCALE_DEFAULTS: dict[str, dict[str, int | float]] = {
 }
 # Complexity-scaled budgets (Coding Intelligence Index), TerminalBench-style:
 # generous wall-clock allowances in tidy half-hour increments, so a slow
-# verdict always means the model could not solve the task — never that the
+# verdict always means the model could not solve the task, never that the
 # clock was tuned to the median solver. TerminalBench's published budgets
 # cluster at 2h with a tail from 30min to 8h; this formula reproduces that
 # shape from the task's declared complexity (dominant factor), difficulty and
@@ -169,7 +169,7 @@ def resolve_max_steps(
     """Resolve step budget from metadata; optional CLI value caps (does not raise).
 
     With ``override=True`` the CLI value is taken verbatim, even above the task
-    default — an ablation mode; such runs are not comparable to capped runs.
+    default, an ablation mode; such runs are not comparable to capped runs.
     """
     if override and cli_max_steps is not None:
         return cli_max_steps
@@ -201,7 +201,7 @@ def resolve_agent_timeout_s(
     """Agent wall-clock budget from hints/scale defaults; CLI ``--timeout`` caps when set.
 
     With ``override=True`` the CLI value is taken verbatim, even above the task
-    default — an ablation mode; such runs are not comparable to capped runs.
+    default, an ablation mode; such runs are not comparable to capped runs.
     """
     if override and cli_timeout is not None:
         return cli_timeout
@@ -323,7 +323,7 @@ def _validate_explicit_budgets(task_root: Path, metadata: dict[str, Any]) -> lis
 
     A suite whose ``suite.json`` sets ``"require_explicit_budgets": true`` (the
     Coding Intelligence Index does) fails any task without positive
-    ``agent_hints.suggested_max_steps`` and ``suggested_timeout_s`` — budgets
+    ``agent_hints.suggested_max_steps`` and ``suggested_timeout_s``, budgets
     must be stamped and auditable per task, never inherited silently from
     scale defaults.
     """

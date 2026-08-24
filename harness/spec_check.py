@@ -1,25 +1,25 @@
-"""Detect under-specified tasks — issues that state a problem but never say what
+"""Detect under-specified tasks, issues that state a problem but never say what
 "correct" looks like, so even a perfect model cannot infer the intended result.
 
 This guards the failure mode where a task's hidden test asserts a specific output
 (e.g. ``run(2) == 4``) that the issue gives the agent no way to derive
 ("Correct ``run`` in service module."). The gold patch is a one-token change, yet
-every model scores 0 — the *specification*, not the difficulty, is the blocker.
+every model scores 0, the *specification*, not the difficulty, is the blocker.
 The existing validator never caught this: the gold patch solves the hidden test
 and ``fail_to_pass`` genuinely fails pre-patch, so the task validates while being
 unsolvable by design.
 
 Two tiers, because no offline check can be both sound and complete here:
 
-* :func:`static_spec_lint` — fast, offline, deterministic. Flags an issue that
+* :func:`static_spec_lint`: fast, offline, deterministic. Flags an issue that
   describes *only* a defect or location with no statement of expected behavior.
   It is a heuristic triage signal (``warn``), never a hard fail: a terse but fair
   issue ("Fix the off-by-one in ``foo``") can trip it, so it must not block a
   task on its own.
-* :func:`solvability_verdict` — the authoritative gate. Given how a capable
+* :func:`solvability_verdict`: the authoritative gate. Given how a capable
   reference model actually fared (solve count over N attempts) plus the gold
   patch size and the task's complexity tier, it ``fail``s a task when a
-  *trivially small, localized* fix is unsolvable — the signature of a missing
+  *trivially small, localized* fix is unsolvable, the signature of a missing
   spec rather than a hard problem. A hard/multi-file task the model fails is
   expected and is **not** flagged.
 """
@@ -46,7 +46,7 @@ class _HasIssue(Protocol):
 
 
 # An issue is considered to *specify expected behavior* when it states what the
-# code should do — not merely that it is broken or where the bug lives. These
+# code should do, not merely that it is broken or where the bug lives. These
 # cues are intentionally broad: the lint only emits a warning, so over-matching
 # (calling a vague issue "ok") is the safe failure direction. Misses are caught
 # by the model-backed :func:`solvability_verdict`.
@@ -96,7 +96,7 @@ def has_behavior_cue(issue: str) -> bool:
 def static_spec_lint(task: _HasIssue) -> SpecResult:
     """Heuristically flag an issue that gives no statement of expected behavior.
 
-    Returns ``warn`` (never ``fail``) — it is a triage signal, not proof. Confirm
+    Returns ``warn`` (never ``fail``), it is a triage signal, not proof. Confirm
     a warned task with :func:`solvability_verdict` before deciding it is broken.
 
     Agentic- and rubric-graded tasks are exempt: their prompts are intentionally
@@ -104,17 +104,17 @@ def static_spec_lint(task: _HasIssue) -> SpecResult:
     """
     metadata = getattr(task, "metadata", None)
     if isinstance(metadata, dict) and metadata.get("grader") in {"agentic", "rubric"}:
-        return SpecResult(OK, [f"{metadata.get('grader')} grader — terse prompt is intentional"])
+        return SpecResult(OK, [f"{metadata.get('grader')} grader, terse prompt is intentional"])
     issue = getattr(task, "issue", "") or ""
     if not issue.strip():
-        return SpecResult(WARN, ["issue.md is empty — no specification for the agent"])
+        return SpecResult(WARN, ["issue.md is empty, no specification for the agent"])
     if has_behavior_cue(issue):
         return SpecResult(OK)
     return SpecResult(
         WARN,
         [
             "issue describes a defect/location but no expected behavior "
-            "(no 'should'/'must'/example/target value) — the agent cannot infer "
+            "(no 'should'/'must'/example/target value), the agent cannot infer "
             "the intended result; confirm with the solvability gate",
         ],
     )
@@ -143,13 +143,13 @@ def solvability_verdict(
 
     ``fail`` when a capable model solved the task 0/N times **and** the gold fix
     is trivially small (``<= trivial_max_lines`` changed lines) **and** the task
-    is ``localized`` — there is then no difficulty excuse for the model's
+    is ``localized``: there is then no difficulty excuse for the model's
     failure, so a missing spec is the likely cause. When the model fails a larger
     or non-localized fix, the result is ``warn`` (could be genuinely hard), and
     any solve makes it ``ok``.
     """
     if attempts <= 0:
-        return SpecResult(OK, ["no reference attempts recorded — gate skipped"])
+        return SpecResult(OK, ["no reference attempts recorded, gate skipped"])
     if solved > 0:
         return SpecResult(OK, [f"reference model solved {solved}/{attempts}"])
     localized = (complexity or "localized") == "localized"
@@ -158,13 +158,13 @@ def solvability_verdict(
             FAIL,
             [
                 f"reference model solved 0/{attempts} of a {gold_changed_lines}-line "
-                "localized fix — likely under-specified, not hard",
+                "localized fix, likely under-specified, not hard",
             ],
         )
     return SpecResult(
         WARN,
         [
             f"reference model solved 0/{attempts}; gold fix is {gold_changed_lines} "
-            f"lines / {complexity or 'localized'} — may be genuinely hard, review",
+            f"lines / {complexity or 'localized'}, may be genuinely hard, review",
         ],
     )

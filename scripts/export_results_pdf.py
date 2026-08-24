@@ -22,7 +22,7 @@ from typing import Any
 try:
     from fpdf import FPDF
 except ImportError:
-    print("error: fpdf2 is required — pip install fpdf2", file=sys.stderr)
+    print("error: fpdf2 is required, pip install fpdf2", file=sys.stderr)
     sys.exit(1)
 
 _MODEL_LABEL = {

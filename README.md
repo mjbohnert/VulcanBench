@@ -6,10 +6,10 @@
 
 Fully open-source benchmarking for LLMs on realistic, multi-file software
 engineering tasks. VulcanBench measures how models perform across reasoning
-effort, language, codebase scale, and task complexity — with full traces,
+effort, language, codebase scale, and task complexity, with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.8.0** — adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
+**v0.8.0**: adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0**: adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
 so Alibaba Cloud models can be benchmarked like OpenAI / Anthropic / Z.ai / Kimi.
 Builds on v0.6's frontier-hard task tier and cost-efficient reporting
 (`--max-run-cost`, `compare`, `regrade`, `--only-missing`), and on v0.5's 52
@@ -37,7 +37,7 @@ The dashboard falls back to a friendly empty state if the backend isn't running.
 Point it elsewhere with `NEXT_PUBLIC_API_BASE` (see `dashboard/.env.example`).
 
 By default the API reads `./runs/` directly. For a durable, queryable store, set
-`DATABASE_URL` (Postgres or SQLite) and the API switches to a database —
+`DATABASE_URL` (Postgres or SQLite) and the API switches to a database, 
 `POST /api/runs` and `/api/feedback` become writable, and
 `python scripts/ingest_runs.py` bulk-loads existing runs. A Postgres is provided
 by `docker compose up db`.
@@ -45,7 +45,7 @@ by `docker compose up db`.
 ## Example run
 
 ```bash
-# Offline, deterministic (no API key) — drives the real agent loop end to end.
+# Offline, deterministic (no API key), drives the real agent loop end to end.
 # Real runs default to the Docker sandbox; --sandbox local is fine for the
 # deterministic mock model.
 vulcanbench run --task hello-world --model mock:synthetic --sandbox local
@@ -57,6 +57,11 @@ vulcanbench run --task hello-world --model anthropic:claude-opus-4-8
 vulcanbench run --task hello-world --model zai:glm-5.2
 vulcanbench run --task hello-world --model qwen:qwen3.7-plus
 vulcanbench run --task hello-world --model deepseek:deepseek-v4-flash
+
+# Or benchmark the product harness through an existing subscription:
+vulcanbench harness doctor codex
+vulcanbench run --task hello-world --harness codex --billing subscription \
+  --model gpt-5.6-sol --no-judges
 
 # Each run prints all five metrics + cost, e.g.:
 #   functional=1.0 quality=1.0 security=1.0 human_like=0.8 total=0.974 cost=$0.0
@@ -76,7 +81,7 @@ vulcanbench run --suite v1-large --model openai:gpt-4o --repeat 5 --sandbox dock
 # Diamond tier: rubric-graded *mergeability* (not just correctness). Use a judge
 # model different from the one under test to avoid self-grading:
 vulcanbench run --suite v1-diamond --model anthropic:claude-opus-4-8 --judge-model openai:gpt-5.5
-# Carbyne tier: harder still — terse prompts where the naive solution is subtly wrong:
+# Carbyne tier: harder still, terse prompts where the naive solution is subtly wrong:
 vulcanbench run --suite v1-carbyne --model anthropic:claude-opus-4-8 --judge-model openai:gpt-5.5
 vulcanbench leaderboard            # by model: pass@1 ± stderr, pass@k, cost, latency
 vulcanbench leaderboard --by run   # per-run drill-down
@@ -95,7 +100,7 @@ vulcanbench run --suite v1 --model openai:gpt-4o --repeat 5 --fail-under 0.8
 ```
 
 The gate **fails closed**: it exits `4` if pass@1 is below the threshold, if
-pass@1 is unavailable, *or if any suite run errored* — a CI gate never goes
+pass@1 is unavailable, *or if any suite run errored*, a CI gate never goes
 green on a partial or unknown result.
 
 Exit codes: `0` ok · `1` usage/error · `2` provider · `3` sandbox · `4` gate
@@ -125,7 +130,7 @@ vulcanbench run --suite v2 --model anthropic:claude-fable-5 --max-run-cost 2.50
 vulcanbench run --suite v2 --model anthropic:claude-opus-4-8 --effort high \
   --only-missing --max-run-cost 2.50
 
-# Assemble the model × effort matrix for a frozen suite from cached runs only —
+# Assemble the model × effort matrix for a frozen suite from cached runs only, 
 # baselines are never re-run. Add a model = run that one model, then re-compare.
 vulcanbench compare --suite v2                 # complete cells (prints a frozen version id)
 vulcanbench compare --suite v2 --incomplete    # show gaps + the command to fill them
@@ -145,36 +150,124 @@ so keep every run under one root. See `docs/QUICKSTART.md` for the full workflow
 
 Specify a model as `provider:model`:
 
-- `mock:synthetic` — deterministic, offline; used by tests and demos.
-- `openai:<model>` — OpenAI Chat Completions for normal runs, or the Responses
+- `mock:synthetic`: deterministic, offline; used by tests and demos.
+- `openai:<model>`: OpenAI Chat Completions for normal runs, or the Responses
   API when `--effort` is supplied. Needs `OPENAI_API_KEY`.
-- `anthropic:<model>` — Anthropic Messages API. Needs `ANTHROPIC_API_KEY`.
-- `zai:<model>` — Z.ai (Zhipu) OpenAI-compatible Chat Completions API. Needs
+- `anthropic:<model>`: Anthropic Messages API. Needs `ANTHROPIC_API_KEY`.
+- `zai:<model>`: Z.ai (Zhipu) OpenAI-compatible Chat Completions API. Needs
   `ZAI_API_KEY`. Reasoning effort is not supported; `--effort` is recorded as
   metadata only.
-- `kimi:<model>` — Moonshot AI (Kimi) OpenAI-compatible Chat Completions API.
+- `kimi:<model>`: Moonshot AI (Kimi) OpenAI-compatible Chat Completions API.
   Needs `MOONSHOT_API_KEY`. `extra-high` maps to Kimi's `reasoning_effort=max`;
   other effort levels are recorded as metadata only.
-- `qwen:<model>` — Alibaba Cloud DashScope (Qwen) OpenAI-compatible Chat
+- `qwen:<model>`: Alibaba Cloud DashScope (Qwen) OpenAI-compatible Chat
   Completions API. Needs `DASHSCOPE_API_KEY`. Default base URL is the
   international endpoint; set `DASHSCOPE_BASE_URL` for China or another region.
   `low`/`medium` map to Qwen's `reasoning_effort` and `extra-high` maps to its
   `xhigh` (Qwen3.8+; the documented enum is low/medium/xhigh, default xhigh).
-  `high` is recorded as metadata only — Qwen has no such level, and an unset
+  `high` is recorded as metadata only, Qwen has no such level, and an unset
   request runs at the xhigh default. Pre-3.8 models may ignore the field.
-- `deepseek:<model>` — DeepSeek OpenAI-compatible Chat Completions API. Needs
+- `deepseek:<model>`: DeepSeek OpenAI-compatible Chat Completions API. Needs
   `DEEPSEEK_API_KEY`. `low`/`high` map to DeepSeek's `reasoning_effort` field
   and `extra-high` maps to its `max`; `medium` is recorded as metadata only
-  (DeepSeek's enum is low/high/max — it silently coerces `medium` to `high`,
+  (DeepSeek's enum is low/high/max, it silently coerces `medium` to `high`,
   so the harness never sends it).
+- `meta:<model>`: Meta Model API Responses endpoint for Muse Spark. Needs
+  `META_MUSE_SPARK_API` (or Meta's official `MODEL_API_KEY`); set
+  `META_BASE_URL` to override the default
+  `https://api.meta.ai/v1`. `minimal`/`low`/`medium`/`high` map directly and
+  `extra-high` maps to `xhigh`: the full documented enum. When `--effort` is
+  unset the model reasons at "a model-determined level" (Meta does not document
+  which), so an unset run is not a known effort point; sweeps should pass an
+  explicit level. The direct API request runs host-side while
+  model-authored tools and hidden verification remain in Docker, avoiding the
+  Muse Code CLI's container sign-in path. Built-in pricing covers both
+  `muse-spark-1.2` and the data-sharing `muse-spark-1.2-contributor` tier.
+  Can also be [routed through OpenRouter](#routing-muse-spark-through-openrouter)
+  when Meta API access is unavailable.
+- `xai:<model>`: xAI (Grok) OpenAI-compatible Chat Completions API. Needs
+  `XAI_API_KEY`; set `XAI_BASE_URL` to override `https://api.x.ai/v1`.
+  `low`/`medium`/`high` map to Grok's `reasoning_effort` and `extra-high` maps
+  to its `xhigh` (Grok 4.6+ only, pre-4.6 models silently coerce `xhigh` to
+  `high`, so don't sweep extra-high below 4.6). xAI's DEFAULT is `high` and
+  reasoning cannot be disabled, so an unset `--effort` runs at high, sweeps
+  should always pass an explicit level. Built-in pricing covers grok-4.6/4.5/4.3
+  at the <200K-input tier (xAI doubles rates at ≥200K input, which receipts
+  don't expose, long-context runs are underestimated).
+- `ollama:<model>`: local inference through Ollama's OpenAI-compatible API
+  (e.g. `ollama:muse-glimmer:30b`). No API key; recorded cost is $0 (marginal
+  cash, hardware and electricity are not modeled). `OLLAMA_BASE_URL` overrides
+  the default `http://localhost:11434/v1` and accepts any OpenAI-compatible
+  local server (LM Studio, llama.cpp, vLLM). Reasoning effort is recorded as
+  metadata only. Local runs measure the model *and your hardware*: use
+  `--max-concurrency 1`, and keep duration-based metrics out of cross-column
+  comparisons with hosted APIs.
+- `claude-code:<model>` / `--harness claude-code`: Claude Code through a
+  Claude subscription. Results measure the model plus Claude Code harness.
+- `codex:<model>` / `--harness codex`: Codex CLI through a ChatGPT
+  subscription, with JSONL traces and Codex's workspace-write sandbox.
+- `cursor:<model>` / `--harness cursor`: Cursor's `cursor-agent` CLI billed to
+  a Cursor account (plan or credits). Results measure the model plus Cursor's
+  agent harness. The CLI streams no token usage, so token counts are zero and
+  API-equivalent cost is recorded as unavailable; check spend in Cursor's
+  dashboard. Effort travels via Cursor's `model[effort=low|medium|high]`
+  bracket syntax, except model families that bake effort into the id
+  (`cursor-grok-4.6-low` … `-xhigh`), sweep those by model id. Use
+  `--sandbox docker` so hidden-test verification runs in the sandbox image;
+  the Cursor agent itself works the host workspace under Cursor's own sandbox.
 
-`--effort` accepts `low`, `medium`, `high`, or `extra-high`. OpenAI runs map it
+Subscription runs record marginal cash, plan allocation, quota, and
+API-equivalent value separately; they are not mixed silently with raw API runs.
+See [Subscription harness benchmarking](docs/HARNESS_BENCHMARKING.md).
+
+`--effort` accepts `minimal`, `low`, `medium`, `high`, `extra-high`, or `max`.
+`minimal` is sent only to providers that document it (OpenAI, Meta) and is
+recorded as metadata elsewhere; it is opt-in for sweeps. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the
 Messages API `output_config.effort` field. `extra-high` maps to `xhigh` on both
 providers and is opt-in for sweeps because support is model-dependent (e.g.
-Claude Opus 4.7+). Mock, Z.ai, and Qwen runs accept the field as no-op metadata.
-Effort labels are each provider's own scale — a cross-provider comparison at the
+Claude Opus 4.7+). `max` is a distinct OpenAI API level and is also opt-in.
+Codex and Claude Code subscription harnesses pass supported effort labels to
+their native CLIs; other providers record unsupported labels without sending them.
+Mock, Z.ai, and Qwen runs accept the field as no-op metadata.
+Effort labels are each provider's own scale, a cross-provider comparison at the
 same label compares each model at its own setting, not a calibrated equivalence.
+
+### Routing Muse Spark through OpenRouter
+
+Point `META_BASE_URL` at OpenRouter to reach Muse Spark without Meta API access:
+
+```bash
+export META_BASE_URL=https://openrouter.ai/api/v1
+export OPENROUTER_API_KEY=sk-or-...
+vulcanbench run --task hello-world --model meta:muse-spark-1.2 --sandbox docker
+```
+
+The harness namespaces the id on the wire (`meta/muse-spark-1.2`) while the spec
+stays `meta:muse-spark-1.2`, so pricing keys and `compare` output line up with
+Meta-direct runs. Requests are pinned with
+`provider: {order: ["meta"], allow_fallbacks: false}`, and the manifest records a
+`route` block naming the base URL, wire id, and pinned upstream.
+
+This route is comparable to a direct run but not identical, treat it as its own
+reported column, and footnote it:
+
+- **Pass-through, not a re-host.** OpenRouter's only endpoint for this model is
+  Meta's own, so there is no third-party quantization or serving-stack variance.
+  Pinning is what keeps that true if a second endpoint ever appears; an
+  unavailable pin fails the run rather than silently substituting one.
+- **Implicit caching works, and is priced correctly.** OpenRouter's model page
+  says the endpoint has no implicit caching; measured behaviour disagrees. On a
+  `hello-world` run the endpoint reported `cached_tokens` of 1009/1019 on the
+  first turn (the cache survives across runs) and non-zero on 4 of 5 turns, and
+  billed cache reads at exactly $0.15/M, the 0.12x factor the harness folds in.
+  Summed OpenRouter billing for that run was $0.00553895 against a recorded
+  `cost_usd` of $0.005539. A fresh prefix does miss on its first call or two
+  (cache writes take time to propagate), so a one-shot A/B will understate it.
+- **Same list price, no Contributor tier.** Token prices match Meta direct
+  ($1.25/M in, $4.25/M out). The data-sharing `-contributor` tier is Meta-direct
+  only; requesting it on this route fails fast rather than billing at a rate
+  OpenRouter does not sell.
 
 ## Sandbox
 
@@ -193,8 +286,8 @@ vulcanbench run --task hello-world --model openai:gpt-4o
 
 - `docker` (default) runs tools in a non-root, **network-off**, resource-limited
   container (workspace bind-mounted, cleaned up after each run). It errors out
-  if the daemon is unreachable — it never silently falls back to host execution.
-- `local` runs the model's commands directly on the host — fast and Docker-free,
+  if the daemon is unreachable, it never silently falls back to host execution.
+- `local` runs the model's commands directly on the host, fast and Docker-free,
   but unsandboxed; opt in deliberately (fine for `mock:synthetic` and trusted
   dev loops).
 - `auto` uses Docker when available. Falling back to host execution additionally
@@ -216,13 +309,13 @@ Go, TypeScript, and Rust, plus the `hello-world` demo. Each task ships a startin
 
 The corpus spans three difficulty tiers (`easy` / `medium` / `hard`) across all
 four languages. Most tasks today are `localized` single-file fixes that set a
-floor; a growing set raise the ceiling with genuine subtlety — operator
+floor; a growing set raise the ceiling with genuine subtlety, operator
 precedence and associativity (`py-expr-eval`, hard), a race-free,
 order-preserving parallel map verified under `go test -race`
 (`go-parallel-map`, hard), an RFC 6901 JSON Pointer resolver
 (`py-jsonpointer`, hard), and a prototype-pollution-safe deep merge
 (`ts-deep-merge`, hard). Broader `task_complexity` (`multi_file` / `system` /
-`architecture`) and larger `repo_scale` coverage is active work — see
+`architecture`) and larger `repo_scale` coverage is active work, see
 [ROADMAP](docs/ROADMAP.md). Because the `task_complexity` and `repo_scale`
 fields are validated against the repo, a task's declared scale is checked, not
 just asserted. `vulcanbench report` includes a discrimination section so you can
@@ -235,12 +328,12 @@ vulcanbench validate-task tasks/v1/<id>          # one task
 
 ### Grading: hidden tests or an agentic grader
 
-By default a task's `functional` score comes from **hidden tests** — deterministic
+By default a task's `functional` score comes from **hidden tests**: deterministic
 and exact, but it requires the issue to fully specify the expected behavior.
 
 A task can instead opt into an **agentic grader** (`metadata.grader: "agentic"`)
 that judges the agent's diff against a list of plain-English `acceptance_criteria`
-(never shown to the agent), so the prompt can be **terse and realistic** — closer
+(never shown to the agent), so the prompt can be **terse and realistic**: closer
 to how developers actually ask. The grader, not the prompt, holds the spec.
 
 ```bash
@@ -261,7 +354,7 @@ it agrees with ground truth and doesn't flip its verdict run to run. Two tools:
 - `python scripts/grader_eval.py --task tasks/v1/<id> --model <grader> --samples 5`
   grades a task's labeled `grader_cases.json` (known-correct and known-incorrect
   changes) and reports **accuracy**, **false-pass rate** (graded correct but
-  actually wrong — the dangerous one), and **self-consistency**. Don't ship an
+  actually wrong, the dangerous one), and **self-consistency**. Don't ship an
   agentic task whose grader posts a non-zero false-pass rate.
 
 Validation proves each task is real: the gold patch must solve it
@@ -273,7 +366,7 @@ fix, and scoring must be deterministic over repeated runs.
 tasks are written now (post-cutoff, so `decontaminated: true`); the validator
 enforces that. An `oss` task (e.g. `oss-inflection-titleize`, sourced verbatim
 from a real MIT-licensed repo with its LICENSE preserved) is honestly labeled
-`decontaminated: false` — its fix predates model cutoffs — and the
+`decontaminated: false`: its fix predates model cutoffs, and the
 `vulcanbench report` integrity section flags every run scored against it. Scaffold
 one with `python scripts/import_oss_issues.py`. Format details:
 [docs/TASK_CONTRIBUTION.md](docs/TASK_CONTRIBUTION.md).
@@ -289,7 +382,7 @@ guards that zero the functional score on any regression, and a deterministic
 
 **August 2026 frontier results** ([full report](docs/results/cii-v1-2026-08/README.md)):
 Claude Opus 5 (Claude Code CLI) **96.4% ± 2.8** vs GPT 5.6 Sol (Codex CLI)
-**86.5% ± 4.7** pass@1 — a stable ~10-point gap carried by four discriminator
+**86.5% ± 4.7** pass@1, a stable ~10-point gap carried by four discriminator
 tasks, with exactly one task resisting both models. CII v1 ranks frontier
 models; it does not ceiling them.
 
@@ -299,7 +392,7 @@ against two reference frontier models before admission
 (`scripts/frontier_gate.sh`), and its [candidate log](tasks/cii-v2/CANDIDATES.md)
 records every verdict. It is currently empty for an honest reason: across ten
 difficulty hypotheses and five formally gated candidates, Opus 5 solved every
-gated run — the mined-PR format discriminates between frontier models but
+gated run, the mined-PR format discriminates between frontier models but
 does not beat the stronger one.
 
 ```bash
@@ -313,7 +406,7 @@ Measures the **voice tax**: how many points a model loses when the same
 question arrives as speech instead of text. 200 held-out questions
 (`tasks/voice-v1/`), rendered via TTS under a voices × rate × noise matrix,
 answered through each model's realtime/audio endpoint, and scored by a
-modality-blind scorer (results have no numbers to show yet — none are
+modality-blind scorer (results have no numbers to show yet, none are
 published until the first full run).
 
 ```bash
@@ -334,13 +427,13 @@ Full methodology: [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md).
 A **defensive cybersecurity** suite (`tasks/vulcancyber-v1/`): each task is a real
 merged open-source PR that fixes a security weakness, sourced **post model cutoff**
 (`upstream_merged >= 2026-06-01`) and graded by the project's own deterministic
-security regression tests — "here is vulnerable code, produce the fix." v1 ships
+security regression tests, "here is vulnerable code, produce the fix." v1 ships
 **16 validated tasks** across Python/TS/Go/JS/Rust and a dozen vulnerability
 classes (Family A vuln-fixes plus one Family-B security-tool fix): prototype
 pollution, CRLF/host injection, encoded-separator auth bypass, filename & ref-name
 spoofing, unpaired-surrogate crash, several algorithmic/resource DoS classes
 (YAML merge-key, urlencoded field-count, int-URL, integer-overflow), unescaped
-control-character serialization, and a gosec scanner detection-gap (Family B) —
+control-character serialization, and a gosec scanner detection-gap (Family B),
 spanning hono, zod, undici, validator.js, content-disposition, echo, gosec,
 pyyaml, tornado, werkzeug, urllib3, quick-xml, toml, and gitoxide.
 
@@ -376,13 +469,13 @@ Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 | [METRICS](docs/METRICS.md) | How the five scores are computed |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | Hosted API + dashboard (optional) |
 | [CONTRIBUTING](docs/CONTRIBUTING.md) | Add tasks, run CI locally |
-| [CYBER_EVAL](docs/CYBER_EVAL.md) | VulcanCyber v1 — defensive cybersecurity suite |
+| [CYBER_EVAL](docs/CYBER_EVAL.md) | VulcanCyber v1, defensive cybersecurity suite |
 | [ROADMAP](docs/ROADMAP.md) | Planned follow-ups |
 | [results/](docs/results/) | Published benchmark snapshots (MD, JSON, PDF) |
 
 Quality and security analyzers run when the relevant toolchains are on your
 host (e.g. `bandit` for Python via the venv; `gosec` for Go if installed).
-Otherwise those metrics report `null` with a reason — never a fabricated score.
+Otherwise those metrics report `null` with a reason, never a fabricated score.
 Use `--no-judges` to skip the LLM judge ensemble and cut cost roughly threefold.
 
 ## License
@@ -392,7 +485,7 @@ Apache 2.0 (see LICENSE and NOTICE).
 ## Provider terms & data usage
 
 VulcanBench is an independent evaluation harness. A few boundaries keep its use
-consistent with the model providers' terms — please read these before running or
+consistent with the model providers' terms, please read these before running or
 publishing results.
 
 - **You bring your own keys, under your own agreement.** VulcanBench never
@@ -406,7 +499,7 @@ publishing results.
 - **Outputs are for evaluation, not training.** Recorded run artifacts (traces,
   patches, summaries) capture model outputs solely for scoring, inspection, and
   reproducibility. Both OpenAI and Anthropic prohibit using their outputs to
-  develop or train competing models — do not use VulcanBench artifacts, or any
+  develop or train competing models, do not use VulcanBench artifacts, or any
   published corpus of them, for that purpose. VulcanBench intentionally has no
   "export outputs as a training dataset" feature.
 

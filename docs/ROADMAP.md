@@ -1,6 +1,6 @@
-# VulcanBench — Roadmap
+# VulcanBench, Roadmap
 
-Status as of **2026-06-19**. v1 MVP is **shipped** — real agent loop, Docker
+Status as of **2026-06-19**. v1 MVP is **shipped**: real agent loop, Docker
 sandbox, 52-task suite, five-metric evaluator, dashboard, and optional Postgres
 persistence. This document tracks remaining work toward a hosted launch and v1.1.
 
@@ -25,23 +25,23 @@ Legend: ✅ done · 🟧 in progress / next · 🟨 polish · 🔮 future
 
 ## Launch follow-ups (v0.1.x)
 
-### Tier A — OSS announcement ✅ (this release)
+### Tier A, OSS announcement ✅ (this release)
 
 - ✅ Documentation reconciliation (QUICKSTART, ROADMAP, ARCHITECTURE, CONTRIBUTING)
 - ✅ `dashboard/.env.example`, root `.env.example` completeness
 - ✅ CHANGELOG + release workflow
 - ✅ Secret redaction covers `VULCANBENCH_API_TOKEN`
 
-### Tier B — Hosted stack 🟧
+### Tier B, Hosted stack 🟧
 
 - ✅ Production Dockerfiles (backend + dashboard)
 - ✅ `docker-compose.prod.yml` with backend, dashboard, Postgres
 - ✅ CLI write-through to `POST /api/runs`
 - ✅ Alembic initial migration
 - ✅ MinIO removed from default dev stack (unused)
-- 🟨 Production TLS termination, rate limits, monitoring (operator responsibility — see `docs/DEPLOYMENT.md`)
+- 🟨 Production TLS termination, rate limits, monitoring (operator responsibility, see `docs/DEPLOYMENT.md`)
 
-### Tier C — Distribution 🟧
+### Tier C, Distribution 🟧
 
 - ✅ GitHub Release workflow on tag
 - ✅ PyPI publish workflow (opt-in via repository secret)

@@ -1,4 +1,4 @@
-# Voice Eval Suite v1 — run report
+# Voice Eval Suite v1, run report
 
 _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · judge anthropic:claude-opus-5 · TTS openai (onyx, shimmer, fable) · seed 20260729_
 
@@ -9,7 +9,7 @@ _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · j
 | grok-voice | 99.0% | 95.7% | +3.3 pp |
 | openai-realtime | 97.5% | 93.5% | +4.0 pp |
 
-## grok-voice — by category
+## grok-voice, by category
 
 | Category | Text | Audio | Tax |
 |---|---|---|---|
@@ -19,7 +19,7 @@ _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · j
 | multi-step-reasoning | 97.5% | 97.5% | +0.0 pp |
 | numeric-extraction | 97.5% | 99.2% | -1.7 pp |
 
-## grok-voice — by condition
+## grok-voice, by condition
 
 | Condition | n | Accuracy | Text acc (same items) | Tax |
 |---|---|---|---|---|
@@ -28,9 +28,9 @@ _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · j
 | onyx_normal_clean | 200 | 94.5% | 99.0% | +4.5 pp |
 | onyx_normal_noise10db | 60 | 93.3% | 98.3% | +5.0 pp |
 | shimmer_normal_clean | 200 | 96.0% | 99.0% | +3.0 pp |
-| text | 200 | 99.0% | — | — |
+| text | 200 | 99.0% |, |, |
 
-## grok-voice — latency (seconds)
+## grok-voice, latency (seconds)
 
 | Mode | Metric | Median | P95 | P99 |
 |---|---|---|---|---|
@@ -39,7 +39,7 @@ _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · j
 | audio | t_first_s | 1.224 | 2.242 | 3.555 |
 | audio | t_total_s | 1.425 | 2.487 | 3.703 |
 
-## openai-realtime — by category
+## openai-realtime, by category
 
 | Category | Text | Audio | Tax |
 |---|---|---|---|
@@ -49,7 +49,7 @@ _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · j
 | multi-step-reasoning | 92.5% | 90.0% | +2.5 pp |
 | numeric-extraction | 100.0% | 98.3% | +1.7 pp |
 
-## openai-realtime — by condition
+## openai-realtime, by condition
 
 | Condition | n | Accuracy | Text acc (same items) | Tax |
 |---|---|---|---|---|
@@ -58,9 +58,9 @@ _Run `voice-v1-run-001` · 200 items · models: grok-voice, openai-realtime · j
 | onyx_normal_clean | 200 | 95.0% | 97.5% | +2.5 pp |
 | onyx_normal_noise10db | 60 | 93.3% | 93.3% | +0.0 pp |
 | shimmer_normal_clean | 200 | 92.5% | 97.5% | +5.0 pp |
-| text | 200 | 97.5% | — | — |
+| text | 200 | 97.5% |, |, |
 
-## openai-realtime — latency (seconds)
+## openai-realtime, latency (seconds)
 
 | Mode | Metric | Median | P95 | P99 |
 |---|---|---|---|---|

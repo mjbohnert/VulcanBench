@@ -143,7 +143,7 @@ python_functions = ["test_*"]
 addopts = "-ra -q --strict-markers --cov=harness --cov-report=term-missing:skip-covered --cov-fail-under=80"
 filterwarnings = [
   # audioop is deprecated upstream but present on 3.12 (this repo's pin); the
-  # voice suite uses it deliberately — see harness/voice/audio.py docstring.
+  # voice suite uses it deliberately, see harness/voice/audio.py docstring.
   "ignore:'audioop' is deprecated:DeprecationWarning",
 ]
 markers = [

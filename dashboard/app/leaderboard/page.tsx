@@ -10,16 +10,16 @@ import {
 export const dynamic = "force-dynamic";
 
 function fmt(n: number | null | undefined): string {
-  return n === null || n === undefined ? "—" : n.toFixed(2);
+  return n === null || n === undefined ? "" : n.toFixed(2);
 }
 
 function money(n: number | null | undefined, known: boolean): string {
   if (!known) return "?";
-  return n === null || n === undefined ? "—" : `$${n.toFixed(4)}`;
+  return n === null || n === undefined ? "" : `$${n.toFixed(4)}`;
 }
 
 function pct(n: number | null | undefined): string {
-  return n === null || n === undefined ? "—" : `${(n * 100).toFixed(0)}%`;
+  return n === null || n === undefined ? "" : `${(n * 100).toFixed(0)}%`;
 }
 
 interface Props {
@@ -73,7 +73,7 @@ export default async function Leaderboard({ searchParams }: Props) {
 
         {!backendUp && (
           <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-300">
-            Backend unreachable at <span className="font-mono">{API_BASE}</span> — the data
+            Backend unreachable at <span className="font-mono">{API_BASE}</span>, the data
             below may be empty or stale. Start it with{" "}
             <span className="font-mono">uvicorn backend.app:app --port 8000</span>.
           </div>
@@ -122,7 +122,7 @@ async function ModelTable({
               <td className="p-4 text-zinc-400">{pct(a.pass_at_k)}</td>
               <td className="p-4">{fmt(a.avg_total)}</td>
               <td className="p-4 text-zinc-400">{money(a.total_cost, a.cost_known)}</td>
-              <td className="p-4 text-zinc-400">{a.avg_duration_s === null ? "—" : `${a.avg_duration_s.toFixed(1)}s`}</td>
+              <td className="p-4 text-zinc-400">{a.avg_duration_s === null ? "" : `${a.avg_duration_s.toFixed(1)}s`}</td>
             </tr>
           ))}
         </tbody>
@@ -156,12 +156,12 @@ async function RunTable({
               <td className="p-4 font-mono text-emerald-400">{r.run_id}</td>
               <td className="p-4">{r.task_id ?? "?"}</td>
               <td className="p-4 text-zinc-400">{r.model ?? "?"}</td>
-              <td className="p-4 text-zinc-400">{r.effort_requested ?? "—"}</td>
-              <td className="p-4 text-zinc-400">{r.task_complexity ?? "—"}</td>
+              <td className="p-4 text-zinc-400">{r.effort_requested ?? ""}</td>
+              <td className="p-4 text-zinc-400">{r.task_complexity ?? ""}</td>
               <td className="p-4 text-emerald-400 font-medium">{fmt(r.total)}</td>
               <td className="p-4">{fmt(r.functional)}</td>
-              <td className="p-4 text-zinc-400">{r.cost_usd === null ? "—" : `$${r.cost_usd.toFixed(4)}`}</td>
-              <td className="p-4 text-zinc-400">{r.duration_s === null ? "—" : `${r.duration_s.toFixed(1)}s`}</td>
+              <td className="p-4 text-zinc-400">{r.cost_usd === null ? "" : `$${r.cost_usd.toFixed(4)}`}</td>
+              <td className="p-4 text-zinc-400">{r.duration_s === null ? "" : `${r.duration_s.toFixed(1)}s`}</td>
               <td className="p-4">
                 <Link href={`/run/${r.run_id}`} className="text-xs underline">view trace</Link>
               </td>

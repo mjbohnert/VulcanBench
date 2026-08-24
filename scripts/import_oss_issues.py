@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scaffold a VulcanBench task from a local repo + an issue.
 
-This creates the *structure* of a task — it never fabricates provenance or
+This creates the *structure* of a task, it never fabricates provenance or
 decontamination. After running it, a human must: trim ``repo/`` to a minimal
 starting state, write the hidden ``tests/``, fill in the declarative
 ``tests`` block and honest ``decontamination_notes`` in ``metadata.json``, and

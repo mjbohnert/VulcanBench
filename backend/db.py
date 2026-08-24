@@ -2,7 +2,7 @@
 
 When ``DATABASE_URL`` is set, runs and feedback are stored in a database
 (Postgres in production, SQLite in tests). When it is unset, the API falls back
-to scanning the ``./runs/`` filesystem — so nothing here is required for local
+to scanning the ``./runs/`` filesystem, so nothing here is required for local
 use.
 
 Run rows mirror the dict shape ``harness.leaderboard.scan_leaderboard`` returns,
@@ -90,7 +90,7 @@ _engine: Engine | None = _make_engine(DATABASE_URL)
 
 def configure(url: str | None) -> None:
     """Point the store at ``url`` (or disable it with ``None``). Used by tests."""
-    global DATABASE_URL, _engine  # noqa: PLW0603 — module-level store handle
+    global DATABASE_URL, _engine  # noqa: PLW0603, module-level store handle
     if _engine is not None:
         _engine.dispose()
     DATABASE_URL = url

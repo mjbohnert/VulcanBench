@@ -1,6 +1,6 @@
 # Probe image for the bodyparser task: node-ts + bodyparser's runtime deps.
 #
-# Build (context is the TASK REPO, not the repo root — .dockerignore excludes tasks/):
+# Build (context is the TASK REPO, not the repo root, .dockerignore excludes tasks/):
 #   docker build -t vulcanbench/sandbox:bodyparser-741 \
 #     -f sandbox/Dockerfile.bodyparser-741 \
 #     tasks/cii-v1/oss-bodyparser-limit-validation/repo

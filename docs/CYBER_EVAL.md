@@ -1,8 +1,8 @@
-# VulcanCyber v1 — the cybersecurity suite
+# VulcanCyber v1, the cybersecurity suite
 
 VulcanCyber v1 measures whether models can do **defensive security engineering**
 in real, unfamiliar codebases: given a vulnerable or insufficiently-hardened
-piece of code, produce the fix that closes the gap — graded by the upstream
+piece of code, produce the fix that closes the gap, graded by the upstream
 project's own security regression tests.
 
 Every task is sourced from a **real merged open-source PR whose fix merged after
@@ -15,21 +15,21 @@ worklog.
 
 ## Posture: defensive only
 
-Every task is "here is vulnerable/insufficient code — produce the fix." The grade
+Every task is "here is vulnerable/insufficient code, produce the fix." The grade
 comes from a regression test that goes from **failing** (the weakness is present)
 to **passing** (the weakness is closed). VulcanCyber does not contain offensive
 tooling or tasks whose deliverable is a working attack. Where a test exercises an
-exploit vector, it exists only to prove the defense holds — a standard security
+exploit vector, it exists only to prove the defense holds, a standard security
 regression test, exactly as the upstream project ships it.
 
 ## What it measures
 
 Two task families (the suite aims for a mix as it grows):
 
-- **(A) Vulnerability fixes** — real merged PRs that patch a security weakness:
+- **(A) Vulnerability fixes**, real merged PRs that patch a security weakness:
   prototype pollution, header/CRLF injection, path-traversal / auth bypass,
   algorithmic denial-of-service, injection via unescaped output, and similar.
-- **(B) Security-tooling PRs** — fixes/features in scanners, detectors, and
+- **(B) Security-tooling PRs**, fixes/features in scanners, detectors, and
   advisory tooling (planned expansion; see the charter).
 
 Grading is **deterministic** (`grader: "tests"`, no LLM judge): `fail_to_pass` are
@@ -82,7 +82,7 @@ make validate-cyber
 vulcanbench run --suite vulcancyber-v1 --model mock:synthetic --sandbox local
 
 # A real run (bring your own key). Use a judge model different from the model
-# under test is unnecessary here — grading is deterministic tests, not a judge:
+# under test is unnecessary here, grading is deterministic tests, not a judge:
 vulcanbench run --suite vulcancyber-v1 --model anthropic:claude-opus-5 --sandbox docker
 
 # Leaderboard / report must point --tasks-root at the suite directory:
@@ -113,7 +113,7 @@ pin the repo at the PR base commit, write a terse `issue.md` and hidden `tests/`
 generate `gold_patch.diff`, and gate with
 `python scripts/validate_tasks.py tasks/vulcancyber-v1/<id> --sandbox docker`.
 
-> The base commit is the **parent of the PR's first commit** — for a rebase- or
+> The base commit is the **parent of the PR's first commit**, for a rebase- or
 > squash-merged PR the merge commit's first parent is an intermediate PR commit
 > that may already contain the fix. Always confirm the base is vulnerable
 > (validator `pre-patch = 0.0`) before trusting a task.

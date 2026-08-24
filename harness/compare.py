@@ -110,7 +110,7 @@ def build_matrix(
     the suite's tasks: pass@1 (mean over tasks of the per-task solve rate), total
     cached cost, and coverage (how many of the suite's tasks have a fresh run). A
     cell is ``complete`` when every suite task is covered. Incomplete cells list
-    the tasks still to run — those, and only those, need new model calls.
+    the tasks still to run, those, and only those, need new model calls.
     """
     ver = suite_version(suite, tasks_base)
     suite_tasks = set(ver["task_ids"])

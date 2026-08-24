@@ -2,7 +2,7 @@
 
 Every adapter implements :class:`VoiceModel` with ``answer_text(question)``
 and ``answer_audio(wav_path)``. Both paths share one system prompt and, per
-adapter, one endpoint — for realtime models the text baseline goes through
+adapter, one endpoint, for realtime models the text baseline goes through
 the *same realtime session type* with a text item, so the only variable
 between modes is the input modality, not the serving stack.
 
@@ -11,17 +11,17 @@ monkeypatched in tests; all framing/parsing logic is exercised offline.
 
 Adapters:
 
-- ``openai-realtime`` — OpenAI Realtime API over websocket. Audio in as
+- ``openai-realtime``: OpenAI Realtime API over websocket. Audio in as
   24 kHz PCM16; text output requested (``output_modalities: ["text"]``).
-- ``gemini-live`` — Gemini Live API over websocket. Audio downsampled to
+- ``gemini-live``: Gemini Live API over websocket. Audio downsampled to
   16 kHz at send time (API requirement); TEXT response modality.
-- ``qwen-omni`` — Qwen3-Omni via DashScope's OpenAI-compatible endpoint
+- ``qwen-omni``: Qwen3-Omni via DashScope's OpenAI-compatible endpoint
   (audio as base64 WAV content part; streaming SSE, text modality).
-- ``grok-voice`` — xAI Grok Voice (speech-to-speech) over websocket. Pinned
+- ``grok-voice``: xAI Grok Voice (speech-to-speech) over websocket. Pinned
   to ``grok-voice-think-fast-2.0`` (``grok-voice-latest`` aliases 1.0 until
   2026-08-05). Output is spoken audio plus the model's own transcript; the
   transcript is scored, with the pinned STT as fallback when absent. Both
-  modes reply in audio — only the *input* modality differs, which is the
+  modes reply in audio, only the *input* modality differs, which is the
   quantity under measurement.
 """
 

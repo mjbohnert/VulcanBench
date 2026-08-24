@@ -1,4 +1,4 @@
-# VulcanBench Technical Report No. 09 — Does training-data contamination move Claude Opus 5's score?
+# VulcanBench Technical Report No. 09, Does training-data contamination move Claude Opus 5's score?
 
 **July 25, 2026 · 26 runs · 1 model · 1 effort level · 5 languages · total spend $20.94**
 
@@ -7,9 +7,9 @@ in a network-isolated Docker sandbox, run back-to-back with identical settings. 
 exactly one property: whether the upstream fix merged **before** Claude Opus 5's May 2026
 training cutoff (so the model may have memorised it) or **after** (so it cannot have).
 
-- **Contaminated arm** — the 13 VulcanBench v3 tasks whose upstream PRs merged 2026-02-12
+- **Contaminated arm**: the 13 VulcanBench v3 tasks whose upstream PRs merged 2026-02-12
   through 2026-05-21.
-- **Clean arm** — the 13 tasks newly built for v4, from PRs merged 2026-06-10 through
+- **Clean arm**: the 13 tasks newly built for v4, from PRs merged 2026-06-10 through
   2026-07-19.
 
 Every task pre-validated: gold patch = 1.0, unpatched = 0.0, deterministic over 3 runs.
@@ -25,7 +25,7 @@ Claude Opus 5, `--effort medium`, one attempt per task, judges disabled. Zero st
 infrastructure errors, zero retries needed on either arm.
 
 **Genuine misses** are runs that completed and produced a wrong patch. **Hit wall-clock** are
-runs still working productively when the budget expired — a different failure mode, and not a
+runs still working productively when the budget expired, a different failure mode, and not a
 statement about capability.
 
 ## Findings
@@ -35,8 +35,8 @@ statement about capability.
    upstream fix did not measurably help.
 
 2. **The visible gap is repo-scale composition, not memorisation.** The contaminated arm carries
-   11/13 large-or-xlarge repos against the clean arm's 8/13. Bigger repos cost more per step —
-   context-heavy model round trips, slower test runs — which is why the same 13-task shape cost
+   11/13 large-or-xlarge repos against the clean arm's 8/13. Bigger repos cost more per step, 
+   context-heavy model round trips, slower test runs, which is why the same 13-task shape cost
    **3.6× more** ($16.36 vs $4.58) and ran **2× longer** per task. The one wall-clock loss landed
    there for the same reason. Any cross-suite comparison must report scale mix alongside score.
 
@@ -47,12 +47,12 @@ statement about capability.
 4. **The frontier-hard tail behaved as designed.** Both surviving misses are the tasks these
    suites deliberately contain: `sqlglot-canonicalize-internal-names` (ran to completion, wrong
    answer) and `regex-leftmost-suffix-candidate` (v4's `veryhard` entry, ~1618-line gold patch).
-   `networkx-leiden-communities` remains unsolved at a 3600 s budget while doing real work —
-   issuing its own `timeout 600` sub-commands — so a larger budget would buy patience, not
+   `networkx-leiden-communities` remains unsolved at a 3600 s budget while doing real work, 
+   issuing its own `timeout 600` sub-commands, so a larger budget would buy patience, not
    capability.
 
 5. **Most of the apparent signal was harness bugs.** Before the fixes below, the same comparison
-   read 7/13 vs 12/13 — a large gap pointing the *wrong* way for contamination. It was five
+   read 7/13 vs 12/13, a large gap pointing the *wrong* way for contamination. It was five
    stalled HTTP requests. Each fix moved the contaminated arm up and the arms closer together:
 
    | Run | Conditions | Contaminated | Clean |
@@ -63,8 +63,8 @@ statement about capability.
 
 ## Harness defects found and fixed for this report
 
-These changed scoring behaviour. Results published before them — including Reports No. 4 and
-No. 08 — were produced under the old semantics and are not comparable to this one.
+These changed scoring behaviour. Results published before them, including Reports No. 4 and
+No. 08, were produced under the old semantics and are not comparable to this one.
 
 | Defect | Effect on scores |
 |---|---|
@@ -80,7 +80,7 @@ No. 08 — were produced under the old semantics and are not comparable to this 
 | sqlglot-canonicalize-internal-names | contaminated | large | ✗ completed, wrong patch (1744 s, 298 steps) |
 | networkx-leiden-communities | contaminated | xlarge | ✗ still working at the 3600 s budget (274 steps) |
 | regex-leftmost-suffix-candidate | clean | xlarge | ✗ completed, wrong patch (1257 s, 104 steps) |
-| (remaining 23 tasks) | both | — | ✓ |
+| (remaining 23 tasks) | both |, | ✓ |
 
 ## Caveats
 
@@ -122,4 +122,4 @@ Run records with full traces, final patches and replay HTML are under `runs/`.
 
 Every task in both arms records `upstream_merged`, so the clean/contaminated split can be
 recomputed against any future model's cutoff rather than re-derived by hand. **v4 is clean for a
-May 2026 cutoff specifically — not indefinitely.**
+May 2026 cutoff specifically, not indefinitely.**

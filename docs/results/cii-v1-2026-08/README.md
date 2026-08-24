@@ -1,8 +1,8 @@
-# CII v1 — frontier results (August 2026)
+# CII v1, frontier results (August 2026)
 
 **VulcanBench Coding Intelligence Index v1**: 38 validated tasks, all sourced
-from upstream open-source PRs merged **May–August 2026** — after the training
-cutoffs of both models measured — with TerminalBench-style complexity-scaled
+from upstream open-source PRs merged **May–August 2026**, after the training
+cutoffs of both models measured, with TerminalBench-style complexity-scaled
 time budgets (30 min–8 h), hidden fail-to-pass tests plus regression guards
 that zero the functional score on any regression, and a deterministic ×3
 admission gate (gold = 1.0, pre-patch = 0.0).
@@ -37,7 +37,7 @@ subset).
   per-task claims were not. Every task either model ever missed is reported
   at n=3 per model.
 - **Speed/efficiency caveat**: Opus 5 used ≈3× the tokens and ≈1.7× the
-  wall clock of GPT 5.6 Sol per task (16–38 agent turns vs 1–3) — a harness
+  wall clock of GPT 5.6 Sol per task (16–38 agent turns vs 1–3), a harness
   difference as much as a model one.
 
 ## Why there is no "hard tail" (and what we tried)
