@@ -1,6 +1,6 @@
-# VulcanBench Technical Report No. 13, GLM 5.3: model versus harness
+# VulcanBench Technical Report No. 18, GLM 5.3: model versus harness
 
-**August 22, 2026 · VulcanBench v3 · 23 tasks · 138 runs · 2 harnesses · 3 effort levels · 5 languages · $35.48 cash + subscription**
+**Harness Study No. 03 · August 22, 2026 · VulcanBench v3 · 23 tasks · 138 runs · 2 harnesses · 3 effort levels · 5 languages · $35.48 cash + subscription**
 
 First measurement of Z.ai's GLM 5.3, run two ways against the same suite: through
 VulcanBench's uniform agent loop on the raw `zai` API (metered cash), and through

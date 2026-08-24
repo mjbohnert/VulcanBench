@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   harvested `model_usage.error_message`) and raised as a resumable
   `SubscriptionQuotaError` so a drained window pauses the suite instead of
   hot-retrying.
-- **Report No. 13: GLM 5.3, model versus harness.** Published under
+- **Report No. 18: GLM 5.3, model versus harness.** Published under
   [`docs/results/v3-glm53-2026-08/`](docs/results/v3-glm53-2026-08/model-card.md):
   GLM 5.3 on suite v3 run two ways, VulcanBench's uniform loop on the raw
   `zai` API versus Z.ai's ZCode harness on a GLM Coding Plan. Same model, a

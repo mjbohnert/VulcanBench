@@ -7,70 +7,60 @@ import { REPO } from "@/lib/api";
 interface Report {
   no: number;
   title: string;
-  dir: string;
+  dir?: string; // local model-card directory (linked on GitHub)
+  url?: string; // external link (published on vulcanbench.com), preferred when set
   date: string;
   blurb: string;
   chart?: string;
 }
 
+const SITE = "https://vulcanbench.com/benchmarks";
+
+// The featured report is local (this checkout); the rest are the most recent
+// reports as published on vulcanbench.com, which is the source of truth for
+// report numbering. The full archive lives at vulcanbench.com/benchmarks.
 const REPORTS: Report[] = [
   {
-    no: 13,
-    title: "GLM 5.3: model versus harness",
+    no: 18,
+    title: "GLM 5.3 in ZCode vs. a bare-bones harness",
     dir: "v3-glm53-2026-08",
-    date: "August 2026",
+    date: "August 2026 · Harness Study No. 03",
     blurb:
       "The same GLM 5.3 on the identical v3 suite, run two ways: VulcanBench's uniform loop on the raw z.ai API, and Z.ai's own ZCode harness on a GLM Coding Plan. A 21.8-point pass@1 gap at max effort (65.2% API vs 87.0% ZCode), opposite effort curves, and a clean split in failure mode: every raw-API failure is a wall-clock timeout, every ZCode failure a wrong answer.",
     chart: "/report-assets/v3-glm53-harness.png",
   },
   {
-    no: 12,
-    title: "Qwen3.8-Max across the effort knob",
-    dir: "v3-qwen38-max-2026-08",
+    no: 17,
+    title: "Qwen3.8-27B across the effort knob",
+    url: `${SITE}/17-qwen38-27b-effort.html`,
     date: "August 2026",
     blurb:
-      "First full v3 measurement of Alibaba's Qwen3.8-Max at repeat-3. The reasoning knob runs backwards: low leads xhigh by 26 points, and every failure at higher effort is unfinished work, not wrong work.",
+      "The open-weights Qwen3.8-27B on v3, measured across its effort settings.",
   },
   {
-    no: 11,
-    title: "Grok Voice Think Fast 2.0 vs GPT Realtime",
-    dir: "voice-v1-2026-07",
-    date: "July 2026",
+    no: 16,
+    title: "Grok 4.6: xAI CLI vs Cursor vs a bare-bones loop",
+    url: `${SITE}/16-grok46-grok-build.html`,
+    date: "August 2026 · Harness Study No. 02",
     blurb:
-      "The voice track: two realtime speech models on spoken software-engineering prompts, scored on transcript-level correctness and latency.",
+      "The same Grok 4.6 through three harnesses: xAI's own agent CLI, Cursor, and a deliberately minimal reference loop.",
   },
   {
-    no: 10,
-    title: "Claude Opus 5 across the effort knob",
-    dir: "v3-opus5-effort-2026-07",
-    date: "July 2026",
+    no: 15,
+    title: "Grok 4.6 in Cursor vs. a bare-bones harness",
+    url: `${SITE}/15-grok46-cursor-harness.html`,
+    date: "August 2026 · Harness Study No. 01",
     blurb:
-      "Opus 5's effort curve on v3: a 9-point inversion from low to xhigh, the first report to document reasoning effort trading capability for unfinished runs under a fixed budget.",
-  },
-  {
-    no: 9,
-    title: "Does training-data contamination move Claude Opus 5's score?",
-    dir: "v4-contamination-2026-07",
-    date: "July 2026",
-    blurb:
-      "A controlled contamination study on the v4 suite, measuring how much exposure to a task's upstream fix changes the score.",
-  },
-  {
-    no: 4,
-    title: "Grok 4.5 vs Claude Fable 5 vs GPT-5.6 Sol",
-    dir: "v3-3way-2026-07",
-    date: "July 2026",
-    blurb:
-      "A three-way frontier comparison on v3 across pass@1, cost, and speed.",
+      "The first harness study, and the template for Report No. 18: the same Grok 4.6 through Cursor and through a minimal reference loop.",
   },
 ];
 
-function cardUrl(dir: string): string {
-  return `https://github.com/${REPO}/blob/main/docs/results/${dir}/model-card.md`;
+function cardUrl(dir?: string): string {
+  return dir ? `https://github.com/${REPO}/blob/main/docs/results/${dir}/model-card.md` : SITE;
 }
 
-function dirUrl(dir: string): string {
-  return `https://github.com/${REPO}/tree/main/docs/results/${dir}`;
+function dirUrl(dir?: string): string {
+  return dir ? `https://github.com/${REPO}/tree/main/docs/results/${dir}` : SITE;
 }
 
 export default function Reports() {
@@ -140,7 +130,7 @@ export default function Reports() {
           {rest.map((r) => (
             <a
               key={r.no}
-              href={cardUrl(r.dir)}
+              href={r.url ?? cardUrl(r.dir)}
               target="_blank"
               rel="noopener noreferrer"
               className="block border border-white/10 rounded-xl p-5 hover:bg-white/5 transition-colors"
@@ -157,8 +147,19 @@ export default function Reports() {
           ))}
         </div>
 
-        <p className="mt-12 text-xs text-zinc-500">
-          Subscription-harness results (for example ZCode in Report No. 13) measure a model
+        <div className="mt-8">
+          <a
+            href={SITE + ".html"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center rounded-full border border-white/20 px-6 text-sm hover:bg-white/5"
+          >
+            Browse all reports on vulcanbench.com &rarr;
+          </a>
+        </div>
+
+        <p className="mt-10 text-xs text-zinc-500">
+          Subscription-harness results (for example ZCode in Report No. 18) measure a model
           plus its product harness and must never be added to a raw-API leaderboard. See each
           model card&apos;s caveats.
         </p>

@@ -1,4 +1,4 @@
-"""Report No. 13 chart: GLM 5.3 raw API vs the ZCode harness.
+"""Report No. 18 chart: GLM 5.3 raw API vs the ZCode harness.
 
 Two panels in VulcanBench branding:
   1. Effort curves, pass@1 by effort for each harness (inverted vs flat).
@@ -65,7 +65,7 @@ def main() -> None:
     hax.text(tx, 0.62, "VulcanBench", family=BRAND, fontsize=26, color=INK, va="center")
     hax.text(
         tx, 0.14,
-        "Report No. 13   ·   GLM 5.3: model versus harness   ·   suite v3   ·   23 tasks   ·   1 attempt/cell",
+        "Report No. 18   ·   GLM 5.3: model versus harness   ·   suite v3   ·   23 tasks   ·   1 attempt/cell",
         family=BRAND_MED, fontsize=12.5, color=INK2, va="center",
     )
     hax.text(
