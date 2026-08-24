@@ -1,4 +1,4 @@
-"""VulcanBench suite v3 — effort-curve small multiples, 16:9.
+"""VulcanBench suite v3, effort-curve small multiples, 16:9.
 
 The one thing the leaderboard and frontier cards cannot show: what happens
 inside a model when you turn its reasoning effort up. Every panel shares one
@@ -80,7 +80,7 @@ fig.text(L + 0.040, 0.947, "VulcanBench", fontsize=26, color=INK, family=BRAND, 
 fig.text(
     L + 0.228,
     0.947,
-    "Eval Suite 3 — effort curves",
+    "Eval Suite 3, effort curves",
     fontsize=26,
     color=MUTED,
     family=BRAND_MED,
@@ -90,7 +90,7 @@ fig.text(
     L,
     0.888,
     "23 frontier-hard software-engineering tasks from real merged OSS PRs  ·  "
-    "pass@1 vs. each provider's own reasoning-effort ladder  ·  2026-08-13",
+    "pass@1 vs. each provider's own reasoning-effort ladder  ·  2026-08-24",
     fontsize=11.5,
     color=INK2,
     family=SANS,
@@ -98,7 +98,7 @@ fig.text(
 fig.text(
     L,
     0.830,
-    f"More reasoning is not reliably better — only {n_rises} of {len(order)} models improve all "
+    f"More reasoning is not reliably better, only {n_rises} of {len(order)} models improve all "
     "the way up.",
     fontsize=15,
     color=INK,
@@ -108,7 +108,7 @@ fig.text(
     L,
     0.792,
     "Panels share one y-scale, so the shapes compare directly. Each x-axis is that provider's "
-    "documented enum, not a common scale — the same word means different compute at different labs.",
+    "documented enum, not a common scale, the same word means different compute at different labs.",
     fontsize=11.5,
     color=INK2,
     family=SANS,
@@ -116,7 +116,7 @@ fig.text(
 
 # ---------------- Cards ----------------
 Y0, Y1 = 50, 96
-COLS, GUT_X, GUT_Y = 5, 0.0165, 0.105
+COLS, GUT_X, GUT_Y = 6, 0.0145, 0.105
 CARD_W = (0.938 - L - (COLS - 1) * GUT_X) / COLS
 CARD_H = 0.205
 TOP = 0.509  # bottom edge of the top row; each card's two-line header sits above it
@@ -276,8 +276,8 @@ fig.text(
     "Larger point = that model's best level. Whiskers are ±1 stderr; most within-model "
     "differences here are inside them, so read the shape, not single-point gaps.\n"
     "Effort names are each provider's own: DeepSeek is low/high/max, Qwen low/medium/xhigh "
-    "(no 'high'), Grok 4.6 adds xhigh above high. Unset-effort defaults differ too — Grok "
-    "defaults to high, Qwen to xhigh.\n"
+    "(no 'high'), Grok 4.6 adds xhigh above high, GLM 5.3 is low/high/max. Unset-effort "
+    "defaults differ too, Grok defaults to high, Qwen to xhigh, GLM 5.3 to max.\n"
     f"* partial task coverage at one or more levels ({', '.join(sorted(partial_models))}).   "
     "† Claude Opus 5 is from vulcanbench.com Report 10 (single runs, 2026-07-26), not run in "
     "this checkout.   github.com/morganlinton/VulcanBench",

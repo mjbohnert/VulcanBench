@@ -45,6 +45,9 @@ LAB_COLOR = {
     "Moonshot": "#44445E",
     "DeepSeek": "#5786FE",
     "Alibaba": "#9333EA",
+    # Z.ai has no official hex in our set; deep teal clears every neighbour
+    # by dE > 15 and, like the rest, every mark stays directly labelled.
+    "Z.ai": "#0e7a8a",
 }
 
 NAME = {
@@ -60,11 +63,15 @@ NAME = {
     "deepseek:deepseek-v4-pro": ("DeepSeek V4 Pro", "DeepSeek"),
     "kimi:kimi-k3": ("Kimi K3", "Moonshot"),
     "qwen:qwen3.8-max": ("Qwen3.8-Max", "Alibaba"),
+    "qwen:qwen3.8-27b": ("Qwen3.8-27B", "Alibaba"),
+    "zai:glm-5.3": ("GLM 5.3", "Z.ai"),
 }
 
 EXCLUDED = {
     "anthropic:claude-opus-4-8",  # 5/23 task coverage
     "meta:muse-spark-1.2",  # OpenRouter-routed; needs its own column treatment
+    "zcode:glm-5.3",  # subscription harness: model plus product, never a board column
+    "ollama:qwen3.8:27b",  # local-inference control runs, not the DashScope column
 }
 # Externally sourced (vulcanbench.com Report 10), not run in this checkout.
 EXTERNAL = {"anthropic:claude-opus-5"}
@@ -76,7 +83,7 @@ def eff_display(model: str, eff: str) -> str:
     if eff in ("", "\u2014", "-"):  # stored as a dash when no effort was set
         return "default"
     if eff == "extra-high":
-        if model.startswith("deepseek:"):
+        if model.startswith(("deepseek:", "zai:")):
             return "max"
         if model.startswith(("qwen:", "xai:")):
             return "xhigh"
@@ -93,6 +100,8 @@ def model_efforts(model: str) -> list[str]:
         return ["low", "high", "extra-high"]  # DeepSeek: low/high/max
     if model.startswith("qwen:"):
         return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
+    if model.startswith("zai:"):
+        return ["low", "high", "extra-high"]  # GLM 5.3: low/high/max
     if model.startswith("xai:"):
         return ["low", "medium", "high", "extra-high"]  # Grok 4.6+: adds xhigh
     return ["low", "medium", "high"]
