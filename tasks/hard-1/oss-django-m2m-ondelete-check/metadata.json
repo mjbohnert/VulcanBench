@@ -1,0 +1,33 @@
+{
+  "id": "oss-django-m2m-ondelete-check",
+  "category": "feature",
+  "languages": ["python"],
+  "domain": "app-scale",
+  "difficulty": "hard",
+  "task_complexity": "system",
+  "created": "2026-08-18",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "082b3df4067c3899dd4d57e8c2eca5baea9d07bb",
+  "image": "vulcanbench/sandbox:django-21746",
+  "upstream": {
+    "url": "https://github.com/django/django/pull/21746",
+    "issue": "https://github.com/django/django/issues/37254",
+    "commit": "fbd81ea3eb93b4290f408a8b187be39c359ff962"
+  },
+  "decontamination_notes": "Real fix from django/django PR #21746 (Fixed #37254), merged 2026-08-13, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 082b3df (the full django package + pyproject + BSD LICENSE — a realistic navigation surface). Runs in per-task image vulcanbench/sandbox:django-21746 (base + django's runtime deps asgiref/sqlparse preinstalled; django itself overlaid from the workspace via PYTHONPATH=.). Hidden tests configure Django standalone and use isolate_apps to build models, then assert the public Field.check() output for the new fields.E323 (presence, count, and which field it points at), never internal check plumbing. A tests/testapp package ships alongside so isolate_apps('testapp') resolves. Run with -c /dev/null so Django's own pytest/test config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "both_ends_db_cascade", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_both_ends_db_cascade_flags_e323 -q"},
+      {"name": "source_end_db_cascade", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_source_end_db_cascade_flags_e323 -q"},
+      {"name": "target_end_db_cascade", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_target_end_db_cascade_flags_e323 -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "all_python_no_e323", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_all_python_on_delete_no_e323 -q"},
+      {"name": "manual_through_no_e323", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_manual_through_model_no_e323 -q"}
+    ]
+  },
+  "test_timeout_s": 180
+}

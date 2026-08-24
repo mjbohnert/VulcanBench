@@ -1,0 +1,49 @@
+{
+  "id": "oss-attrs-ne-validator",
+  "category": "feature",
+  "languages": [
+    "python"
+  ],
+  "domain": "stdlib-utility",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "d2fbfccc1ce77dcc927a86eae9521c95dc4e289c",
+  "upstream": {
+    "url": "https://github.com/python-attrs/attrs/pull/1571",
+    "issue": "https://github.com/python-attrs/attrs/pull/1571",
+    "commit": "f75cd2190c32eca653bc6b5f1a6ccf2e3627b2ea"
+  },
+  "decontamination_notes": "Real feature from python-attrs/attrs PR #1571, merged 2026-08-01, after model training cutoffs, so the specific implementation is novel. Repo sliced at the PR's base commit d2fbfcc (src/attr + src/attrs + pyproject.toml + MIT LICENSE); attrs is dependency-free, so tests run on the base sandbox image with PYTHONPATH=src. Adds a `ne` (not-equal) number validator to attr.validators. Hidden tests assert observable validator behavior via the public attrs API (accepts unequal values, raises ValueError on the forbidden value), never internal validator classes.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "ne_allows_unequal_value",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_ne_allows_unequal_value -q"
+      },
+      {
+        "name": "ne_rejects_equal_value",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_ne_rejects_equal_value -q"
+      },
+      {
+        "name": "ne_zero_is_a_real_bound",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_ne_zero_is_a_real_bound -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "gt_validator_unaffected",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_gt_validator_unaffected -q"
+      },
+      {
+        "name": "ge_validator_unaffected",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_ge_validator_unaffected -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

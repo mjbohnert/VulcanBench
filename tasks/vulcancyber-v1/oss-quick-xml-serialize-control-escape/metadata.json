@@ -1,0 +1,38 @@
+{
+  "id": "oss-quick-xml-serialize-control-escape",
+  "category": "bug_fix",
+  "languages": ["rust"],
+  "difficulty": "medium",
+  "task_complexity": "multi_file",
+  "created": "2026-08-15",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "image": "vulcanbench/sandbox:rust",
+  "decontaminated": true,
+  "base_commit": "6c60dd48920f6df63860bb09ed17a59d1d8a5eb1",
+  "upstream": {
+    "url": "https://github.com/tafia/quick-xml",
+    "issue": "https://github.com/tafia/quick-xml/pull/1001",
+    "pr": "https://github.com/tafia/quick-xml/pull/1001",
+    "commit": "5f8416afda0ea24ad82ffdadd48aaf5fed362856"
+  },
+  "upstream_merged": "2026-08-15",
+  "decontamination_notes": "Real serialization control-character escaping fix from tafia/quick-xml PR #1001 (https://github.com/tafia/quick-xml/pull/1001, closes #670 and #990), merged 2026-08-15 -- after the training cutoffs of the models evaluated here (e.g. Opus 5, May 2026), so the specific fix is not in their training data (decontaminated: true), with upstream_merged recorded as proof. When writing XML, a literal carriage return in text is silently rewritten to a newline by XML end-of-line normalization, and a newline or tab inside an attribute value is normalized to a space by attribute-value normalization; writing them unescaped corrupts the value on round-trip and, in attribute context, can be used to smuggle/truncate data. The fix makes escape() also escape \\r as &#13;, adds escape_attribute() which additionally escapes \\n as &#10; and \\t as &#9;, and switches attribute serialization (src/events/attributes.rs) to use escape_attribute. NOTE ON BASE COMMIT: this PR was rebase-merged, so the merge commit's first parent is an intermediate PR commit that already contains the fix; the true base is the parent of the PR's FIRST commit (6c60dd48), verified to still use the old escape set with no escape_attribute. Sliced at that true base. quick-xml is edition 2021 / rust-version 1.86, so it builds on the :rust image (rustc 1.87); Cargo.toml was trimmed to the single non-optional dependency (memchr) with dev-dependencies/benches/extra test+example targets removed, and memchr is vendored into repo/vendor with repo/.cargo/config.toml for offline (network-off) `cargo test --offline`. The serde-serializer (src/se/*) part of the upstream change is behind the removed `serialize` feature and is not exercised here; hidden tests use only the crate's core public API (quick_xml::escape::escape and the Writer/attribute path), so they compile at the base commit. MIT LICENSE preserved. Coverage floor: 3 fail_to_pass (a \\r in text escaped to &#13;, and a \\n and a \\t in an attribute value escaped to &#10;/&#9;) plus a 2-check regression guard (the five XML predefined entities are still escaped as before; a plain attribute value is written verbatim).",
+  "grader": "tests",
+  "setup": [
+    {"name": "warm-build", "cmd": "cargo build --offline --lib"}
+  ],
+  "setup_timeout_s": 600,
+  "tests": {
+    "fail_to_pass": [
+      {"name": "cr_in_text", "cmd": "cargo test --offline --test vb_escape carriage_return_in_text_is_escaped"},
+      {"name": "nl_in_attr", "cmd": "cargo test --offline --test vb_escape newline_in_attribute_value_is_escaped"},
+      {"name": "tab_in_attr", "cmd": "cargo test --offline --test vb_escape tab_in_attribute_value_is_escaped"}
+    ],
+    "pass_to_pass": [
+      {"name": "metachars_unaffected", "cmd": "cargo test --offline --test vb_regression ordinary_metacharacters_still_escaped"},
+      {"name": "plain_attr_verbatim", "cmd": "cargo test --offline --test vb_regression plain_attribute_value_is_written_verbatim"}
+    ]
+  },
+  "test_timeout_s": 300
+}

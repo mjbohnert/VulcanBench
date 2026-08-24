@@ -1,0 +1,49 @@
+{
+  "id": "oss-more-itertools-numeric-range-eq",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "stdlib-utility",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "da37f9de442b69fbcaa9f54fb042c2a6999473a6",
+  "upstream": {
+    "url": "https://github.com/more-itertools/more-itertools/pull/1216",
+    "issue": "https://github.com/more-itertools/more-itertools/pull/1216",
+    "commit": "da37f9de442b69fbcaa9f54fb042c2a6999473a6"
+  },
+  "decontamination_notes": "Real fix from more-itertools PR #1216, merged 2026-07-17, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit da37f9d (more_itertools package + MIT LICENSE); dependency-free flat-layout package runs on the base sandbox image with PYTHONPATH=.. numeric_range.__eq__ and __hash__ now mirror the built-in range: for a single-element range the step is irrelevant, so two single-element ranges with the same start compare equal and must hash equal. Hidden tests assert observable == / hash behavior of the public numeric_range, never internal fields.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "single_element_equal_regardless_of_step",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_single_element_ranges_equal_regardless_of_step -q"
+      },
+      {
+        "name": "single_element_equal_hash_equal",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_single_element_equal_ranges_hash_equal -q"
+      },
+      {
+        "name": "single_element_other_values",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_single_element_ranges_equal_other_values -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "multi_element_equal",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_equal_multi_element_ranges_still_equal -q"
+      },
+      {
+        "name": "different_not_equal",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_different_ranges_not_equal -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import json
+
 from harness.task_metadata import (
+    CII_COMPLEXITY_BASE_MINUTES,
+    CII_DIFFICULTY_MULTIPLIERS,
     SCALE_DEFAULTS,
+    complexity_scaled_budgets,
     infer_task_complexity_from_gold_patch,
     repo_scale,
     resolve_agent_timeout_s,
     resolve_max_steps,
     resolve_verifier_timeout_s,
     task_complexity,
+    task_difficulty,
     validate_scale_fields,
 )
 
@@ -139,3 +145,80 @@ def test_bigger_repos_get_at_least_as_much_wall_clock() -> None:
         SCALE_DEFAULTS["xlarge"]["suggested_timeout_s"]
         > (SCALE_DEFAULTS["large"]["suggested_timeout_s"])
     )
+
+
+def test_complexity_scaled_budgets_formula() -> None:
+    # TerminalBench-style: complexity base x difficulty x scale, half-hour
+    # increments, clamped to [30min, 8h].
+    # medium multi_file at medium difficulty: 120min * 1.0 * 1.0 = 2h.
+    assert complexity_scaled_budgets("medium", "multi_file") == {
+        "suggested_max_steps": 360,
+        "suggested_timeout_s": 7200,
+    }
+    # Easy localized on a small repo clamps up to the 30min floor.
+    assert complexity_scaled_budgets("small", "localized", "easy")["suggested_timeout_s"] == 1800
+    # Hard system on an xlarge repo: 150 * 1.5 * 1.5 = 337.5 -> 360min = 6h.
+    assert complexity_scaled_budgets("xlarge", "system", "hard")["suggested_timeout_s"] == 21600
+    # veryhard architecture on xlarge hits the 8h ceiling (240*2*1.5 = 720 -> 480).
+    assert complexity_scaled_budgets("xlarge", "architecture", "veryhard") == {
+        "suggested_max_steps": 1440,
+        "suggested_timeout_s": 28800,
+    }
+    # Steps track the clock at ~20s/step, rounded to tens.
+    b = complexity_scaled_budgets("large", "system", "medium")  # 150*1.25=187.5 -> 210min
+    assert b["suggested_timeout_s"] == 12600
+    assert b["suggested_max_steps"] == 630
+    # Unknown values normalize conservatively.
+    assert complexity_scaled_budgets("bogus", "bogus", "bogus") == complexity_scaled_budgets(
+        "medium", "localized", "medium"
+    )
+    # Budgets are monotone in complexity and difficulty.
+    order_c = ["localized", "multi_file", "system", "architecture"]
+    assert [CII_COMPLEXITY_BASE_MINUTES[c] for c in order_c] == sorted(
+        CII_COMPLEXITY_BASE_MINUTES[c] for c in order_c
+    )
+    order_d = ["easy", "medium", "hard", "veryhard"]
+    assert [CII_DIFFICULTY_MULTIPLIERS[d] for d in order_d] == sorted(
+        CII_DIFFICULTY_MULTIPLIERS[d] for d in order_d
+    )
+
+
+def test_task_difficulty_normalizes() -> None:
+    assert task_difficulty({}) == "medium"
+    assert task_difficulty({"difficulty": "VeryHard"}) == "veryhard"
+    assert task_difficulty({"difficulty": "impossible"}) == "medium"
+
+
+def test_suite_requiring_explicit_budgets_fails_unstamped_task(tmp_path) -> None:
+    suite_dir = tmp_path / "cii-test"
+    task_dir = suite_dir / "some-task"
+    task_dir.mkdir(parents=True)
+    (suite_dir / "suite.json").write_text(
+        json.dumps({"require_explicit_budgets": True, "tasks": ["some-task"]}),
+        encoding="utf-8",
+    )
+    meta = {"id": "some-task", "repo_scale": "medium", "task_complexity": "system"}
+
+    reasons = validate_scale_fields(task_dir, meta)
+    assert any("suggested_max_steps" in r for r in reasons)
+    assert any("suggested_timeout_s" in r for r in reasons)
+
+    # Stamped budgets satisfy the rule.
+    meta["agent_hints"] = {"suggested_max_steps": 160, "suggested_timeout_s": 1920}
+    assert validate_scale_fields(task_dir, meta) == []
+
+    # Zero/negative/boolean values are rejected.
+    meta["agent_hints"] = {"suggested_max_steps": 0, "suggested_timeout_s": True}
+    assert len(validate_scale_fields(task_dir, meta)) == 2
+
+
+def test_suite_without_flag_does_not_require_budgets(tmp_path) -> None:
+    suite_dir = tmp_path / "plain"
+    task_dir = suite_dir / "some-task"
+    task_dir.mkdir(parents=True)
+    (suite_dir / "suite.json").write_text(json.dumps({"tasks": ["some-task"]}), encoding="utf-8")
+    assert validate_scale_fields(task_dir, {"id": "some-task"}) == []
+    # No suite.json at all (loose task dir) also passes.
+    loose = tmp_path / "loose" / "task"
+    loose.mkdir(parents=True)
+    assert validate_scale_fields(loose, {"id": "task"}) == []

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import tarfile
 from contextlib import suppress
@@ -43,6 +44,73 @@ SCALE_DEFAULTS: dict[str, dict[str, int | float]] = {
     "large": {"suggested_max_steps": 150, "suggested_timeout_s": 2700},
     "xlarge": {"suggested_max_steps": 200, "suggested_timeout_s": 3600},
 }
+# Complexity-scaled budgets (Coding Intelligence Index), TerminalBench-style:
+# generous wall-clock allowances in tidy half-hour increments, so a slow
+# verdict always means the model could not solve the task, never that the
+# clock was tuned to the median solver. TerminalBench's published budgets
+# cluster at 2h with a tail from 30min to 8h; this formula reproduces that
+# shape from the task's declared complexity (dominant factor), difficulty and
+# repo scale. These values are used to STAMP explicit `agent_hints` into each
+# task (scripts/stamp_task_budgets.py) rather than applied at run time, so a
+# task's budget is auditable in its metadata and older suites' run conditions
+# never shift under cached-run comparisons.
+CII_COMPLEXITY_BASE_MINUTES: dict[str, int] = {
+    "localized": 60,
+    "multi_file": 120,
+    "system": 150,
+    "architecture": 240,
+}
+CII_DIFFICULTY_MULTIPLIERS: dict[str, float] = {
+    "easy": 0.5,
+    "medium": 1.0,
+    "hard": 1.5,
+    "veryhard": 2.0,
+}
+CII_SCALE_MULTIPLIERS: dict[str, float] = {
+    "micro": 0.75,
+    "small": 0.75,
+    "medium": 1.0,
+    "large": 1.25,
+    "xlarge": 1.5,
+}
+CII_MIN_MINUTES = 30
+CII_MAX_MINUTES = 480  # 8h, TerminalBench's ceiling
+# Step allowance follows the clock at a measured ~20s per step (model round
+# trip + tool call), rounded to tens so stamped values read cleanly.
+CII_SECONDS_PER_STEP = 20
+
+
+def task_difficulty(metadata: dict[str, Any]) -> str:
+    """Normalized difficulty tier; unknown/missing values read as ``medium``."""
+    raw = str(metadata.get("difficulty") or "").strip().lower()
+    if raw in CII_DIFFICULTY_MULTIPLIERS:
+        return raw
+    return "medium"
+
+
+def complexity_scaled_budgets(
+    scale: str, complexity: str, difficulty: str = "medium"
+) -> dict[str, int]:
+    """Explicit per-task budgets: complexity base x difficulty x repo scale.
+
+    Returns ``{"suggested_max_steps": int, "suggested_timeout_s": int}`` suitable
+    for stamping into ``metadata.agent_hints``. Minutes are rounded UP to
+    half-hour increments and clamped to [30min, 8h]; unknown inputs normalize
+    the same way :func:`repo_scale` / :func:`task_complexity` /
+    :func:`task_difficulty` do (localized / medium / micro-like conservative
+    defaults).
+    """
+    base = CII_COMPLEXITY_BASE_MINUTES.get(complexity, CII_COMPLEXITY_BASE_MINUTES["localized"])
+    d_mult = CII_DIFFICULTY_MULTIPLIERS.get(difficulty, 1.0)
+    s_mult = CII_SCALE_MULTIPLIERS.get(scale, 1.0)
+    minutes = base * d_mult * s_mult
+    minutes = min(max(minutes, CII_MIN_MINUTES), CII_MAX_MINUTES)
+    minutes = int(-(-minutes // 30) * 30)  # ceil to half-hour increments
+    timeout_s = minutes * 60
+    steps = int(-(-(timeout_s / CII_SECONDS_PER_STEP) // 10) * 10)  # ceil to tens
+    return {"suggested_max_steps": steps, "suggested_timeout_s": timeout_s}
+
+
 MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024
 LIST_FILES_CAP = 500
 SEARCH_CODE_CAP = 100
@@ -245,6 +313,38 @@ def validate_scale_fields(task_root: Path, metadata: dict[str, Any]) -> list[str
     ):
         reasons.append("test_timeout_s must be a positive number when set")
 
+    reasons.extend(_validate_explicit_budgets(task_root, metadata))
+
+    return reasons
+
+
+def _validate_explicit_budgets(task_root: Path, metadata: dict[str, Any]) -> list[str]:
+    """Enforce per-task budgets when the suite manifest demands them.
+
+    A suite whose ``suite.json`` sets ``"require_explicit_budgets": true`` (the
+    Coding Intelligence Index does) fails any task without positive
+    ``agent_hints.suggested_max_steps`` and ``suggested_timeout_s``, budgets
+    must be stamped and auditable per task, never inherited silently from
+    scale defaults.
+    """
+    manifest = task_root.parent / "suite.json"
+    if not manifest.is_file():
+        return []
+    try:
+        suite_data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if suite_data.get("require_explicit_budgets") is not True:
+        return []
+    reasons: list[str] = []
+    hints = agent_hints(metadata)
+    for key in ("suggested_max_steps", "suggested_timeout_s"):
+        value = hints.get(key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+            reasons.append(
+                f"suite requires explicit budgets: agent_hints.{key} must be a positive "
+                "number (stamp with scripts/stamp_task_budgets.py)"
+            )
     return reasons
 
 

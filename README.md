@@ -371,6 +371,35 @@ from a real MIT-licensed repo with its LICENSE preserved) is honestly labeled
 one with `python scripts/import_oss_issues.py`. Format details:
 [docs/TASK_CONTRIBUTION.md](docs/TASK_CONTRIBUTION.md).
 
+## Coding Intelligence Index (CII)
+
+`tasks/cii-v1/` is the flagship measurement suite: **38 all-new tasks** sourced
+from upstream OSS PRs merged **May–August 2026** (post-cutoff for the models
+measured), with TerminalBench-style complexity-scaled budgets (30 min–8 h,
+stamped and validator-enforced), hidden fail-to-pass tests plus regression
+guards that zero the functional score on any regression, and a deterministic
+×3 admission gate.
+
+**August 2026 frontier results** ([full report](docs/results/cii-v1-2026-08/README.md)):
+Claude Opus 5 (Claude Code CLI) **96.4% ± 2.8** vs GPT 5.6 Sol (Codex CLI)
+**86.5% ± 4.7** pass@1, a stable ~10-point gap carried by four discriminator
+tasks, with exactly one task resisting both models. CII v1 ranks frontier
+models; it does not ceiling them.
+
+`tasks/cii-v2/` is the difficulty-gated frontier successor: its
+[charter](tasks/cii-v2/CHARTER.md) requires each candidate to be measured n=3
+against two reference frontier models before admission
+(`scripts/frontier_gate.sh`), and its [candidate log](tasks/cii-v2/CANDIDATES.md)
+records every verdict. It is currently empty for an honest reason: across ten
+difficulty hypotheses and five formally gated candidates, Opus 5 solved every
+gated run, the mined-PR format discriminates between frontier models but
+does not beat the stronger one.
+
+```bash
+vulcanbench run --suite cii-v1 --model codex:gpt-5.6-sol --sandbox local --no-judges
+zsh scripts/frontier_gate.sh <task-id> tasks/cii-v2   # v2 admission gate
+```
+
 ## Voice Eval Suite
 
 Measures the **voice tax**: how many points a model loses when the same
@@ -393,6 +422,33 @@ vulcanbench voice report runs/voice-<id> -o report.md
 
 Full methodology: [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md).
 
+## VulcanCyber Eval Suite
+
+A **defensive cybersecurity** suite (`tasks/vulcancyber-v1/`): each task is a real
+merged open-source PR that fixes a security weakness, sourced **post model cutoff**
+(`upstream_merged >= 2026-06-01`) and graded by the project's own deterministic
+security regression tests, "here is vulnerable code, produce the fix." v1 ships
+**16 validated tasks** across Python/TS/Go/JS/Rust and a dozen vulnerability
+classes (Family A vuln-fixes plus one Family-B security-tool fix): prototype
+pollution, CRLF/host injection, encoded-separator auth bypass, filename & ref-name
+spoofing, unpaired-surrogate crash, several algorithmic/resource DoS classes
+(YAML merge-key, urlencoded field-count, int-URL, integer-overflow), unescaped
+control-character serialization, and a gosec scanner detection-gap (Family B),
+spanning hono, zod, undici, validator.js, content-disposition, echo, gosec,
+pyyaml, tornado, werkzeug, urllib3, quick-xml, toml, and gitoxide.
+
+```bash
+make sandbox-image-all       # base + Rust + Go 1.26 images the suite needs
+make validate-cyber          # gold-solves, fail-to-pass real, deterministic x3
+vulcanbench run --suite vulcancyber-v1 --model mock:synthetic --sandbox local   # $0 smoke
+vulcanbench run --suite vulcancyber-v1 --model anthropic:claude-opus-5 --sandbox docker
+```
+
+Posture is defensive only (no offensive tooling). Candidate PRs are surfaced by
+`scripts/mine_security_prs.py` (a read-only `gh` search). Full methodology,
+task list, and sourcing recipe: [docs/CYBER_EVAL.md](docs/CYBER_EVAL.md);
+curation discipline: [tasks/vulcancyber-v1/CHARTER.md](tasks/vulcancyber-v1/CHARTER.md).
+
 ## Architecture & Reproducibility
 
 - Standardized tools (list/read/edit/search/run) behind one protocol, with
@@ -413,6 +469,7 @@ Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 | [METRICS](docs/METRICS.md) | How the five scores are computed |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | Hosted API + dashboard (optional) |
 | [CONTRIBUTING](docs/CONTRIBUTING.md) | Add tasks, run CI locally |
+| [CYBER_EVAL](docs/CYBER_EVAL.md) | VulcanCyber v1, defensive cybersecurity suite |
 | [ROADMAP](docs/ROADMAP.md) | Planned follow-ups |
 | [results/](docs/results/) | Published benchmark snapshots (MD, JSON, PDF) |
 

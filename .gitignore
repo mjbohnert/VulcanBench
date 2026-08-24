@@ -181,3 +181,5 @@ runs-contaminated-fs/
 
 # Partial xhigh level (credits exhausted mid-level); resume with --only-missing.
 runs-incomplete-xhigh/
+# Agent/maintainer working notes stay local (see CONTRIBUTING) — never commit
+/memory/

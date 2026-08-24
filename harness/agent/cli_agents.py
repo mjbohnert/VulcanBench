@@ -2408,6 +2408,110 @@ def list_cli_agent_adapters() -> list[CliAgentAdapter]:
     return [_CLI_AGENT_ADAPTERS[name] for name in sorted(_CLI_AGENT_ADAPTERS)]
 
 
+def _fold_codex_judge_usage(usage: dict[str, Any]) -> tuple[int, int]:
+    """Codex usage fields to effective tokens for a single-shot judge call.
+
+    OpenAI bills cached input at ~0.1x, and Codex's ``input_tokens`` INCLUDES
+    the cached portion (unlike Anthropic's split fields), so fold it down.
+    """
+    total_in = int(usage.get("input_tokens", 0) or 0)
+    cached = min(int(usage.get("cached_input_tokens", 0) or 0), total_in)
+    prompt = round((total_in - cached) + cached * 0.1)
+    return prompt, int(usage.get("output_tokens", 0) or 0)
+
+
+class CodexProvider(LLMProvider):
+    """Single-shot completions through Codex headless.
+
+    Used for judge/grader calls when the run model is a ``codex:`` spec, so
+    evaluation also bills the subscription. Runs in the read-only sandbox;
+    tool calling is not supported, judges and graders are plain
+    prompt-in/text-out completions.
+    """
+
+    @property
+    def name(self) -> str:
+        return "codex"
+
+    def complete(  # noqa: PLR0912, linear stream-parse over event kinds
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        timeout_s: float | None = None,
+        effort: str | None = None,
+    ) -> LLMResponse:
+        del tools, effort
+        prompt = "\n\n".join(str(m.get("content", "")) for m in messages)
+        cmd = [
+            "codex",
+            "exec",
+            "--json",
+            "--ephemeral",
+            "--ignore-user-config",
+            "--model",
+            self.model,
+            "--sandbox",
+            "read-only",
+            "-",
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s if timeout_s and timeout_s > 0 else 600,
+                env=_subscription_env(),
+                check=False,
+            )
+        except FileNotFoundError as e:
+            raise ProviderError("'codex' not found on PATH for judge/grader call") from e
+        except subprocess.TimeoutExpired as e:
+            raise ProviderError("codex judge/grader call timed out") from e
+
+        text = ""
+        prompt_tokens = completion_tokens = 0
+        error_text: str | None = None
+        for raw_line in proc.stdout.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            etype = str(event.get("type") or "")
+            if etype == "item.completed":
+                item = event.get("item") or {}
+                itype = str(item.get("item_type") or item.get("type") or "")
+                if itype in ("assistant_message", "agent_message"):
+                    text = str(item.get("text") or "")
+                elif itype == "error":
+                    error_text = str(item.get("message") or "")
+            elif etype == "turn.completed":
+                p, c = _fold_codex_judge_usage(event.get("usage") or {})
+                prompt_tokens += p
+                completion_tokens += c
+            elif etype in ("turn.failed", "error"):
+                error_text = str(
+                    (event.get("error") or {}).get("message") or event.get("message") or "error"
+                )
+        if error_text and _LIMIT_PATTERN.search(error_text):
+            raise ProviderError(f"codex subscription limit hit: {error_text[:300]}")
+        if proc.returncode != 0:
+            raise ProviderError(
+                f"codex judge call failed (exit {proc.returncode}): "
+                f"{(error_text or proc.stderr or proc.stdout)[-300:]}"
+            )
+        if error_text:
+            raise ProviderError(f"codex judge call errored: {error_text[:300]}")
+        return LLMResponse(
+            content=text or None,
+            usage=TokenUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens),
+            raw={"stdout_tail": proc.stdout[-1000:]},
+        )
+
+
 class ClaudeCodeProvider(LLMProvider):
     """Single-shot completions through Claude Code headless.
 

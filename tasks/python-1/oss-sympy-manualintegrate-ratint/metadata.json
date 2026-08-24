@@ -1,0 +1,50 @@
+{
+  "id": "oss-sympy-manualintegrate-ratint",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "scientific",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "xlarge",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "89796fa5123689e4d19d35af068289a50ce72eab",
+  "image": "vulcanbench/sandbox:sympy-29877",
+  "upstream": {
+    "url": "https://github.com/sympy/sympy/pull/30144",
+    "issue": "https://github.com/sympy/sympy/pull/30144",
+    "commit": "89796fa5123689e4d19d35af068289a50ce72eab"
+  },
+  "decontamination_notes": "Real fix from sympy/sympy PR #30144, merged 2026-07-27, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 89796fa (sympy package + LICENSE + setup.py). Runs in the per-task image vulcanbench/sandbox:sympy-29877 (sympy's only runtime dep, mpmath, preinstalled; sympy imported from the workspace via PYTHONPATH=.). manualintegrate left some rational functions unevaluated when partial fractions could not decompose them further; the fix adds ratint as a fallback rule. Hidden tests assert the public manualintegrate result is fully evaluated (no residual Integral) and correct (its derivative equals the integrand), so they do not depend on the exact antiderivative form. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "quartic_denominator",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_quartic_denominator_rational -q"
+      },
+      {
+        "name": "biquadratic_numerator",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_biquadratic_numerator_rational -q"
+      },
+      {
+        "name": "cyclotomic_like_denominator",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_cyclotomic_like_denominator_rational -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "cubic_denominator_still_integrates",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_cubic_denominator_still_integrates -q"
+      },
+      {
+        "name": "irreducible_quadratic_still_integrates",
+        "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_irreducible_quadratic_still_integrates -q"
+      }
+    ]
+  },
+  "test_timeout_s": 300
+}

@@ -1,0 +1,32 @@
+{
+  "id": "oss-lark-scan",
+  "category": "feature",
+  "languages": ["python"],
+  "domain": "parsing",
+  "difficulty": "hard",
+  "task_complexity": "system",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "c169b26a5bec9d47e590bf4be83691bcbdfe7b6b",
+  "upstream": {
+    "url": "https://github.com/lark-parser/lark/pull/1592",
+    "issue": "https://github.com/lark-parser/lark/pull/1592",
+    "commit": "c169b26a5bec9d47e590bf4be83691bcbdfe7b6b"
+  },
+  "decontamination_notes": "Real feature from lark-parser/lark PR #1592, merged 2026-07-18, after model training cutoffs, so the specific implementation is novel. Repo sliced at the PR's base commit c169b26 (lark package + pyproject.toml + MIT LICENSE); lark is dependency-free, so tests run on the base sandbox image with PYTHONPATH=.. Adds Lark.scan(text) which yields ScanMatch(range, value) for every non-overlapping substring parsing as the start rule. Hidden tests assert the public scan() output (match ranges, matched substrings, and that the reconstructed tree equals parse()), never internal replay state. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "scan_finds_all_matches", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_scan_finds_all_bracketed_matches -q"},
+      {"name": "scan_empty_on_no_match", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_scan_returns_empty_on_no_match -q"},
+      {"name": "scan_value_matches_parse", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_scan_value_matches_parse -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "parse_produces_start_tree", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_parse_produces_start_tree -q"},
+      {"name": "parse_rejects_invalid", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_parse_rejects_invalid_input -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

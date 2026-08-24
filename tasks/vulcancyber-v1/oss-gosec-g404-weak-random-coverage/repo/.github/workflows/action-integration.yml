@@ -1,0 +1,99 @@
+name: Action Integration
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - action.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  validate-action:
+    runs-on: ubuntu-latest
+    env:
+      SARIF_FILE: results.sarif
+      SARIF_CATEGORY: action-integration-action-yml
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Run action against gosec source
+        uses: ./
+        with:
+          args: -no-fail -nosec -fmt sarif -out results.sarif -exclude-generated ./...
+
+      - name: Validate SARIF output exists and is valid JSON
+        run: |
+          set -euo pipefail
+          test -s "${SARIF_FILE}"
+          python3 - <<'PY'
+          import json
+          with open("results.sarif", "r", encoding="utf-8") as f:
+            json.load(f)
+          PY
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: action-integration-sarif
+          path: ${{ env.SARIF_FILE }}
+
+      - name: Upload SARIF to Code Scanning
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        with:
+          sarif_file: ${{ env.SARIF_FILE }}
+          category: ${{ env.SARIF_CATEGORY }}
+
+      - name: Verify Code Scanning processed SARIF
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          TOOL_NAME: gosec
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const ref = context.sha;
+            const toolName = process.env.TOOL_NAME;
+            const category = process.env.SARIF_CATEGORY;
+
+            let matchedAnalysis = null;
+
+            for (let attempt = 1; attempt <= 30; attempt++) {
+              const response = await github.request("GET /repos/{owner}/{repo}/code-scanning/analyses", {
+                owner,
+                repo,
+                ref,
+                tool_name: toolName,
+                per_page: 100,
+              });
+
+              matchedAnalysis = (response.data || []).find((analysis) => {
+                return analysis.commit_sha === ref && analysis.category === category;
+              });
+
+              if (matchedAnalysis) {
+                break;
+              }
+
+              core.info(`Attempt ${attempt}/30: analysis not found yet, waiting 10s...`);
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+            }
+
+            if (!matchedAnalysis) {
+              core.setFailed(`No processed Code Scanning analysis found for commit ${ref} and category ${category}.`);
+              return;
+            }
+
+            if (matchedAnalysis.error) {
+              core.setFailed(`Code Scanning analysis reported an error: ${JSON.stringify(matchedAnalysis.error)}`);
+              return;
+            }
+
+            core.info(`Code Scanning processed analysis ${matchedAnalysis.id} successfully.`);

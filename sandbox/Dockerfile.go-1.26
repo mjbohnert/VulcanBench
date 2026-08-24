@@ -1,0 +1,21 @@
+# Go 1.26 sandbox image for VulcanCyber tasks whose upstream repos declare a
+# `go >= 1.24/1.25/1.26` directive (the base image ships Go 1.23, which refuses
+# to build them). Everything else, user, caches, ripgrep, non-root, offline,
+# is inherited unchanged from the base image.
+#
+# Build:  docker build -t vulcanbench/sandbox:go-1.26 -f sandbox/Dockerfile.go-1.26 .
+FROM vulcanbench/sandbox:base
+
+ARG GO_VERSION=1.26.4
+
+USER root
+RUN rm -rf /usr/local/go \
+    && ARCH="$(dpkg --print-architecture)" \
+    && case "$ARCH" in amd64) GOARCH=amd64 ;; arm64) GOARCH=arm64 ;; *) GOARCH="$ARCH" ;; esac \
+    && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" -o /tmp/go.tgz \
+    && tar -C /usr/local -xzf /tmp/go.tgz \
+    && rm /tmp/go.tgz \
+    && go version
+
+# Match the base image's default runtime user (non-root, set by the harness at
+# run time via --user anyway; kept here for parity with :base).

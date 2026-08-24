@@ -1,0 +1,49 @@
+{
+  "id": "oss-click-param-named-help",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "cli-tooling",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "8a4ce842564ae94ab050062db8525196ad476c19",
+  "upstream": {
+    "url": "https://github.com/pallets/click/pull/3678",
+    "issue": "https://github.com/pallets/click/issues/2819",
+    "commit": "3495fba163dd61dea837cd557095df6c21515ac8"
+  },
+  "decontamination_notes": "Real fix from pallets/click PR #3678 (fixes issue #2819), merged 2026-07-10, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 8a4ce84 (src/click + pyproject.toml + LICENSE.txt + README.md); BSD LICENSE preserved in repo/. click is dependency-free and imports lazily (its __version__ lookup is deferred), so tests run against the sliced source with PYTHONPATH=src on the base sandbox image; no per-task image needed. Hidden tests assert observable CLI behavior (parsed values, exit codes, help output, whether a UserWarning fires) via the public API, never the internal reserved storage name the fix chooses.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "argument_named_help_parses",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_argument_named_help_parses_and_help_still_works -q"
+      },
+      {
+        "name": "option_aliased_to_help_name",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_option_aliased_to_help_name_receives_value -q"
+      },
+      {
+        "name": "argument_name_collision_warns",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_argument_name_collision_warns -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "plain_command_unaffected",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_plain_command_help_and_option_unaffected -q"
+      },
+      {
+        "name": "feature_switch_no_warning",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_feature_switch_options_share_name_without_warning -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

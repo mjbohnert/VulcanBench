@@ -123,6 +123,41 @@ def _find_license_files(root: Path) -> list[str]:
     return sorted(out)
 
 
+def _untrack_vendor_in_gitignore(slice_root: Path) -> bool:
+    """Strip any rule from the slice-root ``.gitignore`` that ignores ``vendor/``.
+
+    Task slices vendor their dependencies (``go mod vendor`` / ``cargo vendor``)
+    so the offline sandbox needs no installs, and that ``vendor/`` MUST be
+    committed with the task. Many upstream repos, Go repos especially, carry a
+    ``vendor`` line in ``.gitignore``; the slice inherits it, so when the author
+    later vendors and commits, git silently drops ``vendor/`` and a clean clone
+    can no longer build the task (setup runs ``go build -mod=vendor``). Remove
+    those rules from the slice's root ``.gitignore`` so vendored deps are tracked.
+
+    Only lines whose gitignore pattern targets the vendor directory itself are
+    removed (``vendor``, ``/vendor``, ``vendor/``, ``**/vendor`` and their
+    trailing-slash forms); comments and every other rule are preserved. Nested
+    ``.gitignore`` files inside vendored deps are left untouched. Returns True if
+    the file was modified.
+    """
+    gitignore = slice_root / ".gitignore"
+    if not gitignore.is_file():
+        return False
+    kept: list[str] = []
+    removed = False
+    for line in gitignore.read_text(encoding="utf-8").splitlines():
+        # A '#' starts a comment only at the start of a line; use the raw line
+        # to decide, and keep the original text verbatim for lines we retain.
+        pattern = "" if line.lstrip().startswith("#") else line.strip()
+        if pattern and pattern.strip("/").removeprefix("**/") == "vendor":
+            removed = True
+            continue
+        kept.append(line)
+    if removed:
+        gitignore.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+    return removed
+
+
 def _cargo_metadata(workspace: Path) -> dict[str, Any]:
     """Run ``cargo metadata --format-version 1 --no-deps`` and return parsed JSON."""
     proc = subprocess.run(
@@ -174,6 +209,10 @@ def _workspace_dependency_closure(metadata: dict[str, Any], target_crates: list[
 
 def _rewrite_workspace_members(cargo_toml: Path, kept_members: set[str]) -> None:  # noqa: PLR0912
     """Rewrite ``[workspace] members`` in the root Cargo.toml to only ``kept_members``.
+
+    ``kept_members`` are member directory paths relative to the workspace root
+    (e.g. ``crates/toml``), which is what the ``members`` array actually holds,
+    crate names only coincide with them when crates sit at the root.
 
     Uses a minimal targeted text edit to avoid reformatting the file. Reads with
     ``tomllib`` for understanding, writes with text substitution.
@@ -278,8 +317,19 @@ def _cargo_prune(slice_root: Path, target_crates: list[str]) -> None:
         if target.is_dir():
             shutil.rmtree(target)
 
-    # Rewrite the root Cargo.toml members.
-    _rewrite_workspace_members(slice_root / "Cargo.toml", closure)
+    # Rewrite the root Cargo.toml members. Members are DIRECTORY PATHS relative
+    # to the workspace root, not crate names, with a glob like
+    # `members = ["crates/*"]` the two differ, and writing names produces a
+    # workspace whose members cannot be found.
+    kept_paths: set[str] = set()
+    for name, manifest_path in workspace_members.items():
+        if name in closure:
+            try:
+                rel = Path(manifest_path).parent.relative_to(slice_root.resolve())
+            except ValueError:
+                continue
+            kept_paths.add(str(rel))
+    _rewrite_workspace_members(slice_root / "Cargo.toml", kept_paths)
 
     # Verify the pruned workspace resolves.
     try:
@@ -329,6 +379,11 @@ def slice_repo(
 
         if cargo_prune and crates:
             _cargo_prune(slice_root, crates)
+
+    # Vendored deps (added later by `go mod vendor` / `cargo vendor`) must be
+    # committable; drop any inherited `vendor` ignore rule that would drop them.
+    if _untrack_vendor_in_gitignore(slice_root):
+        print("slice_repo: removed a 'vendor' rule from .gitignore so vendored deps commit")
 
     stats = measure_repo_path(slice_root)
     manifest = {

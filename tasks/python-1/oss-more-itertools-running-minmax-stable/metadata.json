@@ -1,0 +1,61 @@
+{
+  "id": "oss-more-itertools-running-minmax-stable",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "stdlib-utility",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "cb75bb9c55f7ed3e77ce599097e1ba8da411746d",
+  "upstream": {
+    "url": "https://github.com/more-itertools/more-itertools/pull/1211",
+    "issue": "https://github.com/more-itertools/more-itertools/pull/1211",
+    "commit": "d992be0de9383ddcaae3a24866a2d96b52132b07"
+  },
+  "decontamination_notes": "Real fix from more-itertools PR #1211, merged 2026-07-13, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit cb75bb9 (more_itertools package + MIT LICENSE); dependency-free flat-layout package runs on the base sandbox image with PYTHONPATH=.. The bug is in the bounded sliding-window helpers (_windowed_running_min/_windowed_running_max), which used `not a < value` (drops equal values, keeping the newest) instead of `value < a` (keeps the oldest, matching builtin min/max stability). Hidden tests assert observable output of the public running_min/running_max recipes -- yielded values and, on ties, which equal value survives (via type()) -- never the helpers' internal deque state.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "running_min_ties_windowed",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_min_ties_keep_oldest_windowed -q"
+      },
+      {
+        "name": "running_max_ties_windowed",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_max_ties_keep_oldest_windowed -q"
+      },
+      {
+        "name": "running_min_tie_inside_window",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_min_tie_inside_window_keeps_oldest -q"
+      },
+      {
+        "name": "running_max_tie_inside_window",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_max_tie_inside_window_keeps_oldest -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "running_min_unbounded_stable",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_min_unbounded_stable_and_unchanged -q"
+      },
+      {
+        "name": "running_max_unbounded_stable",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_max_unbounded_stable_and_unchanged -q"
+      },
+      {
+        "name": "running_min_basic_values",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_min_basic_values_unchanged -q"
+      },
+      {
+        "name": "running_max_basic_values",
+        "cmd": "PYTHONPATH=. python -m pytest -o addopts= oss_tests.py::test_running_max_basic_values_unchanged -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

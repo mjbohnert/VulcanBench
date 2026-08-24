@@ -1,0 +1,32 @@
+{
+  "id": "oss-lark-earley-ambiguous-ignore",
+  "category": "bug_fix",
+  "languages": ["python"],
+  "domain": "parsing",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "52ef09dfe19b1bfb18a8d0a553b964363a0332d0",
+  "upstream": {
+    "url": "https://github.com/lark-parser/lark/pull/1577",
+    "issue": "https://github.com/lark-parser/lark/pull/1577",
+    "commit": "52ef09dfe19b1bfb18a8d0a553b964363a0332d0"
+  },
+  "decontamination_notes": "Real fix from lark-parser/lark PR #1577, merged 2026-03-26, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 52ef09d (lark package + pyproject.toml + MIT LICENSE); lark is dependency-free, so tests run on the base sandbox image with PYTHONPATH=.. The bug: with the dynamic (Earley) lexer, ignored tokens overlapping real tokens could make one input parse several ways, and the parser crashed (RuntimeError: 'Earley should not generate multiple start symbol items!') instead of producing the ambiguity. The fix merges the forest children of items carried over due to ignores. Hidden tests assert the public parse() output (the _ambig tree readings, and resolve picking one), never internal forest state. Run with -c /dev/null so the repo's pytest config is ignored.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {"name": "explicit_ambiguity_all_readings", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_explicit_ambiguity_yields_all_readings -q"},
+      {"name": "resolve_single_reading", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_resolve_picks_a_single_reading -q"},
+      {"name": "rule_body_ambiguity_all_readings", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_rule_body_ambiguity_yields_all_readings -q"}
+    ],
+    "pass_to_pass": [
+      {"name": "unambiguous_input_parses", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_unambiguous_input_parses -q"},
+      {"name": "plain_grammar_unaffected", "cmd": "PYTHONPATH=. python -m pytest -c /dev/null oss_tests.py::test_plain_grammar_unaffected -q"}
+    ]
+  },
+  "test_timeout_s": 120
+}

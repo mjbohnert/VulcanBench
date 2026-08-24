@@ -1,0 +1,11 @@
+[package]
+name = "gix-validate"
+version = "0.11.3"
+description = "A crate of the gitoxide project for validating rules"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/GitoxideLabs/gitoxide"
+
+[dependencies]
+bstr = { version = "1.12.0", default-features = false, features = ["std"] }

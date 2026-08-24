@@ -92,6 +92,7 @@ if "--version" in args:
 elif args[:2] == ["login", "status"]:
     print("Logged in using ChatGPT")
 elif args and args[0] == "exec":
+    mode = "__CODEX_MODE__"
     prompt = sys.stdin.read()
     with open("hello.py", "w") as f:
         f.write('print("hello from vulcanbench")\\n')
@@ -100,6 +101,13 @@ elif args and args[0] == "exec":
                                          "CODEX_API_KEY" in os.environ}))
     print(json.dumps({"type": "item.completed", "item": {
         "id": "item-1", "type": "agent_message", "text": "Implemented and tested"}}))
+    if mode == "limit":
+        print(json.dumps({"type": "error",
+                          "message": "You've hit your usage limit. Try again later."}))
+        sys.exit(1)
+    if mode == "fail":
+        print(json.dumps({"type": "turn.failed", "error": {"message": "model exploded"}}))
+        sys.exit(1)
     print(json.dumps({"type": "turn.completed", "usage": {
         "input_tokens": 120, "cached_input_tokens": 80,
         "output_tokens": 30, "reasoning_output_tokens": 10}}))
@@ -172,7 +180,7 @@ def fake_claude(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.Mo
 def fake_codex(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
     bin_dir = tmp_path_factory.mktemp("fake-codex-bin")
     script = bin_dir / "codex"
-    script.write_text(FAKE_CODEX, encoding="utf-8")
+    script.write_text(FAKE_CODEX.replace("__CODEX_MODE__", "success"), encoding="utf-8")
     script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-should-not-reach-codex")
@@ -977,3 +985,46 @@ def test_zcode_session_limit_error_detects_buried_1308(tmp_path: Path) -> None:
     # A different session, or a missing db, is not a limit.
     assert _zcode_session_limit_error(db, "sess-other") is None
     assert _zcode_session_limit_error(tmp_path / "missing.sqlite", "sess-x") is None
+
+
+def _rewrite_fake_codex(script: Path, mode: str) -> None:
+    script.write_text(FAKE_CODEX.replace("__CODEX_MODE__", mode), encoding="utf-8")
+
+
+def test_codex_usage_limit_raises_quota_error(tmp_path: Path, fake_codex: Path) -> None:
+    _rewrite_fake_codex(fake_codex, "limit")
+    with pytest.raises(SubscriptionQuotaError, match="limit"):
+        run_codex_task(
+            workspace=tmp_path,
+            prompt="p",
+            model="gpt-5.6-sol",
+            priced_spec="codex:gpt-5.6-sol",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_codex_turn_failure_raises_provider_error(tmp_path: Path, fake_codex: Path) -> None:
+    _rewrite_fake_codex(fake_codex, "fail")
+    with pytest.raises(ProviderError, match="codex exec failed"):
+        run_codex_task(
+            workspace=tmp_path,
+            prompt="p",
+            model="gpt-5.6-sol",
+            priced_spec="codex:gpt-5.6-sol",
+            max_turns=10,
+            collector=_Collector(),
+        )
+
+
+def test_codex_judge_provider_single_shot(
+    tmp_path: Path, fake_codex: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The fake writes hello.py into its cwd; keep that inside the tmp dir.
+    monkeypatch.chdir(tmp_path)
+    provider = get_provider("codex:gpt-5.6-sol")
+    response = provider.complete([{"role": "user", "content": "rate this"}], tools=[])
+    assert response.content == "Implemented and tested"
+    # 120 input with 80 cached folds to (120-80) + 80*0.1 = 48 effective.
+    assert response.usage.prompt_tokens == 48
+    assert response.usage.completion_tokens == 30

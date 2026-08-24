@@ -1,0 +1,53 @@
+{
+  "id": "oss-click-style-validate-color",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "cli-tooling",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "7925a3410d7098c28cfca3b2baa6c852666bbd14",
+  "upstream": {
+    "url": "https://github.com/pallets/click/pull/3677",
+    "issue": "https://github.com/pallets/click/pull/3677",
+    "commit": "07c909f23f0f83b5ca137c167b9a134d66201f67"
+  },
+  "decontamination_notes": "Real fix from pallets/click PR #3677, merged 2026-07-08, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 7925a34 (src/click + pyproject.toml + LICENSE.txt + README.md); BSD LICENSE preserved. click is dependency-free with lazy version import, so tests run on the base sandbox image with PYTHONPATH=src. Hidden tests assert observable click.style output (ANSI codes emitted, exception type raised for invalid colors), never internal helpers.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "fg_index_zero_not_dropped",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_foreground_index_zero_not_dropped -q"
+      },
+      {
+        "name": "bg_index_zero_not_dropped",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_background_index_zero_not_dropped -q"
+      },
+      {
+        "name": "unknown_color_raises_value_error",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_unknown_color_name_raises_value_error -q"
+      },
+      {
+        "name": "out_of_range_index_raises_value_error",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_out_of_range_index_raises_value_error -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "named_color_unchanged",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_named_color_unchanged -q"
+      },
+      {
+        "name": "rgb_tuple_unchanged",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_rgb_tuple_unchanged -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}

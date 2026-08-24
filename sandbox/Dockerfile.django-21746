@@ -1,0 +1,4 @@
+# Probe image for django tasks: base + django's runtime deps.
+# django itself is overlaid from the workspace via PYTHONPATH.
+FROM vulcanbench/sandbox:base
+RUN pip install --no-cache-dir "asgiref>=3.12.1" "sqlparse>=0.5.0"

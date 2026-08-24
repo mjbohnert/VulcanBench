@@ -1,0 +1,49 @@
+{
+  "id": "oss-marshmallow-enum-none-default",
+  "category": "bug_fix",
+  "languages": [
+    "python"
+  ],
+  "domain": "parsing",
+  "difficulty": "medium",
+  "task_complexity": "localized",
+  "created": "2026-08-17",
+  "repo_scale": "medium",
+  "source": "oss",
+  "decontaminated": false,
+  "base_commit": "3265c13945a9533f9a3ade8d47eb9b32412c4c27",
+  "upstream": {
+    "url": "https://github.com/marshmallow-code/marshmallow/pull/2994",
+    "issue": "https://github.com/marshmallow-code/marshmallow/pull/2994",
+    "commit": "919255db0f20580214b53f76b6d2295a84c2de1e"
+  },
+  "decontamination_notes": "Real fix from marshmallow-code/marshmallow PR #2994, merged 2026-07, after model training cutoffs, so the specific fix is novel. Repo sliced at the PR's base commit 3265c13 (src/marshmallow + pyproject.toml + MIT LICENSE). marshmallow's only declared dependencies are conditional (python_version < 3.11); the base sandbox image runs 3.11+, so tests run with PYTHONPATH=src. The fix: a by-value Enum field over an enum that has a None-valued member now defaults allow_none=True unless the caller passed allow_none explicitly. Hidden tests assert observable deserialize/load behavior via the public field and Schema API, never the field's internal allow_none attribute.",
+  "grader": "tests",
+  "tests": {
+    "fail_to_pass": [
+      {
+        "name": "by_value_true_allows_none",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_by_value_true_allows_none -q"
+      },
+      {
+        "name": "by_value_field_allows_none",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_by_value_field_allows_none -q"
+      },
+      {
+        "name": "schema_load_allows_none",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_schema_load_allows_none -q"
+      }
+    ],
+    "pass_to_pass": [
+      {
+        "name": "explicit_allow_none_false_still_rejects",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_explicit_allow_none_false_still_rejects -q"
+      },
+      {
+        "name": "enum_without_none_member_still_rejects_none",
+        "cmd": "PYTHONPATH=src python -m pytest -o addopts= oss_tests.py::test_enum_without_none_member_still_rejects_none -q"
+      }
+    ]
+  },
+  "test_timeout_s": 120
+}
