@@ -20,6 +20,7 @@ from harness.agent import loop as loop_mod
 from harness.agent.cli_agents import (
     _ZCODE_LIMIT_PATTERN,
     SubscriptionQuotaError,
+    _subscription_env,
     _zcode_preflight,
     _zcode_session_limit_error,
     is_cli_agent_spec,
@@ -1028,3 +1029,16 @@ def test_codex_judge_provider_single_shot(
     # 120 input with 80 cached folds to (120-80) + 80*0.1 = 48 effective.
     assert response.usage.prompt_tokens == 48
     assert response.usage.completion_tokens == 30
+
+
+def test_subscription_env_blocks_system_pip_installs() -> None:
+    """Host-run agents must not be able to pip-install into the system Python.
+
+    A live ZCode run on oss-aiohttp-upgrade-deferred installed an editable
+    aiohttp into Homebrew's python3.14 and broke the host pytest.
+    """
+    env = _subscription_env()
+    assert env["PIP_REQUIRE_VIRTUALENV"] == "1"
+    assert env["PYTHONNOUSERSITE"] == "1"
+    # Test adapters may still override explicitly.
+    assert _subscription_env({"PIP_REQUIRE_VIRTUALENV": "0"})["PIP_REQUIRE_VIRTUALENV"] == "0"

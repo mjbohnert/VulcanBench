@@ -230,6 +230,15 @@ def _subscription_env(extra: dict[str, str] | None = None) -> dict[str, str]:
             p for p in env["PATH"].split(os.pathsep) if p and not p.startswith(repo_root)
         )
     env["DISABLE_AUTOUPDATER"] = "1"
+    # Host-run agents must not touch the system Python. A live ZCode run on
+    # oss-aiohttp-upgrade-deferred (Aug 2026) ran `pip install -e .` in its
+    # workspace, hit Homebrew's python3.14, and left a dangling editable
+    # install that broke the host pytest once the workspace was cleaned.
+    # PIP_REQUIRE_VIRTUALENV makes pip refuse any install outside a venv the
+    # agent creates itself; PYTHONNOUSERSITE keeps user site-packages out of
+    # reach as the fallback target.
+    env["PIP_REQUIRE_VIRTUALENV"] = "1"
+    env["PYTHONNOUSERSITE"] = "1"
     if extra:
         env.update(extra)
     return env

@@ -187,6 +187,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Host-run CLI agents can no longer pip-install into the system Python.**
+  `_subscription_env()` now sets `PIP_REQUIRE_VIRTUALENV=1` and
+  `PYTHONNOUSERSITE=1` for every subscription CLI subprocess (claude-code,
+  codex, cursor, grok-build, zcode). A live ZCode run on
+  `oss-aiohttp-upgrade-deferred` ran `pip install -e .` in its host workspace,
+  hit Homebrew's python3.14, and left a dangling editable aiohttp that broke
+  the host `pytest` once the temp workspace was cleaned. Agents that need pip
+  must now create their own virtualenv inside the workspace.
 - **xAI reasoning tokens are now billed.** xAI reports reasoning OUTSIDE
   `completion_tokens` (total = prompt + completion + reasoning), unlike
   OpenAI/DeepSeek/Qwen/Kimi where completion contains it. The Chat Completions
