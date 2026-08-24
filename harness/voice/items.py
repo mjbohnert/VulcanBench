@@ -1,6 +1,6 @@
 """Question set loading and validation for the voice suite.
 
-Items live in ``tasks/voice-v1/questions.jsonl`` — one JSON object per line.
+Items live in ``tasks/voice-v1/questions.jsonl``: one JSON object per line.
 The set is held out by construction (written for this suite, never copied
 from public benchmarks) and is reviewed in-repo like any other task source.
 """

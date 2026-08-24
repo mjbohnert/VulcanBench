@@ -1,11 +1,11 @@
-# VulcanBench Technical Report No. 12 — Qwen3.8-Max across the effort knob
+# VulcanBench Technical Report No. 12, Qwen3.8-Max across the effort knob
 
 **August 4, 2026 · VulcanBench v3 · 23 tasks · 202 runs · 3 effort levels · 5 languages · $126.25**
 
 First measurement of Alibaba's Qwen3.8-Max on the full v3 suite. Twenty-three real merged
 post-cutoff PRs (Python 9, TypeScript 4, Rust 4, Go 3, JavaScript 3), graded by hidden
 deterministic tests in a network-isolated Docker sandbox. Three attempts per task per effort
-level — the first debut on VulcanBench measured at repeat-3 rather than a single attempt.
+level, the first debut on VulcanBench measured at repeat-3 rather than a single attempt.
 
 ## Results
 
@@ -20,7 +20,7 @@ it. Read the score column together with the last two: the deficit is unfinished 
 work. The xhigh column has 64 runs rather than 69 because five died on 600-second API read
 timeouts (below) and are excluded rather than scored zero.
 
-Qwen's documented `reasoning_effort` enum is **low / medium / xhigh** — there is no `high` —
+Qwen's documented `reasoning_effort` enum is **low / medium / xhigh**: there is no `high`, 
 and **xhigh is the default** when the field is unset.
 
 ## Findings
@@ -36,7 +36,7 @@ and **xhigh is the default** when the field is unset.
    the completion tokens of successful ones (115–140 K vs 22–29 K) and 3× the clock (40–46 min
    vs 13–15).
 
-3. **The regression is in solvable work.** Three tasks score zero at every setting — extra
+3. **The regression is in solvable work.** Three tasks score zero at every setting, extra
    reasoning rescues none of them. Nine tasks regress from low to xhigh, and the six that low
    solves 3-for-3 account for **83%** of the 26-point drop, three collapsing to zero. It is not
    losing the hard problems. It is losing the ones it already knows how to do.
@@ -52,15 +52,15 @@ Nine tasks moved. The other fourteen scored identically at all three settings.
 
 | Task | low | medium | xhigh |
 |---|---|---|---|
-| jiff-strftime-negpad | 3/3 | 3/3 | **0/3** — 3 unfinished |
-| semver-inc-dotted-prerelease | 3/3 | **0/3** — 3 unfinished | **0/3** — 3 unfinished |
-| sqlglot-qualify-lateral-star | 3/3 | 1/3 — 2 unfinished | **0/3** — 3 unfinished |
-| packaging-range-prerelease-policy | 3/3 | 3/3 | 1/3 — 2 unfinished |
-| semver-xrange-order | 3/3 | 3/3 | 1/3 — 2 unfinished |
-| zod-invert-codec | 3/3 | 3/3 | 1/3 — 2 unfinished |
-| itertools-strip-prefix | 3/3 | 3/3 | 2/3 — 1 unfinished |
-| flask-teardown-robust | 1/3 — 2 unfinished | 0/3 — 3 unfinished | 0/3 — 3 unfinished |
-| networkx-leiden-communities | 1/3 — 2 unfinished | 0/3 — 3 unfinished | 0/1 — 1 unfinished |
+| jiff-strftime-negpad | 3/3 | 3/3 | **0/3**: 3 unfinished |
+| semver-inc-dotted-prerelease | 3/3 | **0/3**: 3 unfinished | **0/3**: 3 unfinished |
+| sqlglot-qualify-lateral-star | 3/3 | 1/3, 2 unfinished | **0/3**: 3 unfinished |
+| packaging-range-prerelease-policy | 3/3 | 3/3 | 1/3, 2 unfinished |
+| semver-xrange-order | 3/3 | 3/3 | 1/3, 2 unfinished |
+| zod-invert-codec | 3/3 | 3/3 | 1/3, 2 unfinished |
+| itertools-strip-prefix | 3/3 | 3/3 | 2/3, 1 unfinished |
+| flask-teardown-robust | 1/3, 2 unfinished | 0/3, 3 unfinished | 0/3, 3 unfinished |
+| networkx-leiden-communities | 1/3, 2 unfinished | 0/3, 3 unfinished | 0/1, 1 unfinished |
 
 Never solved at any setting: `aiohttp-upgrade-deferred`, `pennylane-trotter-fragmented`,
 `sqlglot-canonicalize-internal-names`.
@@ -72,12 +72,12 @@ ceiling, and none was cost-capped. The clock, not the step budget, is what binds
 ## A second clock: 600-second API read timeouts
 
 Five xhigh runs, on the suite's three heaviest repositories, failed with read timeouts from the
-DashScope endpoint after 600 seconds — a single request exceeding ten minutes before returning
+DashScope endpoint after 600 seconds, a single request exceeding ten minutes before returning
 any content. No previous report has recorded this failure mode. It is imposed by the provider,
 not by VulcanBench, and it sits well inside the harness's own 45- and 60-minute budgets.
 
-The harness records these as run **errors** rather than scoring them zero — the same treatment
-safety refusals receive — so they are excluded from the xhigh column rather than counted against
+The harness records these as run **errors** rather than scoring them zero, the same treatment
+safety refusals receive, so they are excluded from the xhigh column rather than counted against
 the model. Retrying reproduced the timeouts. At the effort level Alibaba ships as the default,
 on the largest repositories in the suite, the model can exceed its own provider's response
 window.

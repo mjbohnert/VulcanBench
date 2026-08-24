@@ -9,7 +9,7 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from alembic import context  # type: ignore[attr-defined]
-from backend.db import Feedback, Run  # noqa: F401 — register models
+from backend.db import Feedback, Run  # noqa: F401, register models
 
 config = context.config
 

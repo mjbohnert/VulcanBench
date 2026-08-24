@@ -1,4 +1,4 @@
-"""VulcanBench suite v3 — cost/accuracy frontier, one shareable 16:9 card.
+"""VulcanBench suite v3, cost/accuracy frontier, one shareable 16:9 card.
 
 Why this exists: on suite v3, pass@1 barely separates the field (30 of 33
 model x effort columns sit within 1 stderr of the leader) while cost per task
@@ -40,7 +40,7 @@ MUTED = "#8a897f"
 GRID = "#e7e6e1"
 
 # Same per-lab hues as the rankings card (see CLAUDE.md). Note for future
-# edits: this set FAILS the generic categorical checks — xAI black and
+# edits: this set FAILS the generic categorical checks, xAI black and
 # Moonshot slate are below the chroma floor, and OpenAI green vs Anthropic
 # clay is ΔE 6.8 under protanopia. That is legal only because every point is
 # directly labelled; do not remove the labels to "clean up" the chart.
@@ -79,7 +79,7 @@ N_TASKS_FULL = 23
 
 def eff_display(model: str, eff: str) -> str:
     """Label an effort with the provider's own name for it."""
-    if eff == "—":
+    if eff == "":
         return "default"
     if eff == "extra-high":
         if model.startswith("deepseek:"):
@@ -156,7 +156,7 @@ fig.text(L + 0.040, 0.947, "VulcanBench", fontsize=26, color=INK, family=BRAND, 
 fig.text(
     L + 0.228,
     0.947,
-    "Eval Suite 3 — cost vs. accuracy",
+    "Eval Suite 3, cost vs. accuracy",
     fontsize=26,
     color=MUTED,
     family=BRAND_MED,
@@ -174,7 +174,7 @@ fig.text(
 fig.text(
     L,
     0.826,
-    "Accuracy is nearly flat across the field — cost is not.",
+    "Accuracy is nearly flat across the field, cost is not.",
     fontsize=15,
     color=INK,
     family=BRAND_MED,
@@ -211,7 +211,7 @@ ax.set_yticks(range(70, 96, 5))
 ax.set_yticklabels([f"{v}" for v in range(70, 96, 5)], fontsize=11, color=INK2, family=SANS)
 ax.tick_params(length=0, colors=MUTED)
 ax.set_xlabel(
-    "average cost per task run (USD, log scale — list API prices)",
+    "average cost per task run (USD, log scale, list API prices)",
     fontsize=12,
     color=INK2,
     family=SANS,
@@ -366,7 +366,7 @@ fig.text(
     L,
     0.093,
     "Each model appears once, at its best-scoring effort level (labelled); ties break to the "
-    "cheaper run. Whiskers are ±1 stderr on pass@1 — they overlap across nearly the whole field, "
+    "cheaper run. Whiskers are ±1 stderr on pass@1, they overlap across nearly the whole field, "
     "which is the point.\n"
     "* partial task coverage: Claude Fable 5 19/23 (safety-filter refusals), Kimi K3 19/23, "
     "Claude Haiku 4.5 21/23, GPT-5.6 Luna 7/23.   † Claude Opus 5 is from vulcanbench.com "

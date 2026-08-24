@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI shim for the task validator — the logic lives in ``harness.validate``.
+"""CLI shim for the task validator, the logic lives in ``harness.validate``.
 
 Usage:
     python scripts/validate_tasks.py [tasks/v1]          # all tasks (host)

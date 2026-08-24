@@ -2,7 +2,7 @@
 
 An agent run is expensive (it calls a model); grading is deterministic and free.
 When a task's hidden tests or thresholds change (e.g. a calibration), the old
-runs do not need to be re-executed against the model — only re-graded. This
+runs do not need to be re-executed against the model, only re-graded. This
 module rebuilds the graded workspace from the task's base snapshot plus the run's
 captured ``final.patch`` (the agent's edits), overlays the *current* hidden
 tests, and re-runs the verifier in the sandbox. No provider is ever called.

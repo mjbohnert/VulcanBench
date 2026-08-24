@@ -1,4 +1,4 @@
-# VulcanBench Rust sandbox image — edition 2024 / newer-MSRV toolchain.
+# VulcanBench Rust sandbox image, edition 2024 / newer-MSRV toolchain.
 #
 # Build:  docker build -t vulcanbench/sandbox:rust-2024 -f sandbox/Dockerfile.rust-2024 .
 # Use:    per-task metadata ("image": "vulcanbench/sandbox:rust-2024")

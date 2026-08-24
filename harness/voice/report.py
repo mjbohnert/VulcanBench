@@ -153,13 +153,13 @@ def build_report(run_dir: Path) -> dict[str, Any]:
 
 
 def _pct(x: float | None) -> str:
-    return "—" if x is None else f"{100 * x:.1f}%"
+    return "" if x is None else f"{100 * x:.1f}%"
 
 
 def to_markdown(report: dict[str, Any]) -> str:
     m = report["manifest"]
     lines = [
-        "# Voice Eval Suite v1 — run report",
+        "# Voice Eval Suite v1, run report",
         "",
         f"_Run `{m['run_id']}` · {m.get('n_items', '?')} items · models: "
         f"{', '.join(m['models'])} · judge {m['judge_model']} · TTS "
@@ -172,30 +172,30 @@ def to_markdown(report: dict[str, Any]) -> str:
     ]
     for model, data in report["models"].items():
         tax = data["voice_tax"]
-        tax_s = "—" if tax is None else f"{100 * tax:+.1f} pp"
+        tax_s = "" if tax is None else f"{100 * tax:+.1f} pp"
         lines.append(
             f"| {model} | {_pct(data['text_accuracy'])} | "
             f"{_pct(data['audio_accuracy_clean_normal'])} | {tax_s} |"
         )
     for model, data in report["models"].items():
-        lines += ["", f"## {model} — by category", "", "| Category | Text | Audio | Tax |",
+        lines += ["", f"## {model}, by category", "", "| Category | Text | Audio | Tax |",
                   "|---|---|---|---|"]  # fmt: skip
         for cat, c in data["categories"].items():
-            tax_s = "—" if c["tax"] is None else f"{100 * c['tax']:+.1f} pp"
+            tax_s = "" if c["tax"] is None else f"{100 * c['tax']:+.1f} pp"
             lines.append(
                 f"| {cat} | {_pct(c['text_accuracy'])} | {_pct(c['audio_accuracy'])} | {tax_s} |"
             )
-        lines += ["", f"## {model} — by condition", "",
+        lines += ["", f"## {model}, by condition", "",
                   "| Condition | n | Accuracy | Text acc (same items) | Tax |",
                   "|---|---|---|---|---|"]  # fmt: skip
         for slug, c in data["conditions"].items():
-            tax_s = "—" if c["tax"] is None else f"{100 * c['tax']:+.1f} pp"
+            tax_s = "" if c["tax"] is None else f"{100 * c['tax']:+.1f} pp"
             lines.append(
                 f"| {slug} | {c['n']} | {_pct(c['accuracy'])} | "
                 f"{_pct(c['text_accuracy_same_items'])} | {tax_s} |"
             )
         lat = data["latency"]
-        lines += ["", f"## {model} — latency (seconds)", "",
+        lines += ["", f"## {model}, latency (seconds)", "",
                   "| Mode | Metric | Median | P95 | P99 |", "|---|---|---|---|---|"]  # fmt: skip
         for mode in ("text", "audio"):
             for metric in ("t_first_s", "t_total_s"):

@@ -1,4 +1,4 @@
-"""Agentic correctness grader — an LLM verdict on whether a change solves a task.
+"""Agentic correctness grader, an LLM verdict on whether a change solves a task.
 
 This is an opt-in alternative to the deterministic hidden-test verifier, for
 tasks where the prompt is intentionally *terse* and realistic (closer to how
@@ -6,7 +6,7 @@ developers actually ask an agent for help) rather than a fully-specified issue
 whose hidden test asserts an exact value. The grader, not the prompt, holds the
 ground truth: it judges the agent's diff against a list of plain-English
 ``acceptance_criteria`` (never shown to the agent), with the gold patch offered
-as one reference solution — so a correct change that takes a different shape than
+as one reference solution, so a correct change that takes a different shape than
 the reference still passes.
 
 A task opts in with ``metadata.grader: "agentic"`` and an ``acceptance_criteria``
@@ -42,7 +42,7 @@ _SYSTEM = (
     "only whether a candidate code change correctly accomplishes the task, "
     "judged against the acceptance criteria. A correct change that differs in "
     "shape from the reference solution is still correct; an incomplete or "
-    "incorrect change is not. Do not reward style — only correctness."
+    "incorrect change is not. Do not reward style, only correctness."
 )
 
 
@@ -51,7 +51,7 @@ class GraderResult:
     """Outcome of an agentic grade.
 
     ``correct`` / ``score`` are ``None`` when the grader could not produce a
-    verdict (provider error or unparsable reply) — never a fabricated pass/fail.
+    verdict (provider error or unparsable reply), never a fabricated pass/fail.
     """
 
     correct: bool | None
@@ -72,14 +72,14 @@ def grade_correctness(
     """Grade a candidate ``patch`` against ``acceptance_criteria`` via ``provider``.
 
     With ``samples > 1`` the grader is polled that many times and the **majority**
-    verdict wins (ties resolve to incorrect — a benchmark should not pass on a
+    verdict wins (ties resolve to incorrect, a benchmark should not pass on a
     coin flip). The fraction of samples that agreed with the majority is reported
     as ``self_consistency`` in ``details``, so callers can see how stable the
     grade was. A single unparsable or failed sample is dropped, not fatal, as
     long as at least one verdict survives.
     """
     if not patch.strip():
-        # No change at all is never a solution — and lets the pre-patch base
+        # No change at all is never a solution, and lets the pre-patch base
         # state grade as incorrect without spending a model call.
         return GraderResult(False, 0.0, {"reason": "no patch to grade"})
     if not acceptance_criteria:

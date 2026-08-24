@@ -89,7 +89,7 @@ def main() -> int:
     apply(
         ROOT / "README.md",
         [
-            (r"— \d+ gold-verified tasks", f"— {n} gold-verified tasks"),
+            (r",  \d+ gold-verified tasks", f",  {n} gold-verified tasks"),
             (r"holds \*\*\d+\*\* gold-verified", f"holds **{n}** gold-verified"),
         ],
         hard_fail=False,

@@ -6,7 +6,7 @@ cost priors, then the same task on other models (scaled by relative list price),
 then the model's median run cost, then a conservative default derived from
 observed data.
 
-These are planning numbers — actual spend varies with model behavior, retries,
+These are planning numbers, actual spend varies with model behavior, retries,
 and judges. Use ``recommended_usd`` as a minimum credit buffer, not a hard cap.
 """
 
@@ -68,7 +68,7 @@ _PROVIDER_LABEL = {
 
 
 def _env_var_for(spec: str, provider: str) -> str:
-    """The key a run will actually read — a routed run needs a different one than
+    """The key a run will actually read, a routed run needs a different one than
     its provider's default (e.g. Muse Spark via OpenRouter)."""
     route = route_manifest(spec)
     if route and route["via"] == "openrouter":
@@ -415,7 +415,7 @@ def estimate_plan(  # noqa: PLR0912
         elif n_prior_only > 0:
             notes.append(f"Partial bundled priors for {n_prior_only} task(s).")
         if confidence == "low":
-            notes.append("Limited history; defaults are conservative — load extra credit.")
+            notes.append("Limited history; defaults are conservative, load extra credit.")
         unknown = [t.task_id for t in per_task if t.source == "default"]
         if unknown:
             notes.append(f"No history for {len(unknown)} task(s); using defaults.")

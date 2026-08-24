@@ -135,7 +135,7 @@ def test_new_model_is_a_single_new_column(tmp_path: Path) -> None:
     ha = task_hash(load_task("a", suite))
     hb = task_hash(load_task("b", suite))
     runs = tmp_path / "runs"
-    # Cached baseline (opus) — never re-run.
+    # Cached baseline (opus), never re-run.
     _write_run(runs, "a", "opus", "high", 1.0, 0.5, ha)
     _write_run(runs, "b", "opus", "high", 1.0, 0.7, hb)
     assert len(build_matrix("s", runs_dir=runs, tasks_base=tmp_path)["cells"]) == 1

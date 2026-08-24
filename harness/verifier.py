@@ -4,7 +4,7 @@ A task declares its tests in ``metadata.tests`` as two lists of
 ``{"name", "cmd"}`` entries; each ``cmd`` runs in the workspace and **exit code
 0 means the test passed**:
 
-- ``fail_to_pass``: must fail on the starting repo and pass after the fix — the
+- ``fail_to_pass``: must fail on the starting repo and pass after the fix, the
   real signal. ``functional`` is the fraction of these that pass.
 - ``pass_to_pass``: must keep passing (regression guard). If any of these fail,
   ``functional`` is gated to 0.0 regardless of the fail-to-pass results.
@@ -12,7 +12,7 @@ A task declares its tests in ``metadata.tests`` as two lists of
 This runs at scoring time, after copying the task's hidden ``tests/`` into the
 workspace (so the agent never saw them while solving).
 
-Test commands are dispatched through a ``Runner`` — a callable that takes
+Test commands are dispatched through a ``Runner``: a callable that takes
 ``(cmd, workspace, timeout)`` and returns an exit code. The default runs on the
 host; the agent loop passes a runner that ``exec``s inside the Docker sandbox so
 verification happens in the same isolated, reproducible environment as the run.

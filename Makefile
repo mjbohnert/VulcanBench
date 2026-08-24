@@ -14,7 +14,7 @@ VULCANBENCH := $(VENV_BIN)/vulcanbench
 # the venv. This makes `make ci` behave the same from any shell.
 export PATH := $(abspath $(VENV_BIN)):$(PATH)
 
-.PHONY: help setup clean install dev test lint typecheck fmt ci docker-up docker-down validate-tasks sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-all
+.PHONY: help setup clean install dev test lint no-emdash typecheck fmt ci docker-up docker-down validate-tasks sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-all
 .DEFAULT_GOAL := help
 
 help: ## Show this help
@@ -45,9 +45,13 @@ test: setup ## Run fast unit tests (target >=80% coverage on harness)
 test-all: setup ## Run all tests including slow/Docker (CI)
 	$(PYTEST)
 
-lint: setup ## Ruff lint + format check (zero warnings enforced)
+lint: setup ## Ruff lint + format check (zero warnings enforced) + no em-dashes
 	$(RUFF) check .
 	$(RUFF) format --check .
+	$(VENV_BIN)/python scripts/check_no_emdash.py
+
+no-emdash: setup ## Fail if any project-authored file contains an em-dash (U+2014)
+	$(VENV_BIN)/python scripts/check_no_emdash.py
 
 fmt: setup ## Auto-format with ruff
 	$(RUFF) format .
@@ -60,15 +64,15 @@ ci: lint typecheck test ## Full local CI (lint + types + fast tests)
 
 sandbox-image: ## Build the Docker sandbox base image (Python, Go, Node)
 	docker build -t vulcanbench/sandbox:base -f sandbox/Dockerfile.base .
-	@echo "✅ Built vulcanbench/sandbox:base — default for most tasks"
+	@echo "✅ Built vulcanbench/sandbox:base, default for most tasks"
 
 sandbox-image-rust: sandbox-image ## Build Rust sandbox image (extends base)
 	docker build -t vulcanbench/sandbox:rust -f sandbox/Dockerfile.rust .
-	@echo "✅ Built vulcanbench/sandbox:rust — auto-selected for Rust tasks"
+	@echo "✅ Built vulcanbench/sandbox:rust, auto-selected for Rust tasks"
 
 sandbox-image-rust-2024: sandbox-image ## Build Rust sandbox image on a newer toolchain (edition 2024 crates)
 	docker build -t vulcanbench/sandbox:rust-2024 -f sandbox/Dockerfile.rust-2024 .
-	@echo "✅ Built vulcanbench/sandbox:rust-2024 — for crates whose MSRV exceeds :rust"
+	@echo "✅ Built vulcanbench/sandbox:rust-2024, for crates whose MSRV exceeds :rust"
 
 sandbox-image-all: sandbox-image sandbox-image-rust sandbox-image-rust-2024 ## Build base + Rust sandbox images
 

@@ -1,6 +1,6 @@
 # Contributing to VulcanBench
 
-VulcanBench is a fully open-source, community-driven benchmark. Contributions of all kinds are welcome — bug fixes, new tasks, documentation improvements, and provider integrations.
+VulcanBench is a fully open-source, community-driven benchmark. Contributions of all kinds are welcome, bug fixes, new tasks, documentation improvements, and provider integrations.
 
 ## Table of Contents
 
@@ -54,9 +54,9 @@ All PRs must pass `make ci` before review.
 
 ## Code Style
 
-- **Python** — [Ruff](https://docs.astral.sh/ruff/) (lint + format) and strict [mypy](https://mypy.readthedocs.io/). Zero warnings enforced. Run `make fmt` to auto-fix.
-- **TypeScript/TSX** — ESLint inside `dashboard/`. Run `npm run lint` from that directory.
-- Keep imports at the top of every file. Avoid broad `except Exception: pass` — scope your error handling and log to the trace where possible.
+- **Python**: [Ruff](https://docs.astral.sh/ruff/) (lint + format) and strict [mypy](https://mypy.readthedocs.io/). Zero warnings enforced. Run `make fmt` to auto-fix.
+- **TypeScript/TSX**: ESLint inside `dashboard/`. Run `npm run lint` from that directory.
+- Keep imports at the top of every file. Avoid broad `except Exception: pass`: scope your error handling and log to the trace where possible.
 
 ## Versioning
 
@@ -67,19 +67,19 @@ user-facing features and **patch** bumps for bug fixes and docs-only changes.
 **Bump the version in the same PR as the feature.** When you add a provider,
 CLI command, metric, or other user-visible capability:
 
-1. **`harness/__init__.py`** — update `__version__` (canonical runtime version;
+1. **`harness/__init__.py`**: update `__version__` (canonical runtime version;
    used by `vulcanbench --version` and the backend API)
-2. **`pyproject.toml`** — set `version` to the same string (PyPI / packaging)
-3. **`CHANGELOG.md`** — add a dated entry under the new version (`### Added`,
+2. **`pyproject.toml`**: set `version` to the same string (PyPI / packaging)
+3. **`CHANGELOG.md`**: add a dated entry under the new version (`### Added`,
    `### Changed`, `### Fixed` as appropriate)
-4. **`README.md`** — update the version blurb near the top if it references the
+4. **`README.md`**: update the version blurb near the top if it references the
    release number
-5. **`tests/test_cli.py`** — update the `test_version` assertion to match
-6. **Tweet copy** — when finishing a user-facing release, include ready-to-post
+5. **`tests/test_cli.py`**: update the `test_version` assertion to match
+6. **Tweet copy**: when finishing a user-facing release, include ready-to-post
    tweet text in the PR description or chat reply (see [Release tweet](#release-tweet)
    below). Agents working in this repo must do this whenever they bump the version.
 
-`backend/app.py` imports `__version__` from `harness` — no separate edit needed
+`backend/app.py` imports `__version__` from `harness`: no separate edit needed
 there.
 
 Release tags use the `v` prefix (e.g. `v0.3.0`). Do not tag or publish from a
@@ -118,7 +118,7 @@ lightly edit. Put it in the PR body or hand it to the user in chat.
 **Format**
 
 - Lead with `VulcanBench vX.Y.Z` and one-line what it is (open-source LLM coding benchmark)
-- 2–4 concrete bullets as short phrases (new command, fix, suite — not internal refactors)
+- 2–4 concrete bullets as short phrases (new command, fix, suite, not internal refactors)
 - Link: `https://github.com/morganlinton/VulcanBench`
 - Stay under ~280 characters when possible; use a thread only if necessary
 - Tone: factual, excited but not hype-y; no hashtag spam (0–2 relevant tags max)
@@ -126,10 +126,10 @@ lightly edit. Put it in the PR body or hand it to the user in chat.
 **Example**
 
 ```text
-VulcanBench v0.3.0 is out — open-source benchmark for LLMs on real coding tasks.
+VulcanBench v0.3.0 is out, open-source benchmark for LLMs on real coding tasks.
 
-• vulcanbench estimate — see API spend before you run
-• v1-compare — 12-task head-to-head suite
+• vulcanbench estimate, see API spend before you run
+• v1-compare, 12-task head-to-head suite
 • Fixes Go scoring in Docker + GPT-5 temperature
 
 https://github.com/morganlinton/VulcanBench
@@ -142,7 +142,7 @@ See [docs/TASK_CONTRIBUTION.md](docs/TASK_CONTRIBUTION.md) for the full format s
 In brief:
 
 1. Create `tasks/v1/<task-id>/` with `metadata.json`, `issue.md`, `repo/`, `tests/`, `gold_patch.diff`, and `expected_metrics.json`.
-2. Run `vulcanbench validate-task tasks/v1/<task-id>` — the gold patch must solve it (`functional == 1.0`), `fail_to_pass` tests must genuinely fail pre-patch, and scoring must be deterministic.
+2. Run `vulcanbench validate-task tasks/v1/<task-id>`: the gold patch must solve it (`functional == 1.0`), `fail_to_pass` tests must genuinely fail pre-patch, and scoring must be deterministic.
 3. Register the task in `tasks/v1/suite.json`, then run `python scripts/sync_task_counts.py` to ratchet the dataset floors in `tests/test_dataset.py` and the documented counts. `python scripts/sync_task_counts.py --check` fails if anything is out of sync (CI-friendly, no writes).
 4. Open a PR using the task-submission PR template. Include provenance and decontamination notes as required by the validator.
 
@@ -172,7 +172,7 @@ suite earning its run cost:
 Three grading modes, chosen per task via `metadata.grader`:
 
 - **`tests`** (default): hidden `fail_to_pass`/`pass_to_pass` commands. Deterministic
-  and exact — but the `issue.md` must specify the expected behavior (the spec gate
+  and exact, but the `issue.md` must specify the expected behavior (the spec gate
   enforces this), since the agent can't see the tests.
 - **`agentic`**: an LLM grades the agent's diff against a `metadata.acceptance_criteria`
   list (plain-English requirements, never shown to the agent). This lets the prompt
@@ -182,9 +182,9 @@ Three grading modes, chosen per task via `metadata.grader`:
   change grades incorrect using the offline mock grader. Run it against a strong,
   independent `--judge-model` so a model isn't grading its own output. Because LLM
   grading is non-deterministic, keep `tests` for anything needing reproducible scoring.
-- **`rubric`**: an LLM grades **mergeability**, not just correctness — the axis that
+- **`rubric`**: an LLM grades **mergeability**, not just correctness, the axis that
   still separates frontier models once functional correctness saturates. The task ships
-  a `metadata.rubric` with `blocking` criteria (failing **any** scores 0 — correctness,
+  a `metadata.rubric` with `blocking` criteria (failing **any** scores 0, correctness,
   scope) and `weighted` quality criteria (`{"weight": n, "criterion": "..."}`); the
   `functional` score becomes continuous in `[0, 1]` (the weighted fraction of passing
   quality criteria), so a working-but-unmergeable change scores below a clean one.
@@ -194,11 +194,11 @@ Three grading modes, chosen per task via `metadata.grader`:
   See `tasks/v1/py-orders-rubric` for a worked example.
 
   Before relying on an agentic or rubric task, **prove its grader is trustworthy**. Add a
-  `grader_cases.json` with labeled candidate diffs (known-correct and known-incorrect — for
+  `grader_cases.json` with labeled candidate diffs (known-correct and known-incorrect, for
   a rubric, include *working-but-unmergeable* diffs as `incorrect`) and run
   `python scripts/grader_eval.py --task tasks/v1/<id> --model <grader> --samples 5`:
   it reports accuracy, false-pass rate, and self-consistency. A non-zero false-pass rate
-  means the grader rubber-stamps wrong answers — fix the criteria (or the grader model)
+  means the grader rubber-stamps wrong answers, fix the criteria (or the grader model)
   before shipping. Use `metadata.grader_samples` to grade by majority vote at run time.
 
 ## Submitting a Pull Request
@@ -206,16 +206,16 @@ Three grading modes, chosen per task via `metadata.grader`:
 1. Fork the repo and create a branch from `main`.
 2. Make your changes and ensure `make ci` passes cleanly.
 3. Write or update tests for any new behaviour. Coverage must stay at or above 80%.
-4. Fill in the PR template — describe what changed, why, and how you tested it.
+4. Fill in the PR template, describe what changed, why, and how you tested it.
 5. PRs that add or modify tasks must include `make validate-tasks` output.
 
 ## Reporting Issues
 
 Use the GitHub issue templates:
 
-- **Bug report** — unexpected behaviour in the harness, CLI, or dashboard.
-- **Feature request** — new provider, metric, or tooling idea.
-- **Task feedback** — issues with a specific benchmark task (wrong gold patch, flaky test, etc.).
+- **Bug report**: unexpected behaviour in the harness, CLI, or dashboard.
+- **Feature request**: new provider, metric, or tooling idea.
+- **Task feedback**: issues with a specific benchmark task (wrong gold patch, flaky test, etc.).
 
 For security vulnerabilities, see [SECURITY.md](SECURITY.md).
 

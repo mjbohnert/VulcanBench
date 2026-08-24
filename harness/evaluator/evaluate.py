@@ -55,7 +55,7 @@ def evaluate_run(
     When ``grader == "agentic"`` the deterministic test-based ``functional`` is
     replaced by an LLM correctness verdict over the agent's ``patch``. When
     ``grader == "rubric"`` it is replaced by a mergeability rubric score (blocking
-    + weighted criteria) — a continuous ``functional`` in [0, 1] that separates
+    + weighted criteria), a continuous ``functional`` in [0, 1] that separates
     working-but-unmergeable changes from clean ones (see
     :mod:`harness.evaluator.agentic_grader`). Tasks keep the default ``"tests"``
     grader unless their metadata opts in.
@@ -162,7 +162,7 @@ def _agentic_functional(
     Returns the (possibly unchanged) functional score and the grade detail. When
     no grader provider is available or the grader cannot produce a verdict, the
     score stays at the incoming value (0.0 for a test-less agentic task) and the
-    reason is recorded — a run only passes when the grader affirmatively says so.
+    reason is recorded, a run only passes when the grader affirmatively says so.
     """
     if provider is None:
         return functional, {"correct": None, "reason": "no grader provider (missing API key)"}

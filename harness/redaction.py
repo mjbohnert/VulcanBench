@@ -7,7 +7,7 @@ common credential shapes plus the literal values of known secret env vars;
 per-string length cap.
 
 This is defense-in-depth: best-effort pattern matching, not a guarantee. It
-errs toward over-redaction (a code line that looks like a key gets masked) —
+errs toward over-redaction (a code line that looks like a key gets masked),
 acceptable for an artifact whose point is to be publishable.
 """
 

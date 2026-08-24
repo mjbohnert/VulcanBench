@@ -1,6 +1,6 @@
 """Scoring logic for the voice suite: normalization, matching, judge path.
 
-The scorer is the validity linchpin of the voice-tax comparison — it must be
+The scorer is the validity linchpin of the voice-tax comparison, it must be
 modality-blind and stable under STT rendering differences (digits vs number
 words, punctuation, filler phrasing).
 """
@@ -136,7 +136,7 @@ def test_judge_garbage_reply_flagged() -> None:
 
 
 def test_scorer_is_modality_blind() -> None:
-    """Structural symmetry: the scorer takes only (item, text, judge) — there
+    """Structural symmetry: the scorer takes only (item, text, judge), there
     is no modality parameter to diverge on."""
 
     params = list(inspect.signature(score_response).parameters)

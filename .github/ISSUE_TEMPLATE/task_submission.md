@@ -11,7 +11,7 @@ labels: task-submission
 **Category:** <bug_fix | feature | refactor>
 **Language(s):** <python | go | typescript | javascript>
 
-**Issue (what the agent is asked to do — no solution):**
+**Issue (what the agent is asked to do, no solution):**
 
 <describe the bug or feature>
 

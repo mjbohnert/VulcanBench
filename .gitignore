@@ -171,3 +171,13 @@ docker-compose.override.yml
 .kilo/
 runs-*/
 audio_cache/
+
+# Quarantined contaminated runs (Harness Study No. 01): kept as evidence of the
+# web-leakage finding, held outside runs/ so they never aggregate into results.
+runs-contaminated/
+
+# Second sweep: web blocked but answer-key readable (pre-containment).
+runs-contaminated-fs/
+
+# Partial xhigh level (credits exhausted mid-level); resume with --only-missing.
+runs-incomplete-xhigh/

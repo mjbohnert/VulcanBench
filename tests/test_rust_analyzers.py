@@ -3,7 +3,7 @@
 Exercises the Rust branches of the quality/security evaluators with
 subprocess mocked: cargo present/absent, clippy JSON parsing, cargo-audit
 severity mapping, unsafe delta counting, and budget-exhausted paths.
-All paths must return score=None with a reason when tools are absent —
+All paths must return score=None with a reason when tools are absent,
 never a fabricated 0.0 or 1.0.
 """
 

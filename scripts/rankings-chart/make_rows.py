@@ -1,4 +1,4 @@
-"""VulcanBench suite v3 — one-row-per-model leaderboard, 16:9.
+"""VulcanBench suite v3, one-row-per-model leaderboard, 16:9.
 
 The published rankings card ranks 33 model/effort columns. This ranks the 12
 models instead, each at its best-scoring effort, and marks the statistical tie
@@ -38,7 +38,7 @@ pts = best_per_model(load_rows())
 leader = pts[0]
 # Tie band: the gap to the leader is smaller than the two scores' combined
 # uncertainty, sqrt(se_leader^2 + se^2). "Do the error bars overlap?" is the
-# tempting test and it is wrong in the conservative direction — it calls the
+# tempting test and it is wrong in the conservative direction, it calls the
 # entire field tied here, including models 16 points back.
 for p in pts:
     combined = (leader["se"] ** 2 + p["se"] ** 2) ** 0.5
@@ -67,7 +67,7 @@ fig.text(L + 0.040, 0.947, "VulcanBench", fontsize=26, color=INK, family=BRAND, 
 fig.text(
     L + 0.228,
     0.947,
-    "Eval Suite 3 — model leaderboard",
+    "Eval Suite 3, model leaderboard",
     fontsize=26,
     color=MUTED,
     family=BRAND_MED,
@@ -85,7 +85,7 @@ fig.text(
 fig.text(
     L,
     0.822,
-    f"First place is a crowd — {n_tied} of {len(pts)} models sit within the noise of the lead.",
+    f"First place is a crowd, {n_tied} of {len(pts)} models sit within the noise of the lead.",
     fontsize=15,
     color=INK,
     family=BRAND_MED,
@@ -124,7 +124,7 @@ ax.add_patch(
 ax.text(
     1.6,
     band_bottom + 0.28,
-    f"within noise of the lead — top {n_tied} of {len(pts)}",
+    f"within noise of the lead, top {n_tied} of {len(pts)}",
     fontsize=10.5,
     color=MUTED,
     family=SANS,
@@ -255,9 +255,9 @@ fig.text(
     L,
     0.104,
     "Each model appears once, at its best-scoring effort level; ties break to the cheaper run. "
-    "Bars start at zero — the field really is this tightly packed. Whiskers are ±1 stderr; the "
+    "Bars start at zero, the field really is this tightly packed. Whiskers are ±1 stderr; the "
     "tie test compares the gap to the leader against the pair's\n"
-    "combined ±1 stderr — at ±2, every model in the field ties.\n"
+    "combined ±1 stderr, at ±2, every model in the field ties.\n"
     "* partial task coverage: Claude Fable 5 19/23 (safety-filter refusals), Kimi K3 19/23, "
     "Claude Haiku 4.5 21/23, GPT-5.6 Luna 7/23.   † Claude Opus 5 is from vulcanbench.com "
     "Report 10 (single runs, 2026-07-26), not run in this checkout.\n"

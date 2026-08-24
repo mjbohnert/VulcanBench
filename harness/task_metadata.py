@@ -101,7 +101,7 @@ def resolve_max_steps(
     """Resolve step budget from metadata; optional CLI value caps (does not raise).
 
     With ``override=True`` the CLI value is taken verbatim, even above the task
-    default — an ablation mode; such runs are not comparable to capped runs.
+    default, an ablation mode; such runs are not comparable to capped runs.
     """
     if override and cli_max_steps is not None:
         return cli_max_steps
@@ -133,7 +133,7 @@ def resolve_agent_timeout_s(
     """Agent wall-clock budget from hints/scale defaults; CLI ``--timeout`` caps when set.
 
     With ``override=True`` the CLI value is taken verbatim, even above the task
-    default — an ablation mode; such runs are not comparable to capped runs.
+    default, an ablation mode; such runs are not comparable to capped runs.
     """
     if override and cli_timeout is not None:
         return cli_timeout

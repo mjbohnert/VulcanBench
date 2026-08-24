@@ -237,7 +237,7 @@ def _rewrite_workspace_members(cargo_toml: Path, kept_members: set[str]) -> None
             bracket_depth += stripped.count("[") - stripped.count("]")
             if bracket_depth <= 0:
                 members_done = True
-            continue  # Skip this line — it's part of the old array.
+            continue  # Skip this line, it's part of the old array.
 
         new_lines.append(line)
 
@@ -286,7 +286,7 @@ def _cargo_prune(slice_root: Path, target_crates: list[str]) -> None:
         _cargo_metadata(slice_root)
     except RuntimeError as e:
         raise RuntimeError(
-            f"pruned workspace fails cargo metadata — the slice cannot resolve. "
+            f"pruned workspace fails cargo metadata, the slice cannot resolve. "
             f"Target crates: {target_crates}. Error: {e}"
         ) from e
 

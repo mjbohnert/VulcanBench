@@ -1,10 +1,10 @@
-# VulcanBench report — v1
+# VulcanBench report, v1
 
 _Generated 2026-06-24T18:12:15.773823+00:00_
 
 - **156** runs · **3** models · **52** tasks · total cost $21.690443
 
-> ⚠️ **3 run(s) scored against non-decontaminated task(s)** (oss-inflection-titleize) — these tasks derive from public sources that predate model training cutoffs; treat their scores with care.
+> ⚠️ **3 run(s) scored against non-decontaminated task(s)** (oss-inflection-titleize), these tasks derive from public sources that predate model training cutoffs; treat their scores with care.
 
 ## Models
 

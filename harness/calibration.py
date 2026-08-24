@@ -3,7 +3,7 @@
 ``calibrate_tasks`` derives each task's empirical difficulty from observed solve
 rates across models, compares it against the hand-labeled ``difficulty``, and
 returns a JSON-serializable result. Below the evidence gate the status is
-``insufficient_data`` — never a fabricated label.
+``insufficient_data``: never a fabricated label.
 
 Sort order: disagreements first, then calibrated, then insufficient; ties by
 ``task_id``.
@@ -263,8 +263,8 @@ def calibration_to_markdown(cal: dict[str, Any]) -> str:
         for e in calibrated:
             sr = e["solve_rate"]
             se = e["solve_rate_stderr"]
-            sr_str = f"{sr:.4f} ± {se:.4f}" if sr is not None else "—"
-            label = e["labeled_difficulty"] or "—"
+            sr_str = f"{sr:.4f} ± {se:.4f}" if sr is not None else ""
+            label = e["labeled_difficulty"] or ""
             lines.append(
                 f"| {e['task_id']} | {label} | {e['empirical_difficulty']} | "
                 f"{sr_str} | {e['n_attempts']} | {e['n_models']} |"

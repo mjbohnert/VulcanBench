@@ -86,7 +86,9 @@ ROWS = [
 ]
 
 
-def draw_text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], value: str, style: str, fill: str) -> None:
+def draw_text(
+    draw: ImageDraw.ImageDraw, xy: tuple[int, int], value: str, style: str, fill: str
+) -> None:
     draw.text(xy, value, font=FONTS[style], fill=fill)
 
 
@@ -148,7 +150,9 @@ def main() -> None:
         draw.rounded_rectangle((82, y, 1718, y + 148), radius=20, fill=fill, outline=GRID, width=2)
         draw.rounded_rectangle((82, y, 91, y + 148), radius=5, fill=row["accent"])
 
-        draw_text(draw, (columns["difficulty"], y + 53), row["difficulty"], "difficulty", row["accent"])
+        draw_text(
+            draw, (columns["difficulty"], y + 53), row["difficulty"], "difficulty", row["accent"]
+        )
         draw_text(draw, (columns["model"], y + 35), row["model"], "model", WHITE)
 
         effort_box = draw.textbbox((0, 0), row["effort"], font=FONTS["effort"])

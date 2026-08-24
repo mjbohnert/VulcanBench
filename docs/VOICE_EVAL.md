@@ -8,7 +8,7 @@ condition, over paired items.
 > **Framing note.** This suite measures a delta between input modalities for
 > the same model. It makes no claim about the validity of other benchmarks.
 
-> **First results** (July 31, 2026, Report No. 11 — see
+> **First results** (July 31, 2026, Report No. 11, see
 > `docs/results/voice-v1-2026-07/`): Grok Voice Think Fast 2.0 scores
 > 99.0% text / 95.7% audio (voice tax **+3.3 pp**); GPT Realtime 97.5% /
 > 93.5% (**+4.0 pp**). Both models lose ~10 pp on spoken arithmetic; Grok
@@ -17,7 +17,7 @@ condition, over paired items.
 
 ## Question set
 
-`tasks/voice-v1/questions.jsonl` — 200 original short-form questions with
+`tasks/voice-v1/questions.jsonl`: 200 original short-form questions with
 objectively checkable answers, 40 per category:
 
 | Category | Probe |
@@ -30,7 +30,7 @@ objectively checkable answers, 40 per category:
 
 All items were written for this suite in July 2026 (see
 `decontamination_notes` in `tasks/voice-v1/suite.json`); none are drawn from
-public benchmarks — TTS-rendered public evals are trivially trainable.
+public benchmarks, TTS-rendered public evals are trivially trainable.
 
 ## Audio pipeline
 
@@ -48,7 +48,7 @@ public benchmarks — TTS-rendered public evals are trivially trainable.
   item id).
 - **Cache**: rendered audio lands in `audio_cache/voice-v1/` keyed by
   `(question_id, voice, rate, noise)`, with a sha256 of the question text
-  per render — editing a question invalidates its audio. Reruns never
+  per render, editing a question invalidates its audio. Reruns never
   re-synthesize fresh files.
 
 ## Models
@@ -65,18 +65,18 @@ Adapters implement `answer_text(question)` and `answer_audio(wav_path)`
 
 The first three request **text output**, so scoring rarely needs
 transcription. `grok-voice` is true speech-to-speech: it answers in audio
-in *both* modes (only the input modality differs — the quantity under
+in *both* modes (only the input modality differs, the quantity under
 measurement); its own transcript is scored, with the pinned STT fallback
 (`gpt-4o-transcribe`) when a transcript is absent. Any STT use is recorded
 per-row as `transcribed_by`. The grok adapter pins
-`grok-voice-think-fast-2.0` explicitly — `grok-voice-latest` aliases 1.0
+`grok-voice-think-fast-2.0` explicitly, `grok-voice-latest` aliases 1.0
 until 2026-08-05.
 
 API keys (environment, never hardcoded): `OPENAI_API_KEY` (TTS, Realtime,
 STT), `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `XAI_API_KEY`, plus the judge
 provider's key.
 
-## Scoring — one scorer, both modes
+## Scoring, one scorer, both modes
 
 `harness/voice/scorer.py::score_response` is the single entry point for both
 modalities: normalize (case, punctuation, articles, number-words→digits) →
@@ -94,7 +94,7 @@ vulcanbench voice run -m openai-realtime --dry-run
 # 2. pre-render the audio cache (optional; run also renders on demand)
 vulcanbench voice render
 
-# 3. full run, resumable — re-invoke with --run-id to skip finished units
+# 3. full run, resumable, re-invoke with --run-id to skip finished units
 vulcanbench voice run -m openai-realtime,gemini-live,qwen-omni,grok-voice
 
 # 4. report: voice tax overall / per category / per condition + latency

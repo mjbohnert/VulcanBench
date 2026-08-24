@@ -260,7 +260,7 @@ def _agg_signature(result: dict) -> dict:  # type: ignore[type-arg]
 
 
 def test_parallel_matches_sequential(tmp_path: Path) -> None:
-    """max_concurrency must not change results — only wall-clock."""
+    """max_concurrency must not change results, only wall-clock."""
     base = tmp_path / "tasks"
     _make_task(base / "demo", "task-a", functional=1.0)
     _make_task(base / "demo", "task-b", functional=0.0)  # discriminating case

@@ -3,11 +3,11 @@
 ``scan_leaderboard`` returns one row per run; ``aggregate_by_model`` rolls those
 up into a per-model ranking with statistics that survive repeated runs:
 
-- **pass@1** — expected single-attempt solve rate: for each task, the fraction of
+- **pass@1**: expected single-attempt solve rate: for each task, the fraction of
   that task's attempts that scored ``functional == 1.0``, averaged over tasks.
-- **pass@k** — solved at least once: for each task, 1 if any attempt solved it,
+- **pass@k**: solved at least once: for each task, 1 if any attempt solved it,
   averaged over tasks (``k`` = attempts per task).
-- **stderr** — standard error across tasks (0 with fewer than two tasks).
+- **stderr**: standard error across tasks (0 with fewer than two tasks).
 
 Reporting a single noisy run per model is misleading; running each task ``N``
 times (``--repeat N``) and reporting pass@1 ± stderr / pass@k makes the

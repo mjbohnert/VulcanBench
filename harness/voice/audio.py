@@ -143,7 +143,7 @@ class AudioCache:
 
     Layout: ``<root>/<item_id>/<voice>_<rate>_<noise>.wav`` with a sidecar
     ``manifest.json`` per item recording the sha256 of the question text each
-    file was rendered from — editing a question invalidates its renders.
+    file was rendered from, editing a question invalidates its renders.
     """
 
     def __init__(self, root: Path, noise_dir: Path | None = None) -> None:

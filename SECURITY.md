@@ -28,10 +28,10 @@ You can expect an acknowledgement within **72 hours** and a status update within
 
 Areas of particular interest:
 
-- **Docker sandbox escape** — the sandbox runs untrusted agent-generated commands in a non-root, network-off container. Any path that allows host escape is critical.
-- **Path traversal** — the backend API resolves run IDs against `RUNS_DIR`; bypasses are high severity.
-- **Secret leakage** — run artifacts are redacted before being written to disk; gaps in `harness/redaction.py` are high severity.
-- **Dependency vulnerabilities** — please report known CVEs in pinned dependencies.
+- **Docker sandbox escape**: the sandbox runs untrusted agent-generated commands in a non-root, network-off container. Any path that allows host escape is critical.
+- **Path traversal**: the backend API resolves run IDs against `RUNS_DIR`; bypasses are high severity.
+- **Secret leakage**: run artifacts are redacted before being written to disk; gaps in `harness/redaction.py` are high severity.
+- **Dependency vulnerabilities**: please report known CVEs in pinned dependencies.
 
 Out of scope: issues in intentionally-buggy task fixture code under `tasks/v1/*/repo/`.
 

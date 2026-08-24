@@ -28,7 +28,7 @@ npm run dev
 
 ## Smoke test (offline, free)
 
-`mock:synthetic` is deterministic and free — use it to confirm the harness runs
+`mock:synthetic` is deterministic and free, use it to confirm the harness runs
 end-to-end before spending any tokens. `--sandbox local` skips Docker, which is
 fine here because the mock model's commands are canned (real models default to
 the Docker sandbox):
@@ -40,7 +40,7 @@ vulcanbench run --suite v1-micro --model mock:synthetic --no-judges --sandbox lo
 
 ## Your first real run
 
-**1. Build the sandbox image** (real runs execute model-written shell commands —
+**1. Build the sandbox image** (real runs execute model-written shell commands, 
 run them in Docker, not on your host):
 
 ```bash
@@ -58,7 +58,7 @@ export DASHSCOPE_API_KEY=sk-...        # for qwen:* models (DashScope)
 export DEEPSEEK_API_KEY=sk-...         # for deepseek:* models
 ```
 
-**3. Start small and cheap** — one task, in Docker (the default), judges off,
+**3. Start small and cheap**: one task, in Docker (the default), judges off,
 with a spend cap:
 
 ```bash
@@ -88,7 +88,7 @@ vulcanbench report --suite v1 -o report.md
 > - Preflight task health before a full suite spend:
 >   `make validate-tasks-docker` (gold + verifiers inside Docker; builds base + Rust images)
 > - `--judges` is **on by default** (a 3-model `human_like` ensemble reusing the
->   run model) — it roughly triples token cost/latency. Use `--no-judges` for
+>   run model), it roughly triples token cost/latency. Use `--no-judges` for
 >   cheap functional-only runs.
 > - `--max-cost` is a soft cap that stops launching new runs (suite runs only)
 >   and requires a priced model; cost/latency are recorded per run regardless.
@@ -96,7 +96,7 @@ vulcanbench report --suite v1 -o report.md
 >   once its own spend crosses the value (overshoot bounded by one model call),
 >   the summary records `cost_capped: true`, and the partial result is still
 >   graded honestly. Ideal for the hard tier, where a failing run can otherwise
->   ruminate to the step cap — `--max-run-cost 2.50` turns "$8 DNF" into "$2.50
+>   ruminate to the step cap, `--max-run-cost 2.50` turns "$8 DNF" into "$2.50
 >   DNF" and loses no signal (works on single `--task` and suite/sweep runs).
 > - Default `--sandbox docker` runs the agent's shell commands in an isolated
 >   container. Use `--sandbox local` only for trusted dev loops (e.g.
@@ -123,7 +123,7 @@ What to know before using it:
 
 - **You're benchmarking model + vendor harness**, not the uniform VulcanBench
   loop. `claude-code:claude-opus-4-8` results are *not comparable* to
-  `anthropic:claude-opus-4-8` columns — the summary records
+  `anthropic:claude-opus-4-8` columns, the summary records
   `cli_agent.harness` so they can't be silently mixed. Use it for cheap dev
   iterations, task authoring, and smoke tests; keep API runs for published
   cross-provider numbers.
@@ -147,7 +147,7 @@ See [Subscription harness benchmarking](HARNESS_BENCHMARKING.md) for the full
 receipt schema, safety boundaries, cost methodology, and publication protocol.
 
 **Re-grade for free after a task changes.** Grading is deterministic, so when you
-edit a task's hidden tests or thresholds you don't need to re-run the model —
+edit a task's hidden tests or thresholds you don't need to re-run the model, 
 just re-grade the existing runs. `regrade` rebuilds each run's workspace from the
 task base plus the captured agent patch, overlays the *current* tests, and
 re-verifies in the sandbox at zero API cost:
@@ -175,7 +175,7 @@ vulcanbench compare --suite v2 --incomplete        # show gaps + how to fill the
 
 The suite is "frozen" implicitly by its task hashes (`compare` prints a short
 version id); change a task and its cached runs go stale and drop out. To add a
-model, run just that one model against the suite, then re-run `compare` — the
+model, run just that one model against the suite, then re-run `compare`: the
 baselines come from cache. That turns a new-model report from a full-matrix
 re-run into a single new column, and pairs naturally with `--max-run-cost` to
 bound the cost of that one column.
@@ -192,14 +192,14 @@ vulcanbench run --suite v2 -m anthropic:claude-opus-4-8 --effort high \
 ```
 
 > **Keep runs in one place.** Both the cache reuse (`--only-missing`) and the
-> comparison (`compare`) only see runs under the directory they scan — the
+> comparison (`compare`) only see runs under the directory they scan, the
 > `--output-dir` of the run for `--only-missing`, and `--runs-dir` for `compare`
 > (both default to `./runs`, scanned recursively). Runs written to *other*
 > directories are invisible to that lookup, so `--only-missing` will re-run a
 > cell whose cached result lives elsewhere, and `compare` will show it as
 > missing. Point every run at the same `--output-dir` (or consolidate run dirs
 > under one root before comparing) so the cache lookup sees the full history.
-> Nesting is fine — sub-directories are discovered — the runs just have to be
+> Nesting is fine, sub-directories are discovered, the runs just have to be
 > under the one root you scan.
 
 See the full example in the README and `docs/ARCHITECTURE.md`. To add your own
