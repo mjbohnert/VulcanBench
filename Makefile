@@ -14,7 +14,7 @@ VULCANBENCH := $(VENV_BIN)/vulcanbench
 # the venv. This makes `make ci` behave the same from any shell.
 export PATH := $(abspath $(VENV_BIN)):$(PATH)
 
-.PHONY: help setup clean install dev test lint no-emdash typecheck fmt ci docker-up docker-down validate-tasks sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-all
+.PHONY: help setup clean install dev test lint no-emdash typecheck fmt ci docker-up docker-down validate-tasks sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-node-ts sandbox-image-go-1.26 sandbox-image-all
 .DEFAULT_GOAL := help
 
 help: ## Show this help
@@ -74,11 +74,15 @@ sandbox-image-rust-2024: sandbox-image ## Build Rust sandbox image on a newer to
 	docker build -t vulcanbench/sandbox:rust-2024 -f sandbox/Dockerfile.rust-2024 .
 	@echo "✅ Built vulcanbench/sandbox:rust-2024, for crates whose MSRV exceeds :rust"
 
+sandbox-image-node-ts: sandbox-image ## Build Node/TypeScript sandbox image (extends base)
+	docker build -t vulcanbench/sandbox:node-ts -f sandbox/Dockerfile.node-ts .
+	@echo "✅ Built vulcanbench/sandbox:node-ts, auto-selected for JS/TS tasks"
+
 sandbox-image-go-1.26: sandbox-image ## Build Go 1.26 sandbox image (for repos whose go.mod needs go >= 1.24)
 	docker build -t vulcanbench/sandbox:go-1.26 -f sandbox/Dockerfile.go-1.26 .
 	@echo "✅ Built vulcanbench/sandbox:go-1.26, for Go modules newer than the base image's 1.23"
 
-sandbox-image-all: sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-go-1.26 ## Build base + Rust + Go-1.26 sandbox images
+sandbox-image-all: sandbox-image sandbox-image-rust sandbox-image-rust-2024 sandbox-image-node-ts sandbox-image-go-1.26 ## Build base + Rust + Node/TS + Go-1.26 sandbox images
 
 docker-up: ## Start local Postgres (see docker-compose.prod.yml for full stack)
 	docker compose up -d db

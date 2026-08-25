@@ -15,10 +15,10 @@ deterministically per item by hashing the item id) into the clean render at
 a fixed **10 dB SNR**, computed from RMS over the speech segment. The clip
 set and SNR are documented in ``tasks/voice-v1/noise/README.md``.
 
-Everything here is stdlib-only (``wave`` + ``audioop``). ``audioop`` is
-deprecated upstream but present on Python 3.12, which this repo pins; if the
-project moves to 3.13 these helpers need a replacement (tracked in the
-module docstring on purpose).
+Everything here is ``wave`` + ``audioop``. ``audioop`` is stdlib on Python
+3.12 but was removed in 3.13 (PEP 594); on 3.13+ the identical C code comes
+from the ``audioop-lts`` backport, which ``pyproject.toml`` pulls in behind a
+``python_version >= '3.13'`` marker. The import below is the same either way.
 """
 
 from __future__ import annotations
