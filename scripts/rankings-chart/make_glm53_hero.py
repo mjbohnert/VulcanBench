@@ -15,7 +15,6 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 from _common import BRAND, BRAND_MED, INK, INK2, MUTED, SANS, SURFACE, register_fonts
 
 HERE = Path(__file__).resolve().parent
@@ -52,13 +51,24 @@ def main() -> None:
 
     # framing line
     ax.text(
-        0.5, 0.74, "One model. Two harnesses.", family=BRAND, fontsize=34, color=INK,
-        ha="center", va="center",
+        0.5,
+        0.74,
+        "One model. Two harnesses.",
+        family=BRAND,
+        fontsize=34,
+        color=INK,
+        ha="center",
+        va="center",
     )
     ax.text(
-        0.5, 0.675,
+        0.5,
+        0.675,
         "GLM 5.3 at max effort, pass@1 on 23 real merged PRs",
-        family=SANS, fontsize=17, color=INK2, ha="center", va="center",
+        family=SANS,
+        fontsize=17,
+        color=INK2,
+        ha="center",
+        va="center",
     )
 
     # the two big numbers
@@ -68,27 +78,50 @@ def main() -> None:
     ax.text(lx, 0.265, "Raw API", family=BRAND_MED, fontsize=24, color=API_COLOR, ha="center")
     ax.text(rx, 0.265, "ZCode harness", family=BRAND_MED, fontsize=24, color=ZC_COLOR, ha="center")
     ax.text(
-        lx, 0.225, "z.ai API, uniform agent loop", family=SANS, fontsize=14, color=MUTED,
-        ha="center", va="top",
+        lx,
+        0.225,
+        "z.ai API, uniform agent loop",
+        family=SANS,
+        fontsize=14,
+        color=MUTED,
+        ha="center",
+        va="top",
     )
     ax.text(
-        rx, 0.225, "Z.ai's own product, GLM Coding Plan", family=SANS, fontsize=14, color=MUTED,
-        ha="center", va="top",
+        rx,
+        0.225,
+        "Z.ai's own product, GLM Coding Plan",
+        family=SANS,
+        fontsize=14,
+        color=MUTED,
+        ha="center",
+        va="top",
     )
     # divider
     ax.plot([0.5, 0.5], [0.30, 0.52], color="#e2e1db", lw=1.5, zorder=0)
 
     # takeaway strip
     ax.text(
-        0.5, 0.115, "Same model. The harness is worth 22 points.",
-        family=BRAND, fontsize=26, color=INK, ha="center", va="center",
+        0.5,
+        0.115,
+        "Same model. The harness is worth 22 points.",
+        family=BRAND,
+        fontsize=26,
+        color=INK,
+        ha="center",
+        va="center",
     )
 
     # footer method line
     ax.text(
-        0.5, 0.045,
+        0.5,
+        0.045,
         "VulcanBench v3   ·   hidden-test grading   ·   Docker-isolated   ·   one attempt per cell",
-        family=SANS, fontsize=13, color=MUTED, ha="center", va="center",
+        family=SANS,
+        fontsize=13,
+        color=MUTED,
+        ha="center",
+        va="center",
     )
 
     fig.savefig(OUT, facecolor=SURFACE)

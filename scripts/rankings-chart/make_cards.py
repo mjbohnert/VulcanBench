@@ -32,7 +32,6 @@ from _common import (
     top_per_model,
 )
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
-from matplotlib.patches import FancyBboxPatch
 from PIL import Image, ImageDraw
 
 register_fonts()
@@ -90,9 +89,7 @@ def header(fig, title: str, headline: str):
     fig.text(
         L + 0.040, ytop(0.62), "VulcanBench", fontsize=26, color=INK, family=BRAND, va="center"
     )
-    fig.text(
-        L + 0.228, ytop(0.62), title, fontsize=26, color=MUTED, family=BRAND_MED, va="center"
-    )
+    fig.text(L + 0.228, ytop(0.62), title, fontsize=26, color=MUTED, family=BRAND_MED, va="center")
     fig.text(L, ytop(1.22), SUBTITLE, fontsize=12.5, color=INK2, family=SANS, va="center")
     fig.text(L, ytop(1.85), headline, fontsize=17, color=INK, family=BRAND_MED, va="center")
 
@@ -152,28 +149,53 @@ def bar_card(
         ax.barh(y, v, height=0.46, color=color, zorder=3)
         if err is not None and err(p):
             ax.errorbar(
-                v, y, xerr=err(p), fmt="none", ecolor="white", elinewidth=1.8, capsize=4,
-                capthick=1.8, zorder=4, alpha=0.85,
+                v,
+                y,
+                xerr=err(p),
+                fmt="none",
+                ecolor="white",
+                elinewidth=1.8,
+                capsize=4,
+                capthick=1.8,
+                zorder=4,
+                alpha=0.85,
             )
         # Value label at the bar end (outside whisker if present).
         vx = v + (err(p) if err is not None and err(p) else 0) + xmax * 0.012
         ax.text(
-            vx, y, fmt(v), fontsize=19, color=INK, family=SANS, fontweight="bold",
-            va="center", ha="left", zorder=5,
+            vx,
+            y,
+            fmt(v),
+            fontsize=19,
+            color=INK,
+            family=SANS,
+            fontweight="bold",
+            va="center",
+            ha="left",
+            zorder=5,
         )
 
         # Chip + "Name (effort)" at left.
         flag = "*" if p["partial"] else ("†" if p["external"] else "")
         ax.text(
-            -0.02, y, f"{p['label']} ({p['effort']}){flag}",
+            -0.02,
+            y,
+            f"{p['label']} ({p['effort']}){flag}",
             transform=ax.get_yaxis_transform(),
-            fontsize=17, color=INK, family=SANS, fontweight="bold", ha="right", va="center",
+            fontsize=17,
+            color=INK,
+            family=SANS,
+            fontweight="bold",
+            ha="right",
+            va="center",
         )
         ab = AnnotationBbox(
             OffsetImage(CHIPS[p["lab"]], zoom=(0.20 if OG else 0.27), interpolation="lanczos"),
             (-0.63, y),
             xycoords=ax.get_yaxis_transform(),
-            frameon=False, box_alignment=(0.5, 0.5), annotation_clip=False,
+            frameon=False,
+            box_alignment=(0.5, 0.5),
+            annotation_clip=False,
         )
         ab.set_zorder(7)
         ax.add_artist(ab)
@@ -181,16 +203,30 @@ def bar_card(
         # Right-hand text columns.
         for i, (_, col_fn) in enumerate(cols):
             ax.text(
-                1.18 + 0.16 * i, y, col_fn(p), transform=ax.get_yaxis_transform(),
-                fontsize=13.5, color=INK2, family=SANS, ha="right", va="center",
+                1.18 + 0.16 * i,
+                y,
+                col_fn(p),
+                transform=ax.get_yaxis_transform(),
+                fontsize=13.5,
+                color=INK2,
+                family=SANS,
+                ha="right",
+                va="center",
             )
     for i, (col_name, _) in enumerate(cols):
         ax.text(
-            1.18 + 0.16 * i, n + 0.15, col_name, transform=ax.get_yaxis_transform(),
-            fontsize=12, color=MUTED, family=SANS, ha="right", va="center",
+            1.18 + 0.16 * i,
+            n + 0.15,
+            col_name,
+            transform=ax.get_yaxis_transform(),
+            fontsize=12,
+            color=MUTED,
+            family=SANS,
+            ha="right",
+            va="center",
         )
 
-    footnote(fig, note if not OG else note.split("\n")[-1])
+    footnote(fig, note if not OG else note.rsplit("\n", maxsplit=1)[-1])
     if OG:
         out = out.replace(".png", "_og.png")
     path = HERE / out
@@ -212,7 +248,9 @@ COMMON_NOTE = (
 
 # ---------------- Card 1: pass@1 rankings ----------------
 leader = pts[0]
-within = sum(1 for p in pts if leader["pass1"] - p["pass1"] <= (leader["se"] ** 2 + p["se"] ** 2) ** 0.5)
+within = sum(
+    1 for p in pts if leader["pass1"] - p["pass1"] <= (leader["se"] ** 2 + p["se"] ** 2) ** 0.5
+)
 bar_card(
     ordered=pts,
     value=lambda p: p["pass1"],
@@ -222,8 +260,12 @@ bar_card(
     xlabel="pass@1 (%)",
     title="Eval Suite 3, model rankings",
     headline=f"Rankings by pass@1: {within} of {len(pts)} models sit within one stderr of the lead.",
-    cols=[("$/task run", lambda p: f"${p['cost_per_run']:.2f}"), ("runs", lambda p: f"n={p['n_runs']}")],
-    note="Whiskers are ±1 stderr. Cost = list-price API spend ÷ runs in the column.\n" + COMMON_NOTE,
+    cols=[
+        ("$/task run", lambda p: f"${p['cost_per_run']:.2f}"),
+        ("runs", lambda p: f"n={p['n_runs']}"),
+    ],
+    note="Whiskers are ±1 stderr. Cost = list-price API spend ÷ runs in the column.\n"
+    + COMMON_NOTE,
     out="vulcanbench_suite3_card_rankings.png",
     err=lambda p: p["se"],
 )
@@ -247,7 +289,8 @@ bar_card(
     headline=f"Speed: {by_speed[0]['label']} finishes a task in {by_speed[0]['minutes']:.1f} min, "
     f"{by_speed[-1]['label']} takes {by_speed[-1]['minutes']:.0f}.",
     cols=[("pass@1", lambda p: f"{p['pass1']:.0f}%"), ("runs", lambda p: f"n={p['n_runs']}")],
-    note="Time = sandbox wall-clock per task run, averaged across the column's runs.\n" + COMMON_NOTE,
+    note="Time = sandbox wall-clock per task run, averaged across the column's runs.\n"
+    + COMMON_NOTE,
     out="vulcanbench_suite3_card_speed.png",
 )
 
