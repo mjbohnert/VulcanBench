@@ -90,7 +90,7 @@ fig.text(
     L,
     0.888,
     "23 frontier-hard software-engineering tasks from real merged OSS PRs  ·  "
-    "pass@1 vs. each provider's own reasoning-effort ladder  ·  2026-08-24",
+    "pass@1 vs. each provider's own reasoning-effort ladder  ·  2026-08-25",
     fontsize=11.5,
     color=INK2,
     family=SANS,
@@ -276,8 +276,8 @@ fig.text(
     "Larger point = that model's best level. Whiskers are ±1 stderr; most within-model "
     "differences here are inside them, so read the shape, not single-point gaps.\n"
     "Effort names are each provider's own: DeepSeek is low/high/max, Qwen low/medium/xhigh "
-    "(no 'high'), Grok 4.6 adds xhigh above high, GLM 5.3 is low/high/max. Unset-effort "
-    "defaults differ too, Grok defaults to high, Qwen to xhigh, GLM 5.3 to max.\n"
+    "(no 'high'), Grok 4.6 adds xhigh, GLM 5.3 is low/high/max, Muse Spark low/high/xhigh. "
+    "Defaults: Grok high, Qwen xhigh, GLM max, Meta undocumented.\n"
     f"* partial task coverage at one or more levels ({', '.join(sorted(partial_models))}).   "
     "† Claude Opus 5 is from vulcanbench.com Report 10 (single runs, 2026-07-26), not run in "
     "this checkout.   github.com/morganlinton/VulcanBench",
