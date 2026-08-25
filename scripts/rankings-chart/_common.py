@@ -48,6 +48,9 @@ LAB_COLOR = {
     # Z.ai has no official hex in our set; deep teal clears every neighbour
     # by dE > 15 and, like the rest, every mark stays directly labelled.
     "Z.ai": "#0e7a8a",
+    # Meta brand blue; clears DeepSeek's lighter blue at chart sizes because the
+    # marks stay directly labelled (see note above).
+    "Meta": "#0866ff",
 }
 
 NAME = {
@@ -65,11 +68,11 @@ NAME = {
     "qwen:qwen3.8-max": ("Qwen3.8-Max", "Alibaba"),
     "qwen:qwen3.8-27b": ("Qwen3.8-27B", "Alibaba"),
     "zai:glm-5.3": ("GLM 5.3", "Z.ai"),
+    "meta:muse-spark-1.2": ("Muse Spark 1.2", "Meta"),
 }
 
 EXCLUDED = {
     "anthropic:claude-opus-4-8",  # 5/23 task coverage
-    "meta:muse-spark-1.2",  # OpenRouter-routed; needs its own column treatment
     "zcode:glm-5.3",  # subscription harness: model plus product, never a board column
     "ollama:qwen3.8:27b",  # local-inference control runs, not the DashScope column
 }
@@ -85,7 +88,7 @@ def eff_display(model: str, eff: str) -> str:
     if eff == "extra-high":
         if model.startswith(("deepseek:", "zai:")):
             return "max"
-        if model.startswith(("qwen:", "xai:")):
+        if model.startswith(("qwen:", "xai:", "meta:")):
             return "xhigh"
     return eff
 
@@ -102,6 +105,8 @@ def model_efforts(model: str) -> list[str]:
         return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
     if model.startswith("zai:"):
         return ["low", "high", "extra-high"]  # GLM 5.3: low/high/max
+    if model.startswith("meta:"):
+        return ["low", "high", "extra-high"]  # Muse Spark: low/high/xhigh (minimal/medium untested)
     if model.startswith("xai:"):
         return ["low", "medium", "high", "extra-high"]  # Grok 4.6+: adds xhigh
     return ["low", "medium", "high"]

@@ -36,7 +36,7 @@ from PIL import Image, ImageDraw
 
 register_fonts()
 
-DATE = "2026-08-24"
+DATE = "2026-08-25"
 SUBTITLE = (
     "23 frontier-hard software-engineering tasks from real merged OSS PRs  ·  "
     "one bar per model at its best-scoring reasoning effort  ·  " + DATE
@@ -239,8 +239,8 @@ COMMON_NOTE = (
     "* partial task coverage (Claude Fable 5 19/23 at low, safety-filter refusals; Kimi K3 19/23; "
     "Claude Haiku 4.5 21/23).   † Claude Opus 5 is from vulcanbench.com Report 10 (single runs, "
     "2026-07-26).\n"
-    "Qwen3.8-27B (Report 17) and GLM 5.3 (Report 18) are single passes per level with median "
-    "times; GLM's ZCode-harness results are model plus product and stay off the board.\n"
+    "Qwen3.8-27B (Report 17), GLM 5.3 (Report 18), and Muse Spark 1.2 (Report 19) are single "
+    "passes per level with median times; GLM's ZCode-harness results are model plus product and stay off the board.\n"
     "Each model is shown at its best-scoring full-coverage effort level; every tested level is "
     "on the effort-curve card.   "
     "github.com/morganlinton/VulcanBench"

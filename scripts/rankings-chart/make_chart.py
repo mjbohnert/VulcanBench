@@ -51,6 +51,7 @@ LAB_COLOR = {
     "Alibaba": "#9333EA",
     # Z.ai: deep teal, dE > 15 from every neighbour; all marks stay labelled.
     "Z.ai": "#0e7a8a",
+    "Meta": "#0866ff",
 }
 
 NAME = {
@@ -69,6 +70,7 @@ NAME = {
     "qwen:qwen3.8-max": ("Qwen3.8-Max", "Alibaba"),
     "qwen:qwen3.8-27b": ("Qwen3.8-27B", "Alibaba"),
     "zai:glm-5.3": ("GLM 5.3", "Z.ai"),
+    "meta:muse-spark-1.2": ("Muse Spark 1.2", "Meta"),
 }
 
 
@@ -89,19 +91,18 @@ def eff_display(model: str, eff: str) -> str:
     if eff == "extra-high":
         if model.startswith(("deepseek:", "zai:")):
             return "max"
-        if model.startswith(("qwen:", "xai:")):
+        if model.startswith(("qwen:", "xai:", "meta:")):
             return "xhigh"
     return eff
 
 
 with open(HERE / "v3_rankings.json") as f:
     rows = json.load(f)
-# Deliberate exclusions, not silent drops: Opus 4.8 has 5/23 task coverage;
-# Muse Spark's OpenRouter-routed sweep (minimal full, low capped at 33/69,
-# medium 3 runs) is pending its own via-OpenRouter column treatment.
+# Deliberate exclusions, not silent drops: Opus 4.8 has 5/23 task coverage.
+# (Muse Spark's Meta-direct ladder joined 2026-08-25 from Report 19; the old
+# OpenRouter-routed partial rows never entered this file.)
 EXCLUDED_MODELS = {
     "anthropic:claude-opus-4-8",
-    "meta:muse-spark-1.2",
     "zcode:glm-5.3",  # subscription harness: model plus product, off the board
     "ollama:qwen3.8:27b",  # local-inference control runs
 }
@@ -109,6 +110,8 @@ rows = [r for r in rows if r["model"] not in EXCLUDED_MODELS]
 unknown = {r["model"] for r in rows} - set(NAME)
 if unknown:
     raise SystemExit(f"models missing from NAME (add or exclude explicitly): {unknown}")
+
+
 def model_efforts(model: str) -> list[str]:
     """The provider's own effort ladder, low to high."""
     if model.startswith("deepseek:"):
@@ -117,6 +120,8 @@ def model_efforts(model: str) -> list[str]:
         return ["low", "medium", "extra-high"]  # Qwen: low/medium/xhigh
     if model.startswith("zai:"):
         return ["low", "high", "extra-high"]  # GLM 5.3: low/high/max
+    if model.startswith("meta:"):
+        return ["low", "high", "extra-high"]  # Muse Spark: low/high/xhigh
     if model.startswith("xai:"):
         # Grok 4.6+: low/medium/high/xhigh, four real levels; dropping xhigh
         # would hide the curve's shape (medium peak, high trough, xhigh partial
@@ -323,7 +328,7 @@ fig.text(
     0.9424,
     "23 frontier-hard software-engineering tasks from real merged OSS PRs  ·  "
     "pass@1 at each model's best-scoring reasoning effort  ·  Docker-sandboxed agent runs  ·  "
-    "2026-08-24",
+    "2026-08-25",
     fontsize=11.5,
     color=INK2,
     family=SANS,
@@ -638,8 +643,8 @@ fig.text(
     "are excluded rather than scored 0. "
     "Grok 4.6 columns are a single pass (repeat 1, 2026-08-12) on xAI's API; its "
     "effort scale is low/medium/high/xhigh and its unset-effort default is high. "
-    "Qwen3.8-27B (Report 17) and GLM 5.3 (Report 18) are single passes per level with "
-    "median times; GLM's scale is low/high/max, its unset default is max, and its "
+    "Qwen3.8-27B (Report 17), GLM 5.3 (Report 18), and Muse Spark 1.2 (Report 19) are "
+    "single passes per level with median times; GLM's scale is low/high/max, its unset default is max, and its "
     "ZCode-harness results (model plus product) are excluded from the board.\n"
     "Bar panels show one column per model at its best-scoring effort (ties to the cheaper run); every effort "
     "level is plotted in the effort-curve cards.\n"
