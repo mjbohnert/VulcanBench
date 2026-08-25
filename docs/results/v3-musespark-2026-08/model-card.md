@@ -33,13 +33,21 @@ effort metadata confirms the requested level was sent and accepted.
    dialing up API reasoning effort makes agents worse, and the makers' higher settings
    are consistently the wrong ones.
 
-2. **Effort converts wrong answers into timeouts.** At low, every failure is a finished
-   wrong answer (3 wrong, 0 unfinished). By xhigh the composition flips: 1 wrong, 10
-   unfinished (0 → 5 → 10 timeouts as wrong answers fall 3 → 1 → 1). Every one of the
-   15 unfinished runs hit its task's wall-clock budget (20-, 45-, or 60-minute tier in
-   `harness/task_metadata.py`); none hit the step ceiling and none was cost-capped.
-   Within every column, failed runs burn 2 to 7x the tokens of solved ones (821 K vs
-   114 K at low) and 2 to 8x the clock. The clock binds, and effort spends it.
+2. **Effort converts wrong answers into timeouts, and the mechanism is visible in the
+   per-step numbers.** At low, every failure is a finished wrong answer (3 wrong, 0
+   unfinished). By xhigh the composition flips: 1 wrong, 10 unfinished (0 → 5 → 10
+   timeouts as wrong answers fall 3 → 1 → 1). What a timeout means here: every task
+   carries a fixed wall-clock budget scaled by repo size (20-, 45-, or 60-minute tier
+   in `harness/task_metadata.py`), **identical for every model on the board and
+   unchanged since Report No. 07**; all 15 unfinished runs ran that clock out, none hit
+   the step ceiling, and none was cost-capped. The cause is not harder work but slower
+   steps: at higher effort the model emits 2 to 33x the output tokens per agent step on
+   the *same task* (`itertools-strip-prefix`: ~140 tokens/step at low, solved in 7
+   minutes; ~4,600 tokens/step at xhigh, killed at the 60-minute wall). Eight of the
+   fifteen timed-out cells are tasks the same model solves at low in 1.6 to 12 minutes.
+   And the harness grades partial work at kill time, so these are not near-misses: in
+   10 of the 15 timeouts the captured patch was zero bytes. The model reasoned for its
+   entire budget and never wrote a line to disk.
 
 3. **At low effort this is a board-tying debut.** 87.0% matches the four-model 87.0%
    cluster on the Eval Suite 3 board (DeepSeek V4 Pro, GPT-5.6 Terra, GPT-5.6 Sol,
