@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Report No. 19: Muse Spark 1.2 across the effort knob.** Published under
+  [`docs/results/v3-musespark-2026-08/`](docs/results/v3-musespark-2026-08/model-card.md):
+  Meta's Muse Spark 1.2 on suite v3 through the Meta Model API, one attempt per
+  task across low/high/xhigh. The steepest effort inversion measured on v3
+  (87.0% at low to 52.2% at xhigh, -34.8 points), with the by-now-familiar
+  signature: higher effort converts finished wrong answers into wall-clock
+  timeouts (0 to 5 to 10). At low effort it ties the board's 87.0% cluster at
+  $0.41 per solved task. Model card, JSON, and a branded two-panel chart
+  (`scripts/rankings-chart/make_musespark_report.py`); indexed in
+  [`docs/results/README.md`](docs/results/README.md).
+
 - **Multi-service task environments** (`harness/environment.py`): tasks can
   declare `metadata.environment` with a docker-compose file and readiness
   probes. The harness brings the stack up under a unique per-run project
