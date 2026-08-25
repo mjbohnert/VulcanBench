@@ -28,6 +28,7 @@ Numbered technical reports, newest first. Each dated directory holds its
 
 | No. | Report | Directory |
 |---|---|---|
+| 19 | Muse Spark 1.2 across the effort knob | [v3-musespark-2026-08](v3-musespark-2026-08/model-card.md) |
 | 18 | GLM 5.3: model versus harness (raw API vs the ZCode harness), Harness Study No. 03 | [v3-glm53-2026-08](v3-glm53-2026-08/model-card.md) |
 | 12 | Qwen3.8-Max across the effort knob | [v3-qwen38-max-2026-08](v3-qwen38-max-2026-08/model-card.md) |
 | 11 | Grok Voice Think Fast 2.0 vs GPT Realtime | [voice-v1-2026-07](voice-v1-2026-07/model-card.md) |
