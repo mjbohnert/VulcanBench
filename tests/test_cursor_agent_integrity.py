@@ -55,7 +55,14 @@ def test_audit_transcript_ignores_isolation_rule_wording() -> None:
                     "role": "user",
                     "text": "Do NOT read gold_patch.diff or tasks/v4/foo",
                 },
-                {"role": "assistant", "text": "fixed in workspace only"},
+                {
+                    "role": "assistant",
+                    "text": (
+                        "## Benchmark isolation rules\n"
+                        "- Do NOT read `tasks/`, `gold_patch.diff`, or hidden tests\n"
+                        "Fixed the bug in workspace only."
+                    ),
+                },
             ]
         }
     )

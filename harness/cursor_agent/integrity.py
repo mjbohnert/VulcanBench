@@ -19,6 +19,30 @@ from harness.tasks import Task
 
 ISOLATION_VERSION = 2
 
+_ISOLATION_ECHO = re.compile(
+    r"do not read|benchmark isolation|CRITICAL:|reference solution patches",
+    re.I,
+)
+
+
+def _agent_message_text(messages: list[Any]) -> str:
+    """Concatenate assistant/tool text, dropping echoed isolation-rule lines."""
+    chunks: list[str] = []
+    for msg in messages:
+        if not isinstance(msg, dict) or msg.get("role") not in ("assistant", "tool"):
+            continue
+        for key in ("text", "thinking"):
+            raw = msg.get(key)
+            if not isinstance(raw, str) or not raw:
+                continue
+            kept = [
+                line
+                for line in raw.splitlines()
+                if not _ISOLATION_ECHO.search(line)
+            ]
+            chunks.append("\n".join(kept))
+    return "\n".join(chunks)
+
 
 def find_leaked_hidden_tests(task: Task, workspace: Path) -> list[Path]:
     """Paths under ``workspace`` that match this task's hidden ``tests/`` tree."""
@@ -48,9 +72,7 @@ def strip_leaked_hidden_tests(task: Task, workspace: Path) -> list[str]:
 def audit_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
     """Heuristic audit of a cloud-agent transcript for benchmark leakage."""
     messages = transcript.get("messages") or []
-    agent_blob = json.dumps(
-        [m for m in messages if isinstance(m, dict) and m.get("role") in ("assistant", "tool")]
-    )
+    agent_blob = _agent_message_text(messages if isinstance(messages, list) else [])
     flags = {
         "gold_patch": bool(re.search(r"gold_patch\.diff|/gold_patch", agent_blob, re.I)),
         "tasks_tree": bool(re.search(r"tasks/v\d+/", agent_blob)),
