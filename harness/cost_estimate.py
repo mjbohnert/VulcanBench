@@ -255,9 +255,14 @@ class _CostIndex:
         if costs:
             return statistics.median(costs)
         prefix = _provider(model) + ":"
-        if prefix in _DEFAULT_PER_RUN:
-            return _DEFAULT_PER_RUN[prefix]
-        return _DEFAULT_FALLBACK
+        base = _DEFAULT_PER_RUN.get(prefix, _DEFAULT_FALLBACK)
+        # Composer Fast is the same model at ~6x list price; don't quote the
+        # standard default for both specs when there is no run history.
+        if prefix == "cursor:":
+            idx = _price_index(model)
+            if idx:
+                return base * (idx / 3.0)  # 3.0 = standard $0.50+$2.50
+        return base
 
     def estimate_one(self, model: str, task_id: str, tasks_root: Path) -> RunCostEstimate:  # noqa: PLR0911
         direct = self.by_model_task.get((model, task_id))

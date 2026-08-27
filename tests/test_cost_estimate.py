@@ -218,6 +218,5 @@ def test_estimate_cursor_composer_is_priced(tmp_path: Path) -> None:
     )
     assert plan.models[0].env_var == "CURSOR_API_KEY"
     assert plan.models[0].mid_usd == pytest.approx(0.15)
-    # Fast shares the provider default when there is no history; list price is
-    # still 6x so a later task-scaled estimate from standard runs would diverge.
-    assert plan.models[1].mid_usd == pytest.approx(0.15)
+    # Fast is ~6x list price; the cold-start default scales with that.
+    assert plan.models[1].mid_usd == pytest.approx(0.90)
