@@ -145,6 +145,39 @@ What to know before using it:
   (enforced against the hypothetical cost, mid-run); `--effort` is recorded
   but not sent (headless Claude Code has no effort control).
 
+## Run Composer 2.5 in the Cursor harness (`cursor:`)
+
+Composer 2.5 is only served inside Cursor (IDE / CLI / SDK), not as a public
+chat-completions API. `cursor:<model>` specs run the task with the **Cursor
+Agent CLI** (`agent -p`) instead of the VulcanBench agent loop:
+
+```bash
+# Requires Cursor CLI installed and CURSOR_API_KEY (or `agent login`).
+# https://cursor.com/docs/cli/installation
+export CURSOR_API_KEY=...
+vulcanbench estimate --suite v3 --model cursor:composer-2.5 --no-judges
+vulcanbench run --suite v3 --model cursor:composer-2.5 \
+  --judge-model cursor:composer-2.5 \
+  --sandbox local --no-judges
+
+# Fast serving SLA (product default, ~6x list price, same model):
+vulcanbench run --suite v3 --model cursor:composer-2.5-fast --sandbox local --no-judges
+```
+
+What to know:
+
+- **You're benchmarking model + Cursor harness**, not the uniform loop. The
+  summary records `cli_agent.harness: "cursor"` so columns can't be mixed.
+- **`cost_usd` is Cursor list-price spend** from the CLI's reported tokens
+  (`billing: "cursor-usage"`, `cost_basis: "cursor-list-price"`). Standard
+  Composer 2.5 is $0.50/M input and $2.50/M output; Fast is $3.00/$15.00.
+  Cache reads fold at ~0.1x and cache writes at 1.0x into prompt tokens.
+- **`--sandbox local` is required.** The Cursor CLI executes its own tools on
+  the host; Docker would verify in a different environment than the agent ran in.
+- Point `CURSOR_AGENT_BIN` at `agent` or `cursor-agent` if neither is on PATH.
+- `--effort` is recorded but not sent — pick Fast vs standard via the model id.
+- Usage-limit hits are run *errors*, not zeros; resume with `--only-missing`.
+
 **Re-grade for free after a task changes.** Grading is deterministic, so when you
 edit a task's hidden tests or thresholds you don't need to re-run the model —
 just re-grade the existing runs. `regrade` rebuilds each run's workspace from the

@@ -69,6 +69,10 @@ PRICES: dict[str, dict[str, float]] = {
     "deepseek:deepseek-v4-flash": {"input": 0.14, "output": 0.28},
     "deepseek:deepseek-v4-pro": {"input": 0.435, "output": 0.87},
     "xai:grok-4.5": {"input": 2.00, "output": 6.00},
+    # Cursor Composer 2.5 list prices (May 2026). Standard vs Fast is the same
+    # model at different serving SLAs; Fast is the product default (~6x).
+    "cursor:composer-2.5": {"input": 0.50, "output": 2.50},
+    "cursor:composer-2.5-fast": {"input": 3.00, "output": 15.00},
     # Free / offline.
     "mock:": {"input": 0.0, "output": 0.0},
 }

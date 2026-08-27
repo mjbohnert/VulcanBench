@@ -9,13 +9,11 @@ engineering tasks. VulcanBench measures how models perform across reasoning
 effort, language, codebase scale, and task complexity — with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.8.0** — adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
-so Alibaba Cloud models can be benchmarked like OpenAI / Anthropic / Z.ai / Kimi.
-Builds on v0.6's frontier-hard task tier and cost-efficient reporting
-(`--max-run-cost`, `compare`, `regrade`, `--only-missing`), and on v0.5's 52
-gold-verified tasks, tool-calling agent, Docker sandbox, pre-run cost estimates,
-five-metric scoring, and HTML replay.
-See [docs/QUICKSTART.md](docs/QUICKSTART.md) to get started.
+**v0.9.0** — adds a **Cursor Agent CLI** harness (`cursor:composer-2.5` /
+`cursor:composer-2.5-fast`) so Composer 2.5 can be scored through Cursor's own
+agent instead of the uniform API loop, with list-price cost from CLI token
+usage. Previous: **v0.8.0** — Voice Eval Suite v1 (`vulcanbench voice`). See
+[docs/QUICKSTART.md](docs/QUICKSTART.md) to get started.
 
 ## One-command setup
 
@@ -57,6 +55,7 @@ vulcanbench run --task hello-world --model anthropic:claude-opus-4-8
 vulcanbench run --task hello-world --model zai:glm-5.2
 vulcanbench run --task hello-world --model qwen:qwen3.7-plus
 vulcanbench run --task hello-world --model deepseek:deepseek-v4-flash
+vulcanbench run --task hello-world --model cursor:composer-2.5 --sandbox local
 
 # Each run prints all five metrics + cost, e.g.:
 #   functional=1.0 quality=1.0 security=1.0 human_like=0.8 total=0.974 cost=$0.0
@@ -167,6 +166,12 @@ Specify a model as `provider:model`:
   and `extra-high` maps to its `max`; `medium` is recorded as metadata only
   (DeepSeek's enum is low/high/max — it silently coerces `medium` to `high`,
   so the harness never sends it).
+- `cursor:<model>` — Cursor Agent CLI (Composer 2.5 and other Cursor models).
+  Needs the `agent` (or `cursor-agent`) binary on PATH and `CURSOR_API_KEY`.
+  Requires `--sandbox local`. Results measure **model + Cursor harness**, not
+  the uniform VulcanBench loop. `cursor:composer-2.5` is standard list price
+  ($0.50/$2.50 per 1M); `cursor:composer-2.5-fast` is the product-default Fast
+  tier ($3.00/$15.00). `--effort` is recorded as metadata only.
 
 `--effort` accepts `low`, `medium`, `high`, or `extra-high`. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the

@@ -16,6 +16,8 @@ Providers implemented:
 - ``qwen:<model>``     Alibaba Cloud DashScope OpenAI-compatible Chat Completions
                        API (Qwen).
 - ``deepseek:<model>`` DeepSeek OpenAI-compatible Chat Completions API.
+- ``claude-code:<model>`` / ``codex:<model>`` / ``cursor:<model>``
+                       Vendor agent CLIs (see ``harness.agent.cli_agents``).
 
 Only the Python standard library is used for HTTP so the harness stays
 dependency-light; ``tenacity`` provides retry/backoff.
@@ -1055,7 +1057,11 @@ def get_provider(spec: str) -> LLMProvider:
         from harness.agent.cli_agents import CodexProvider  # noqa: PLC0415
 
         return CodexProvider(model)
+    if provider == "cursor":
+        from harness.agent.cli_agents import CursorProvider  # noqa: PLC0415
+
+        return CursorProvider(model)
     if provider not in _PROVIDERS:
-        known = ", ".join(sorted([*_PROVIDERS, "claude-code", "codex"]))
+        known = ", ".join(sorted([*_PROVIDERS, "claude-code", "codex", "cursor"]))
         raise ValueError(f"unknown provider {provider!r}; known: {known}")
     return _PROVIDERS[provider](model)

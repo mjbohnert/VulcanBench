@@ -67,6 +67,14 @@ def test_deepseek_v4_flash_priced() -> None:
     assert pricing.cost_usd("deepseek:deepseek-v4-flash", 1_000_000, 1_000_000) == 0.42
 
 
+def test_cursor_composer_25_priced() -> None:
+    # Standard: $0.50/$2.50 per 1M; Fast (product default): $3.00/$15.00.
+    assert pricing.is_priced("cursor:composer-2.5")
+    assert pricing.cost_usd("cursor:composer-2.5", 1_000_000, 1_000_000) == 3.0
+    assert pricing.is_priced("cursor:composer-2.5-fast")
+    assert pricing.cost_usd("cursor:composer-2.5-fast", 1_000_000, 1_000_000) == 18.0
+
+
 def test_anthropic_frontier_models_priced() -> None:
     # Sonnet 5 standard pricing: input 3.00/1M, output 15.00/1M -> 1M+1M = 18.00.
     assert pricing.is_priced("anthropic:claude-sonnet-5")
