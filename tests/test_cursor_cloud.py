@@ -18,6 +18,14 @@ from harness.cursor_cloud.session import (
 )
 from harness.cursor_cloud.shards import assign_shards, shard_tasks, worker_prompt
 from harness.cursor_cloud.tokens import tokens_from_transcript
+from harness.cursor_cloud.toolchains import (
+    Requirements,
+    ToolSnapshot,
+    missing_from_snapshot,
+    preflight_errors,
+    requirements_for_shard,
+    requirements_for_suite,
+)
 from harness.suite import load_suite
 from harness.tasks import load_task
 
@@ -60,6 +68,8 @@ def test_worker_prompt_lists_only_that_shard() -> None:
     assert "WebSearch" in prompt
     assert "CURSOR_CONVERSATION_ID" in prompt
     assert "price-transcript" in prompt
+    assert "bootstrap" in prompt
+    assert "doctor" in prompt
 
 
 def test_estimate_tokens_from_transcript_chars() -> None:
@@ -235,3 +245,86 @@ def test_print_prompt_all_v4() -> None:
     assert "SHARD 8/8" in result.output
     assert "oss-aiohttp-upgrade-deferred" in result.output
     assert ".[dev,test]" in result.output
+    assert "cursor-cloud bootstrap" in result.output
+
+
+def test_v4_shard_toolchain_requirements() -> None:
+    shard1 = requirements_for_shard("v4", 8, 1)
+    assert shard1.need_tsx
+    assert not shard1.need_go
+    assert not shard1.need_rustc_190
+    assert not shard1.need_pennylane
+    assert "oss-hono-url-param-prefix" in shard1.task_ids
+
+    shard5 = requirements_for_shard("v4", 8, 5)
+    assert shard5.need_rustc_190
+    assert shard5.need_go
+    assert "oss-time-strftime-truncated-padding" in shard5.task_ids
+
+    shard6 = requirements_for_shard("v4", 8, 6)
+    assert shard6.need_pennylane
+    assert shard6.need_tsx
+    assert shard6.need_go
+
+
+def test_bootstrap_all_skips_pennylane_jax() -> None:
+    req = requirements_for_suite("v4", include_pennylane=False)
+    assert not req.need_pennylane
+    assert req.need_tsx
+    assert req.need_go
+    assert req.need_rustc_190
+    assert requirements_for_suite("v4").need_pennylane
+
+
+def test_missing_from_snapshot_names_host_gaps() -> None:
+    req = Requirements(need_go=True, need_rustc_190=True, need_tsx=True, need_python=True)
+    snap = ToolSnapshot(
+        python=False,
+        node=True,
+        tsx=False,
+        npm=True,
+        go=(1, 22, 2),
+        rustc=(1, 83, 0),
+        rustup=True,
+        pennylane_deps=False,
+    )
+    missing = missing_from_snapshot(req, snap)
+    joined = " ".join(missing)
+    assert "python" in joined
+    assert "tsx" in joined
+    assert "1.23" in joined
+    assert "1.90" in joined
+
+
+def test_preflight_rust_2024_needs_190() -> None:
+    task = load_task("oss-time-strftime-truncated-padding", Path("tasks/v4"))
+    snap = ToolSnapshot(
+        python=True,
+        node=True,
+        tsx=True,
+        npm=True,
+        go=(1, 23, 4),
+        rustc=(1, 83, 0),
+        rustup=True,
+        pennylane_deps=True,
+    )
+    errors = preflight_errors(task, snap)
+    assert any("1.90" in item for item in errors)
+
+
+def test_doctor_cli_shard1_json() -> None:
+    result = runner.invoke(app, ["cursor-cloud", "doctor", "--shard", "1", "--suite", "v4"])
+    data = json.loads(result.output)
+    assert data["shard_index"] == 1
+    assert "oss-hono-url-param-prefix" in data["task_ids"]
+    assert "typescript" in data["languages"]
+
+
+def test_bootstrap_dry_run_shard1() -> None:
+    result = runner.invoke(
+        app, ["cursor-cloud", "bootstrap", "--shard", "1", "--suite", "v4", "--dry-run"]
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["dry_run"] is True
+    assert data["ok"] is True

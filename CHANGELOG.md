@@ -20,8 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checkout so the agent cannot walk up into `gold_patch.diff`. Cloud-agent
   transcripts usually have no provider usage block; `price-transcript` /
   `apply-transcript` estimate tokens as chars/4 over the real export shape
-  (`thinking`, `tool_calls`, `tool_result`). See
-  [docs/CURSOR_CLOUD.md](docs/CURSOR_CLOUD.md).
+  (`thinking`, `tool_calls`, `tool_result`). `doctor` / `bootstrap` install
+  host stand-ins for the sandbox images (`tsx@4.20.3`, Go 1.23.4, rustc 1.90,
+  PennyLane jax/numpy on shard 6). Missing tools are infrastructure errors,
+  not model zeros. See [docs/CURSOR_CLOUD.md](docs/CURSOR_CLOUD.md).
 
 ## [Unreleased]
 

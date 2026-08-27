@@ -75,16 +75,32 @@ def host_runner(cmd: str, workspace: Path, timeout: int) -> int:
 def _infrastructure_reason(cmd: str, outcome: RunnerOutcome) -> str | None:
     """Return a reason when a test runner is missing its required toolchain."""
     output = f"{outcome.stdout}\n{outcome.stderr}".lower()
+    missing_commands = (
+        "python",
+        "python3",
+        "pytest",
+        "go",
+        "cargo",
+        "rustc",
+        "npm",
+        "node",
+        "tsx",
+    )
+    reason: str | None = None
     if outcome.exit_code == 124:
-        return "verifier command timed out"
-    if "no module named pytest" in output or "no module named 'pytest'" in output:
-        return "pytest is unavailable in the verifier environment"
-    missing_commands = ("python", "python3", "pytest", "go", "cargo", "npm", "node")
-    if outcome.exit_code in {126, 127} and any(
-        cmd.lstrip().startswith(executable) for executable in missing_commands
-    ):
-        return "verifier toolchain command is unavailable"
-    return None
+        reason = "verifier command timed out"
+    elif "no module named pytest" in output or "no module named 'pytest'" in output:
+        reason = "pytest is unavailable in the verifier environment"
+    elif "no module named 'jax'" in output or "no module named jax" in output:
+        reason = "pennylane verifier dependencies are unavailable"
+    elif "go.mod requires go" in output or "unsupported go version" in output:
+        reason = "go toolchain is too old for this task"
+    elif (
+        outcome.exit_code in {126, 127}
+        and any(cmd.lstrip().startswith(executable) for executable in missing_commands)
+    ) or (outcome.exit_code == 127 and "not found" in output):
+        reason = "verifier toolchain command is unavailable"
+    return reason
 
 
 def _run_group(

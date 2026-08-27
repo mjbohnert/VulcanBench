@@ -23,6 +23,12 @@ from harness.cursor_cloud.shards import (
     worker_prompt,
 )
 from harness.cursor_cloud.tokens import load_transcript, priced_transcript
+from harness.cursor_cloud.toolchains import (
+    doctor_report,
+    requirements_for_shard,
+    requirements_for_suite,
+    run_bootstrap,
+)
 from harness.suite import load_suite
 
 console = Console()
@@ -81,6 +87,48 @@ def print_prompt_cmd(
         markup=False,
         highlight=False,
     )
+
+
+@cursor_cloud_app.command("doctor")
+def doctor_cmd(
+    shard: int | None = typer.Option(None, "--shard", min=1),
+    n_shards: int = typer.Option(DEFAULT_SHARDS, "--shards", min=1),
+    suite: str = typer.Option(DEFAULT_SUITE, "--suite"),
+    all_shards: bool = typer.Option(False, "--all", help="Check toolchains for the whole suite"),
+) -> None:
+    """Check host toolchains needed to grade this shard (or all of v4) without Docker."""
+    if shard is None and not all_shards:
+        raise typer.BadParameter("pass --shard N or --all")
+    report = doctor_report(suite=suite, n_shards=n_shards, shard_index=shard, all_shards=all_shards)
+    console.print_json(json.dumps(report, indent=2))
+    if not report["ok"]:
+        raise typer.Exit(1)
+
+
+@cursor_cloud_app.command("bootstrap")
+def bootstrap_cmd(
+    shard: int | None = typer.Option(None, "--shard", min=1),
+    n_shards: int = typer.Option(DEFAULT_SHARDS, "--shards", min=1),
+    suite: str = typer.Option(DEFAULT_SUITE, "--suite"),
+    all_shards: bool = typer.Option(
+        False, "--all", help="Install tsx, Go 1.23, and rustc 1.90 (not PennyLane jax)"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    """Install host toolchains so this shard can be graded on Cursor Cloud."""
+    if shard is None and not all_shards:
+        raise typer.BadParameter("pass --shard N or --all")
+    req = (
+        requirements_for_suite(suite, include_pennylane=False)
+        if all_shards
+        else requirements_for_shard(suite, n_shards, shard or 1)
+    )
+    payload = run_bootstrap(req, dry_run=dry_run)
+    payload["suite"] = suite
+    payload["shard_index"] = None if all_shards else shard
+    console.print_json(json.dumps(payload, indent=2))
+    if not payload.get("ok"):
+        raise typer.Exit(1)
 
 
 @cursor_cloud_app.command("prepare")

@@ -21,6 +21,7 @@ from harness.cursor_cloud.shards import (
     suite_shard,
 )
 from harness.cursor_cloud.tokens import load_transcript, tokens_from_transcript
+from harness.cursor_cloud.toolchains import preflight_errors, verifier_env
 from harness.economics import EconomicsReceipt, subscription_receipt
 from harness.evaluator.scorer import run_verifier
 from harness.pricing import cost_usd, has_cached_input_price
@@ -84,12 +85,15 @@ def _git_diff(workspace: Path) -> str:
     return proc.stdout
 
 
-def _isolated_host_runner(cmd: str, workspace: Path, timeout: int) -> RunnerOutcome:
+def _isolated_host_runner(
+    cmd: str,
+    workspace: Path,
+    timeout: int,
+    *,
+    task: Task | None = None,
+) -> RunnerOutcome:
     """Host tests that ignore the parent repo's pytest addopts and caches."""
-    env = os.environ.copy()
-    env["PYTEST_ADDOPTS"] = "-o addopts="
-    env.setdefault("GOCACHE", str(workspace / ".gocache"))
-    env.setdefault("CARGO_TARGET_DIR", str(workspace / "target"))
+    env = verifier_env(task, workspace)
     try:
         proc = subprocess.run(
             cmd,
@@ -257,11 +261,23 @@ def _session_tokens(run_dir: Path, transcript_path: Path | None) -> dict[str, An
 def _grade_workspace(task: Task, workspace: Path) -> tuple[dict[str, Any], float]:
     timeout = resolve_verifier_timeout_s(task.metadata, DEFAULT_TIMEOUT)
     t0 = time.monotonic()
+    missing = preflight_errors(task)
+    if missing:
+        payload = {
+            "scores": {
+                "functional": 0.0,
+                "error": "host toolchain missing: " + "; ".join(missing),
+            },
+            "infrastructure_error": True,
+        }
+        return payload, round(time.monotonic() - t0, 3)
+
+    def runner(cmd: str, ws: Path, to: int) -> RunnerOutcome:
+        return _isolated_host_runner(cmd, ws, to, task=task)
+
     try:
         if task.tests_spec is not None:
-            payload = run_declarative_verifier(
-                task, workspace, runner=_isolated_host_runner, timeout=timeout
-            )
+            payload = run_declarative_verifier(task, workspace, runner=runner, timeout=timeout)
         elif task.verifier is not None:
             payload = run_verifier(task.verifier, workspace, timeout=timeout)
         else:

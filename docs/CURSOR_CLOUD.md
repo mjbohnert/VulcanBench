@@ -48,12 +48,20 @@ vulcanbench cursor-cloud print-prompt --shard 2 --suite v4
 # ... through --shard 8
 ```
 
-Each worker:
+Each worker (the paste-ready prompt already includes this):
 
-1. Runs `vulcanbench cursor-cloud prepare-shard --shard N --suite v4`
-2. Solves only the workspaces printed in that JSON (they live **outside** this
+1. `pip install -e ".[dev,test]"` and `export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$PATH"`
+2. `vulcanbench cursor-cloud bootstrap --shard N --suite v4` then `doctor --shard N`
+3. `vulcanbench cursor-cloud prepare-shard --shard N --suite v4`
+4. Solves only the workspaces printed in that JSON (they live **outside** this
    checkout so the agent cannot walk up into `tasks/` and read gold patches)
-3. Runs `vulcanbench cursor-cloud finalize-shard --shard N --suite v4`
+5. `vulcanbench cursor-cloud finalize-shard --shard N --suite v4`
+
+Cursor Cloud VMs do not have the per-task Docker images. Bootstrap installs the
+host stand-ins: `tsx@4.20.3` (Hono), Go 1.23.4 (chi's `go 1.23` directive),
+rustc 1.90 via rustup (edition 2024), and PennyLane jax/numpy on shard 6 only
+(not pennylane itself; the workspace is on `PYTHONPATH`). `bootstrap --all`
+skips jax. Missing tools are infrastructure errors, not model zeros.
 
 Optional: pass `--transcript path/to/transcript.json` (or `--transcript-dir`
 with `<run_id>.json` files) so finalize records token counts. Cursor cloud
@@ -77,7 +85,8 @@ coordinator can fetch that run's transcript later. Without a transcript,
 `oss-time-strftime-truncated-padding` needs rustc 1.90 (`vulcanbench/sandbox:rust-2024`).
 Host finalize on an older toolchain records an infrastructure error for that
 task rather than a model fail. v4 Python tests invoke `python` (not `python3`);
-the cloud install script links `python` to `python3` when the alias is missing.
+bootstrap links `python` to `python3` when the alias is missing. Check a worker
+with `vulcanbench cursor-cloud doctor --shard N --suite v4`.
 
 ## Pricing (API-equivalent, not cash)
 

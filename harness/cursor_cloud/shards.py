@@ -50,8 +50,13 @@ Goal: solve the assigned baseline suite tasks using Cursor's first-party tools (
 
 ```bash
 pip install -e ".[dev,test]"
+export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$PATH"
+vulcanbench cursor-cloud bootstrap --suite {suite} --shard {shard_index} --shards {n_shards}
+vulcanbench cursor-cloud doctor --suite {suite} --shard {shard_index} --shards {n_shards}
 vulcanbench cursor-cloud prepare-shard --suite {suite} --shard {shard_index} --shards {n_shards} --model {model}
 ```
+
+Bootstrap installs whatever this shard needs on the host (``tsx@4.20.3``, Go 1.23.4, rustc 1.90, and PennyLane jax/numpy if that task is in the shard). Cursor Cloud has no Docker sandbox images. If doctor is not ok, stop and fix toolchains rather than scoring a fake zero.
 
 The command prints JSON with one `workspace` path per task. Those workspaces live **outside** this checkout so you cannot walk up into `tasks/` and read `gold_patch.diff` or hidden tests. Stay inside that workspace; never `cd ..` into this checkout.
 
