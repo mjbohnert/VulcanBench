@@ -260,7 +260,7 @@ def _agg_signature(result: dict) -> dict:  # type: ignore[type-arg]
 
 
 def test_parallel_matches_sequential(tmp_path: Path) -> None:
-    """max_concurrency must not change results — only wall-clock."""
+    """max_concurrency must not change results, only wall-clock."""
     base = tmp_path / "tasks"
     _make_task(base / "demo", "task-a", functional=1.0)
     _make_task(base / "demo", "task-b", functional=0.0)  # discriminating case
@@ -446,6 +446,52 @@ def test_infrastructure_retries_are_bounded(
     assert result["n_infra_retries"] == 2
     assert len(result["errors"]) == 1
     assert result["errors"][0]["task_id"] == "task-a"
+
+
+def test_subscription_quota_error_is_not_hot_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+    calls = 0
+
+    def quota_exhausted(**kwargs):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        raise suite_mod.NonRetryableProviderError("subscription quota exhausted")
+
+    monkeypatch.setattr(suite_mod, "run_agent", quota_exhausted)
+    result = run_suite(
+        "demo", "mock:synthetic", output_dir=tmp_path / "runs", tasks_base=base, judges=False
+    )
+
+    assert calls == 1
+    assert result["n_infra_retries"] == 0
+    assert len(result["errors"]) == 1
+
+
+def test_verifier_infrastructure_error_is_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tasks"
+    _make_task(base / "demo", "task-a")
+    calls = 0
+    real_run_agent = suite_mod.run_agent
+
+    def missing_toolchain(**kwargs):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise suite_mod.VerifierInfrastructureError("pytest unavailable")
+        return real_run_agent(**kwargs)
+
+    monkeypatch.setattr(suite_mod, "run_agent", missing_toolchain)
+    result = run_suite(
+        "demo", "mock:synthetic", output_dir=tmp_path / "runs", tasks_base=base, judges=False
+    )
+    assert calls == 2
+    assert result["n_infra_retries"] == 1
+    assert result["errors"] == []
 
 
 def test_graded_failure_is_not_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

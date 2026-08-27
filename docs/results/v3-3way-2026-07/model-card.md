@@ -1,4 +1,4 @@
-# VulcanBench Technical Report No. 4 — Grok 4.5 vs Claude Fable 5 vs GPT-5.6 Sol
+# VulcanBench Technical Report No. 4, Grok 4.5 vs Claude Fable 5 vs GPT-5.6 Sol
 
 **July 12, 2026 · VulcanBench v3 · 23 tasks · 207 runs · 3 effort levels · 5 languages · total spend $96.72**
 
@@ -28,18 +28,18 @@ discounted); time is sandbox wall-clock.
 
 ## Findings
 
-1. **Grok plateaus at medium — and that's the efficiency frontier.** High effort spends 33%
+1. **Grok plateaus at medium, and that's the efficiency frontier.** High effort spends 33%
    more tokens and 31% more money for the identical 21/23, failing the same two tasks. No
    config in the matrix beats 91.3% at $0.29/task.
 2. **Only Sol rewards the effort knob.** 78.3 → 82.6 → 87.0%, monotonic; each step buys real
    accuracy. Fable oscillates at 85±2% (87.0 → 82.6 → 87.0) with a different failure set each
-   run — the knob changes which borderline tasks fall, not how many.
+   run, the knob changes which borderline tasks fall, not how many.
 3. **Frugal tokens, premium price.** Fable uses the fewest tokens at every effort (28-44 K/task,
    roughly half the agent steps of Grok) yet is the costliest per solved task ($0.61-$1.04) at
    $10/$50-per-M pricing.
 4. **The difficulty ceiling held; one wall fell.** PennyLane Trotter fragmentation and SQLGlot
    internal-name canonicalization went 0-for-27 across all models and efforts. Flask's
-   teardown-error redesign fell to all three models — but only at high effort, making it the
+   teardown-error redesign fell to all three models, but only at high effort, making it the
    suite's cleanest effort-discriminator.
 
 ## Failure map (tasks failed by at least one config)

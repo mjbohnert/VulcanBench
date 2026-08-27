@@ -6,7 +6,7 @@ cost priors, then the same task on other models (scaled by relative list price),
 then the model's median run cost, then a conservative default derived from
 observed data.
 
-These are planning numbers — actual spend varies with model behavior, retries,
+These are planning numbers, actual spend varies with model behavior, retries,
 and judges. Use ``recommended_usd`` as a minimum credit buffer, not a hard cap.
 """
 
@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from harness.agent.providers import route_manifest
 from harness.cost_priors import PriorBuckets, PriorRange, load_cost_priors
 from harness.leaderboard import load_summaries
 from harness.pricing import _rate, is_priced
@@ -26,7 +27,7 @@ from harness.task_metadata import repo_scale
 from harness.tasks import load_task
 
 # Ignore free/offline runs when building the index.
-_SKIP_MODEL_PREFIXES = ("mock:",)
+_SKIP_MODEL_PREFIXES = ("mock:", "ollama:")
 
 # When we have no history at all for a priced model, assume this per run (USD).
 _DEFAULT_PER_RUN: dict[str, float] = {
@@ -36,6 +37,8 @@ _DEFAULT_PER_RUN: dict[str, float] = {
     "kimi:": 0.055,
     "qwen:": 0.03,
     "deepseek:": 0.02,
+    "meta:": 0.04,
+    "xai:": 0.06,
 }
 _DEFAULT_FALLBACK = 0.08
 
@@ -46,6 +49,9 @@ _PROVIDER_ENV = {
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    "meta": "META_MUSE_SPARK_API",
+    "ollama": "OLLAMA_BASE_URL",
+    "xai": "XAI_API_KEY",
 }
 
 _PROVIDER_LABEL = {
@@ -55,7 +61,20 @@ _PROVIDER_LABEL = {
     "kimi": "Moonshot (Kimi)",
     "qwen": "Qwen (DashScope)",
     "deepseek": "DeepSeek",
+    "meta": "Meta Model API",
+    "ollama": "Ollama (local)",
+    "xai": "xAI (Grok)",
 }
+
+
+def _env_var_for(spec: str, provider: str) -> str:
+    """The key a run will actually read, a routed run needs a different one than
+    its provider's default (e.g. Muse Spark via OpenRouter)."""
+    route = route_manifest(spec)
+    if route and route["via"] == "openrouter":
+        return "OPENROUTER_API_KEY"
+    return _PROVIDER_ENV.get(provider, f"{provider.upper()}_API_KEY")
+
 
 _KNOWN_TASK_SOURCES = frozenset({"exact", "prior_exact"})
 _PRIOR_SOURCES = frozenset({"prior_exact", "prior_task_scaled", "prior_model_median"})
@@ -396,7 +415,7 @@ def estimate_plan(  # noqa: PLR0912
         elif n_prior_only > 0:
             notes.append(f"Partial bundled priors for {n_prior_only} task(s).")
         if confidence == "low":
-            notes.append("Limited history; defaults are conservative — load extra credit.")
+            notes.append("Limited history; defaults are conservative, load extra credit.")
         unknown = [t.task_id for t in per_task if t.source == "default"]
         if unknown:
             notes.append(f"No history for {len(unknown)} task(s); using defaults.")
@@ -406,7 +425,7 @@ def estimate_plan(  # noqa: PLR0912
             ModelCostEstimate(
                 model=model,
                 provider=_PROVIDER_LABEL.get(prov, prov),
-                env_var=_PROVIDER_ENV.get(prov, f"{prov.upper()}_API_KEY"),
+                env_var=_env_var_for(model, prov),
                 n_runs=len(task_ids) * repeat,
                 low_usd=low,
                 mid_usd=mid,

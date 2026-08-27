@@ -1,6 +1,6 @@
 # Probe image for the axios task: node-ts + axios's runtime deps.
 #
-# Build (context is the TASK REPO — .dockerignore excludes tasks/ from the root):
+# Build (context is the TASK REPO, .dockerignore excludes tasks/ from the root):
 #   docker build -t vulcanbench/sandbox:axios-11096 \
 #     -f sandbox/Dockerfile.axios-11096 \
 #     tasks/cii-v1/oss-axios-methodlist-adapter-errors/repo

@@ -2,7 +2,7 @@
 
 Validity of the voice-tax comparison rests on one property: the scorer is
 **byte-identical between text mode and audio mode**. There is exactly one
-entry point (:func:`score_response`) taking ``(item, response_text)`` — it
+entry point (:func:`score_response`) taking ``(item, response_text)``: it
 has no knowledge of which modality produced the text.
 
 Pipeline: normalize → exact/alias match → optional LLM judge for free-form
@@ -42,7 +42,7 @@ _ARTICLES = {"a", "an", "the"}
 def _fold_number_words(tokens: list[str]) -> list[str]:
     """Fold spoken-number tokens into digits, conservatively.
 
-    Handles units, tens, ``tens units`` pairs, and ``N hundred [M]`` — the
+    Handles units, tens, ``tens units`` pairs, and ``N hundred [M]``: the
     forms STT actually produces for this suite's short numeric answers.
     Anything more elaborate is left untouched rather than guessed at.
     """
@@ -91,7 +91,7 @@ def normalize(text: str) -> str:
     text = re.sub(r"(\d+)\.0+\b", r"\1", text)
     # Hyphenated compounds ("eighty-eight") split before punctuation strip.
     text = text.replace("-", " ")
-    # Note: this also splits true decimals ("5.2" → "5 2") — identically on
+    # Note: this also splits true decimals ("5.2" → "5 2"), identically on
     # both the reference and the response, so comparisons stay symmetric.
     text = re.sub(r"[^\w\s]", " ", text)
     tokens = [t for t in text.split() if t not in _ARTICLES]

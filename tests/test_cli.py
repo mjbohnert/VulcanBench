@@ -22,7 +22,7 @@ runner = CliRunner()
 def test_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert __version__ == "0.8.0"
+    assert __version__ == "0.9.0"
     assert __version__ in result.output
 
 
@@ -52,6 +52,70 @@ def test_help() -> None:
     assert result.exit_code == 0
     assert "vulcanbench" in result.output.lower()
     assert "run" in result.output
+
+
+def test_harness_list_json() -> None:
+    result = runner.invoke(app, ["harness", "list", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert {row["harness"] for row in data} == {
+        "claude-code",
+        "codex",
+        "cursor",
+        "grok-build",
+        "zcode",
+    }
+    assert all(row["structured_events"] for row in data)
+    cursor = next(row for row in data if row["harness"] == "cursor")
+    assert cursor["reports_tokens"] is True
+    assert cursor["supports_live_cost_cap"] is True
+
+
+def test_cursor_cloud_help() -> None:
+    result = runner.invoke(app, ["cursor-cloud", "--help"])
+    assert result.exit_code == 0
+    assert "prepare-shard" in result.output
+    assert "print-prompt" in result.output
+    assert "price-transcript" in result.output
+    assert "bootstrap" in result.output
+    assert "doctor" in result.output
+
+
+def test_run_harness_options_normalize_subscription_spec() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--task",
+            "hello-world",
+            "--harness",
+            "codex",
+            "--billing",
+            "subscription",
+            "--model",
+            "gpt-5.6-sol",
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "model=codex:gpt-5.6-sol" in result.output
+
+
+def test_run_rejects_subscription_billing_without_subscription_harness() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--task",
+            "hello-world",
+            "--model",
+            "mock:synthetic",
+            "--billing",
+            "subscription",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "requires --harness" in result.output
 
 
 def test_run_unknown_task() -> None:

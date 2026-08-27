@@ -2,7 +2,7 @@
 
 These assert the *shape* of the shipped benchmark (size, difficulty spread,
 category and language coverage, required files, honest provenance labeling) so
-the corpus cannot silently shrink or lose coverage. They do not run the tasks —
+the corpus cannot silently shrink or lose coverage. They do not run the tasks,
 that is `scripts/validate_tasks.py` (gold-solves / fail-to-pass / determinism).
 
 Claims ledger (promise -> proving test):
@@ -108,7 +108,7 @@ MIN_NON_LOCALIZED_TASKS = 12
 def test_hard_task_floor() -> None:
     hard = [d for d in _real_task_dirs() if _meta(d).get("difficulty") == "hard"]
     assert len(hard) >= MIN_HARD_TASKS, (
-        f"expected >={MIN_HARD_TASKS} hard tasks, found {len(hard)} — the suite needs a"
+        f"expected >={MIN_HARD_TASKS} hard tasks, found {len(hard)}, the suite needs a"
         " ceiling that separates strong models"
     )
 
@@ -126,8 +126,8 @@ def test_not_dominated_by_easy_tasks() -> None:
 
 def test_non_localized_coverage_floor() -> None:
     # Guard against the navigation-heavy tier silently going to zero. This floor
-    # is low on purpose — growing multi_file/system/architecture coverage is
-    # tracked in the roadmap — but it must not regress.
+    # is low on purpose, growing multi_file/system/architecture coverage is
+    # tracked in the roadmap, but it must not regress.
     non_localized = sum(
         1 for d in _real_task_dirs() if _meta(d).get("task_complexity") != "localized"
     )

@@ -8,7 +8,7 @@ interface Props {
 }
 
 function fmt(n: number | null | undefined): string {
-  return n === null || n === undefined ? "—" : n.toFixed(2);
+  return n === null || n === undefined ? "" : n.toFixed(2);
 }
 
 export default async function TaskDetail({ params }: Props) {
@@ -53,7 +53,7 @@ export default async function TaskDetail({ params }: Props) {
             return (
               <div className={`mt-4 text-sm border rounded-xl p-4 ${disagrees ? "border-amber-500/40 text-amber-300" : "border-white/10 text-zinc-400"}`}>
                 <span className="font-medium text-white">Calibration:</span>{" "}
-                {disagrees ? "empirical difficulty disagrees with label — " : ""}
+                {disagrees ? "empirical difficulty disagrees with label, " : ""}
                 measured <span className="font-mono">{calEntry.empirical_difficulty}</span> (solve rate {calEntry.solve_rate?.toFixed(2)} ± {calEntry.solve_rate_stderr?.toFixed(2)}, {calEntry.n_attempts} attempts × {calEntry.n_models} models)
               </div>
             );
@@ -93,8 +93,8 @@ export default async function TaskDetail({ params }: Props) {
                       <td className="p-4 text-zinc-400">{r.model ?? "?"}</td>
                       <td className="p-4 text-emerald-400 font-medium">{fmt(r.total)}</td>
                       <td className="p-4">{fmt(r.functional)}</td>
-                      <td className="p-4 text-zinc-400">{r.cost_usd === null ? "—" : `$${r.cost_usd.toFixed(4)}`}</td>
-                      <td className="p-4 text-zinc-400">{r.duration_s === null ? "—" : `${r.duration_s.toFixed(1)}s`}</td>
+                      <td className="p-4 text-zinc-400">{r.cost_usd === null ? "" : `$${r.cost_usd.toFixed(4)}`}</td>
+                      <td className="p-4 text-zinc-400">{r.duration_s === null ? "" : `${r.duration_s.toFixed(1)}s`}</td>
                       <td className="p-4"><Link href={`/run/${r.run_id}`} className="text-xs underline">trace</Link></td>
                     </tr>
                   ))}

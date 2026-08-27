@@ -46,7 +46,7 @@ SCALE_DEFAULTS: dict[str, dict[str, int | float]] = {
 }
 # Complexity-scaled budgets (Coding Intelligence Index), TerminalBench-style:
 # generous wall-clock allowances in tidy half-hour increments, so a slow
-# verdict always means the model could not solve the task — never that the
+# verdict always means the model could not solve the task, never that the
 # clock was tuned to the median solver. TerminalBench's published budgets
 # cluster at 2h with a tail from 30min to 8h; this formula reproduces that
 # shape from the task's declared complexity (dominant factor), difficulty and
@@ -169,7 +169,7 @@ def resolve_max_steps(
     """Resolve step budget from metadata; optional CLI value caps (does not raise).
 
     With ``override=True`` the CLI value is taken verbatim, even above the task
-    default — an ablation mode; such runs are not comparable to capped runs.
+    default, an ablation mode; such runs are not comparable to capped runs.
     """
     if override and cli_max_steps is not None:
         return cli_max_steps
@@ -201,7 +201,7 @@ def resolve_agent_timeout_s(
     """Agent wall-clock budget from hints/scale defaults; CLI ``--timeout`` caps when set.
 
     With ``override=True`` the CLI value is taken verbatim, even above the task
-    default — an ablation mode; such runs are not comparable to capped runs.
+    default, an ablation mode; such runs are not comparable to capped runs.
     """
     if override and cli_timeout is not None:
         return cli_timeout
@@ -314,7 +314,59 @@ def validate_scale_fields(task_root: Path, metadata: dict[str, Any]) -> list[str
         reasons.append("test_timeout_s must be a positive number when set")
 
     reasons.extend(_validate_explicit_budgets(task_root, metadata))
+    reasons.extend(_validate_environment(task_root, metadata))
 
+    return reasons
+
+
+def _validate_environment(task_root: Path, metadata: dict[str, Any]) -> list[str]:
+    """Validate the optional multi-service ``environment`` block.
+
+    Checks that the compose file exists inside the task dir, that ready probes
+    are well-formed, and that the compose file avoids the two footguns that
+    break run isolation: fixed host-port publishing ("8080:80") and
+    ``container_name:`` (both collide across concurrent per-run projects).
+    """
+    spec = metadata.get("environment")
+    if spec is None:
+        return []
+    reasons: list[str] = []
+    if not isinstance(spec, dict) or not isinstance(spec.get("compose"), str):
+        return ["environment must be an object with a string 'compose' path"]
+    compose = (task_root / spec["compose"]).resolve()
+    try:
+        compose.relative_to(task_root.resolve())
+    except ValueError:
+        return [f"environment.compose must live inside the task dir: {spec['compose']}"]
+    if not compose.is_file():
+        return [f"environment.compose file not found: {spec['compose']}"]
+    text = compose.read_text(encoding="utf-8", errors="replace")
+    if re.search(r"^\s*container_name\s*:", text, re.M):
+        reasons.append(
+            "environment compose file must not set container_name (collides across runs)"
+        )
+    if re.search(r"-\s*[\"']?\d+:\d+", text):
+        reasons.append(
+            "environment compose file must publish ports ephemerally "
+            '(ports: ["6379"]), never with fixed host ports ("6379:6379")'
+        )
+    ready = spec.get("ready")
+    if ready is not None:
+        if not isinstance(ready, list):
+            reasons.append("environment.ready must be a list of {service, cmd} probes")
+        else:
+            for probe in ready:
+                if (
+                    not isinstance(probe, dict)
+                    or not isinstance(probe.get("service"), str)
+                    or not isinstance(probe.get("cmd"), str)
+                ):
+                    reasons.append(f"malformed environment.ready probe: {probe!r}")
+    up_timeout = spec.get("up_timeout_s")
+    if up_timeout is not None and (
+        not isinstance(up_timeout, (int, float)) or isinstance(up_timeout, bool) or up_timeout <= 0
+    ):
+        reasons.append("environment.up_timeout_s must be a positive number when set")
     return reasons
 
 
@@ -323,7 +375,7 @@ def _validate_explicit_budgets(task_root: Path, metadata: dict[str, Any]) -> lis
 
     A suite whose ``suite.json`` sets ``"require_explicit_budgets": true`` (the
     Coding Intelligence Index does) fails any task without positive
-    ``agent_hints.suggested_max_steps`` and ``suggested_timeout_s`` — budgets
+    ``agent_hints.suggested_max_steps`` and ``suggested_timeout_s``, budgets
     must be stamped and auditable per task, never inherited silently from
     scale defaults.
     """

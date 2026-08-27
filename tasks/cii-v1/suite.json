@@ -33,6 +33,17 @@
     "oss-hono-wildcard-prefix-overmatch",
     "oss-bodyparser-limit-validation",
     "oss-zod-url-ipv6-validated-string",
-    "oss-undici-body-sent-hooks"
+    "oss-undici-body-sent-hooks",
+    "oss-starlette-max-body-size",
+    "oss-starlette-gzip-thread-offload",
+    "oss-zod-registry-jsonschema-linear",
+    "oss-networkx-kcomponents-exact-epic",
+    "oss-zod-optionality-ladder",
+    "oss-zod-record-intersection-strictness",
+    "oss-undici-cache-revalidation-epic",
+    "oss-sqlglot-json-operator-precedence",
+    "oss-sqlglot-pushdown-semantics",
+    "oss-zod-fromjsonschema-epic",
+    "env-ledger-concurrent-transfers"
   ]
 }

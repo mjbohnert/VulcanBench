@@ -19,6 +19,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from collections.abc import Callable
@@ -28,20 +29,23 @@ from pathlib import Path
 from typing import Any
 
 from harness.agent.cli_agents import (
+    CliAgentAdapter,
     CliAgentOutcome,
     build_cli_prompt,
+    get_cli_agent_adapter,
     is_cli_agent_spec,
-    run_claude_code_task,
-    run_codex_task,
 )
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
-from harness.agent.providers import LLMProvider, get_provider, parse_model_spec
+from harness.agent.providers import LLMProvider, get_provider, parse_model_spec, route_manifest
+from harness.agent.run_audit import audit_run
+from harness.economics import api_receipt, subscription_receipt
 from harness.effort import effort_config
+from harness.environment import start_environment
 from harness.evaluator.evaluate import evaluate_run
 from harness.evaluator.scorer import run_verifier, score_run
 from harness.persistence import maybe_post_run_summary
-from harness.pricing import cost_usd, is_priced
+from harness.pricing import cost_usd, has_cached_input_price, is_priced
 from harness.redaction import sanitize
 from harness.sandbox.docker_executor import (
     DockerToolExecutor,
@@ -60,7 +64,7 @@ from harness.task_metadata import (
 )
 from harness.tasks import Task, load_task, prepare_workspace, run_setup, task_hash
 from harness.tracer.collector import TraceCollector, generate_replay_html
-from harness.verifier import DEFAULT_TIMEOUT, Runner, run_declarative_verifier
+from harness.verifier import DEFAULT_TIMEOUT, Runner, RunnerOutcome, run_declarative_verifier
 
 SYSTEM_PROMPT = (
     "You are an autonomous software engineering agent. Solve the task described "
@@ -126,7 +130,7 @@ class _RunDeadline:
         collector.record("budget_exceeded", payload)
 
 
-def run_agent(
+def run_agent(  # noqa: PLR0915
     task_id: str,
     model: str,
     output_dir: Path = Path("./runs"),
@@ -158,7 +162,7 @@ def run_agent(
     summary dict (also persisted to ``<run_dir>/summary.json``).
     """
     task = load_task(task_id, tasks_root)
-    cli_agent, provider, effort_meta = _resolve_run_engine(model, provider, effort, sandbox)
+    cli_adapter, provider, effort_meta = _resolve_run_engine(model, provider, effort, sandbox)
     effective_max_steps = resolve_max_steps(task.metadata, max_steps, override=override_budgets)
     effective_timeout = resolve_agent_timeout_s(task.metadata, timeout_s, override=override_budgets)
 
@@ -167,7 +171,7 @@ def run_agent(
     collector = TraceCollector(run_dir, run_id, task_id, model)
     collector.record("task_start", {"task_id": task_id, "metadata": task.metadata})
 
-    workspace = run_dir / "workspace"
+    agent_tmp_root, workspace = _resolve_workspace(cli_adapter, run_id, run_dir)
     prepare_workspace(task, workspace)
     _git_init(workspace)
     executor = _make_executor(sandbox, workspace, image, network, task, collector)
@@ -176,6 +180,14 @@ def run_agent(
     # This is used by Rust tasks (cargo build --tests warm-up) and any task
     # that declares a metadata "setup" key.
     _run_task_setup(task, workspace, executor, collector)
+
+    # Multi-service environments (metadata "environment") also come up before
+    # the clock starts; teardown is in the finally below.
+    environment = start_environment(task, run_id, workspace, sandbox=sandbox)
+    if environment is not None:
+        collector.record(
+            "environment_up", {"project": environment.project, "services": environment.ports}
+        )
 
     started_at = datetime.now(UTC)
     started_mono = time.monotonic()
@@ -188,23 +200,25 @@ def run_agent(
     ]
 
     try:
-        prompt_tokens, completion_tokens, finished, cost_capped, cli_outcome = _execute_agent(
-            cli_agent=cli_agent,
-            model=model,
-            provider=provider,
-            task=task,
-            tools=tools,
-            messages=messages,
-            effective_max_steps=effective_max_steps,
-            collector=collector,
-            executor=executor,
-            run_id=run_id,
-            run_dir=run_dir,
-            workspace=workspace,
-            deadline=deadline,
-            effort_meta=effort_meta,
-            network=network,
-            max_run_cost=max_run_cost,
+        prompt_tokens, completion_tokens, finished, cost_capped, actual_steps, cli_outcome = (
+            _execute_agent(
+                cli_adapter=cli_adapter,
+                model=model,
+                provider=provider,
+                task=task,
+                tools=tools,
+                messages=messages,
+                effective_max_steps=effective_max_steps,
+                collector=collector,
+                executor=executor,
+                run_id=run_id,
+                run_dir=run_dir,
+                workspace=workspace,
+                deadline=deadline,
+                effort_meta=effort_meta,
+                network=network,
+                max_run_cost=max_run_cost,
+            )
         )
         patch = _git_diff(workspace)
         changed_files = _git_changed_files(workspace)
@@ -220,7 +234,9 @@ def run_agent(
         )
     finally:
         # Quality/security/judges run host-side over the mounted workspace and
-        # don't need the container, so tear it down now.
+        # don't need the container or the service stack, so tear both down now.
+        if environment is not None:
+            environment.down()
         close = getattr(executor, "close", None)
         if callable(close):
             close()
@@ -231,7 +247,7 @@ def run_agent(
     scores = _evaluate_with_budget(
         functional=functional,
         total_tokens=total_tokens,
-        steps=collector.step,
+        steps=actual_steps,
         workspace=workspace,
         patch=patch,
         changed_files=changed_files,
@@ -246,20 +262,66 @@ def run_agent(
     )
     collector.record("metric_computed", scores)
 
-    cost = _compute_cost(model, prompt_tokens, completion_tokens, judge_model, scores)
+    cached_input_tokens = cli_outcome.cached_input_tokens if cli_outcome else 0
+    cost = _compute_cost(
+        model,
+        prompt_tokens,
+        completion_tokens,
+        judge_model,
+        scores,
+        cached_input_tokens=cached_input_tokens,
+    )
+    if cli_outcome is not None and not cli_outcome.usage_reported:
+        # A harness that streamed no usage (older cursor-agent) must not
+        # turn "unknown" into a $0 receipt just because the spec is priced.
+        cost["agent"] = None
+        cost["total"] = None
+    grading_uses_subscription = bool(cli_outcome and is_cli_agent_spec(judge_model or model))
+    economics = (
+        subscription_receipt(
+            api_equivalent_cost_usd=cost["total"],
+            grading_cash_usd=None if grading_uses_subscription else cost["judges"],
+            grading_api_equivalent_usd=cost["judges"],
+            plan_name=cli_outcome.plan_name,
+            cli_reported_cost_usd=cli_outcome.cli_reported_cost_usd,
+            api_equivalent_quality=(
+                # A harness that streams no usage (Cursor) has no token basis at
+                # all: let the receipt record "unavailable" instead of implying
+                # an estimate exists.
+                None
+                if cost["total"] is None
+                else "estimated-from-reported-tokens-with-cache-pricing"
+                if cached_input_tokens and has_cached_input_price(model)
+                else "estimated-from-reported-tokens-no-cache-discount"
+                if cached_input_tokens
+                else "estimated-from-reported-tokens"
+            ),
+        )
+        if cli_outcome
+        else api_receipt(cost["total"], cost["judges"])
+    )
     duration_s = round(time.monotonic() - started_mono, 3)
     summary = collector.finalize(
         scores,
         {
-            "steps": collector.step,
+            "steps": actual_steps,
             "total_tokens": total_tokens,
             "tokens": {
                 "prompt": prompt_tokens,
                 "completion": completion_tokens,
                 "total": total_tokens,
+                **(
+                    {
+                        "cached_input": cli_outcome.cached_input_tokens,
+                        "reasoning_output": cli_outcome.reasoning_output_tokens,
+                    }
+                    if cli_outcome
+                    else {}
+                ),
             },
             "cost_usd": cost["total"],
             "cost_detail": cost,
+            "economics": economics.as_summary(),
             "duration_s": duration_s,
             "started_at": started_at.isoformat(),
             "finished": finished,
@@ -281,12 +343,32 @@ def run_agent(
             ),
             **({"experiment_id": experiment_id} if experiment_id else {}),
             **({"cli_agent": cli_outcome.summary()} if cli_outcome else {}),
+            # External harnesses may browse; the audit matches their web
+            # activity against the task's upstream provenance so a run that
+            # fetched its own solution is flagged, never silently counted.
+            **(
+                {
+                    # The audit boundary is the containment perimeter
+                    # VulcanBench created (the empty tmp root holding
+                    # workspace/), not the inner dir: agents that discover
+                    # their project root list the parent, and flagging our
+                    # own perimeter as out_of_workspace buries real signals.
+                    "integrity_audit": audit_run(
+                        run_dir / "cli-agent-stream.jsonl",
+                        task.metadata,
+                        agent_tmp_root or workspace,
+                    )
+                }
+                if cli_outcome
+                else {}
+            ),
             "verifier": verifier_payload,
             "replay_command": f"vulcanbench replay {run_id}",
         },
     )
     generate_replay_html(collector.trace_path, run_dir / "replay.html")
     maybe_post_run_summary(summary)
+    _reclaim_agent_workspace(agent_tmp_root, workspace, run_dir)
     return {"run_id": run_id, "summary": summary, "replay": str(run_dir / "replay.html")}
 
 
@@ -311,30 +393,37 @@ def _resolve_run_engine(
     provider: LLMProvider | None,
     effort: str | None,
     sandbox: str,
-) -> tuple[bool, LLMProvider | None, Any]:
+) -> tuple[CliAgentAdapter | None, LLMProvider | None, Any]:
     """Decide whether ``model`` runs as a vendor agent CLI or via a provider.
 
-    Vendor agent CLIs (``claude-code:*``) execute their own tools host-side
-    (subscription billing); the sandbox executor is only used for setup and
-    verification. Docker would verify in a different environment than the
-    agent ran in, so CLI runs require the explicit ``--sandbox local`` opt-in.
+    External harnesses execute their own tools and bill a subscription. Claude
+    Code currently uses the host workspace; Codex adds its own workspace-write
+    sandbox. Setup and verification must run against that same workspace.
     """
     if provider is None and is_cli_agent_spec(model):
-        if sandbox != "local":
+        adapter = get_cli_agent_adapter(model)
+        # Claude Code executes tools on the host workspace and must acknowledge
+        # that with --sandbox local. Codex (workspace-write) and Cursor
+        # (cursor-sandbox=enabled) bring their own agent sandboxes and are
+        # exempt: with --sandbox docker their agent runs on the host workspace
+        # while VulcanBench's setup and hidden-test verifier run in Docker over
+        # the same directory. Forcing Cursor to local also forced the VERIFIER
+        # to the host, where toolchains don't match the sandbox image, every
+        # Python task failed verification with "pytest is unavailable".
+        if adapter.harness_id == "claude-code" and sandbox != "local":
             raise SandboxError(
                 f"model spec {model!r} runs a vendor agent CLI on the host with "
                 "its own tool execution; pass --sandbox local to acknowledge "
                 "host execution"
             )
-        cli_provider = model.partition(":")[0].strip().lower()
-        return True, None, effort_config(cli_provider, effort)
+        return adapter, None, effort_config(adapter.harness_id, effort)
     provider = provider or get_provider(model)
-    return False, provider, effort_config(provider.name, effort)
+    return None, provider, effort_config(provider.name, effort, provider.model)
 
 
 def _execute_agent(
     *,
-    cli_agent: bool,
+    cli_adapter: CliAgentAdapter | None,
     model: str,
     provider: LLMProvider | None,
     task: Task,
@@ -350,36 +439,23 @@ def _execute_agent(
     effort_meta: Any,
     network: bool,
     max_run_cost: float | None,
-) -> tuple[int, int, bool, bool, CliAgentOutcome | None]:
+) -> tuple[int, int, bool, bool, int, CliAgentOutcome | None]:
     """Run the agent phase: the vendor CLI in the workspace, or the model loop."""
-    if cli_agent:
-        cli_provider, cli_model = parse_model_spec(model)
-        if cli_provider == "codex":
-            outcome = run_codex_task(
-                workspace=workspace,
-                prompt=build_cli_prompt(task.issue),
-                model=cli_model,
-                priced_spec=model,
-                collector=collector,
-                stream_log_path=run_dir / "cli-agent-stream.jsonl",
-                timeout_s=deadline.remaining_s(),
-                network=network,
-                max_run_cost=max_run_cost,
-                effort=effort_meta.requested if effort_meta else None,
-            )
-        else:
-            outcome = run_claude_code_task(
-                workspace=workspace,
-                prompt=build_cli_prompt(task.issue),
-                model=cli_model,
-                priced_spec=model,
-                max_turns=effective_max_steps,
-                collector=collector,
-                stream_log_path=run_dir / "cli-agent-stream.jsonl",
-                timeout_s=deadline.remaining_s(),
-                network=network,
-                max_run_cost=max_run_cost,
-            )
+    if cli_adapter is not None:
+        _, cli_model = parse_model_spec(model)
+        outcome = cli_adapter.run_task(
+            workspace=workspace,
+            prompt=build_cli_prompt(task.issue),
+            model=cli_model,
+            priced_spec=model,
+            max_turns=effective_max_steps,
+            collector=collector,
+            stream_log_path=run_dir / "cli-agent-stream.jsonl",
+            timeout_s=deadline.remaining_s(),
+            network=network,
+            max_run_cost=max_run_cost,
+            effort=effort_meta.provider_value if effort_meta and effort_meta.supported else None,
+        )
         if outcome.timed_out:
             deadline.record_exceeded(collector, "cli_agent")
         return (
@@ -387,10 +463,11 @@ def _execute_agent(
             outcome.completion_tokens,
             outcome.finished,
             outcome.cost_capped,
+            outcome.num_turns if outcome.num_turns is not None else 0,
             outcome,
         )
     assert provider is not None  # resolved by _resolve_run_engine for non-CLI specs
-    prompt_tokens, completion_tokens, finished, cost_capped = _run_model_loop(
+    prompt_tokens, completion_tokens, finished, cost_capped, actual_steps = _run_model_loop(
         provider,
         tools,
         messages,
@@ -403,7 +480,7 @@ def _execute_agent(
         model=model,
         max_run_cost=max_run_cost,
     )
-    return prompt_tokens, completion_tokens, finished, cost_capped, None
+    return prompt_tokens, completion_tokens, finished, cost_capped, actual_steps, None
 
 
 def _compute_cost(
@@ -412,15 +489,32 @@ def _compute_cost(
     completion_tokens: int,
     judge_model: str | None,
     scores: dict[str, Any],
+    *,
+    cached_input_tokens: int = 0,
 ) -> dict[str, Any]:
     """Agent + judge cost in USD. ``total`` is ``None`` when the model is unpriced."""
-    agent = cost_usd(model, prompt_tokens, completion_tokens)
+    cached_input_tokens = min(max(0, cached_input_tokens), max(0, prompt_tokens))
+    agent = cost_usd(
+        model,
+        prompt_tokens,
+        completion_tokens,
+        cached_input_tokens=cached_input_tokens,
+    )
     human = scores.get("metric_details", {}).get("human_like", {})
     jp = int(human.get("judge_prompt_tokens", 0))
     jc = int(human.get("judge_completion_tokens", 0))
     judges = cost_usd(judge_model or model, jp, jc) if (jp or jc) else 0.0
     total = round(agent + judges, 6) if (agent is not None and judges is not None) else None
-    return {"agent": agent, "judges": judges, "total": total, "model_priced": is_priced(model)}
+    return {
+        "agent": agent,
+        "judges": judges,
+        "total": total,
+        "model_priced": is_priced(model),
+        "agent_input_tokens": prompt_tokens,
+        "agent_cached_input_tokens": cached_input_tokens,
+        "agent_uncached_input_tokens": max(0, prompt_tokens - cached_input_tokens),
+        "cache_pricing_applied": bool(cached_input_tokens and has_cached_input_price(model)),
+    }
 
 
 def _verify_with_budget(
@@ -542,7 +636,7 @@ def _budget_exceeded_scores(functional: float, total_tokens: int, steps: int) ->
     )
 
 
-def _run_model_loop(  # noqa: PLR0912 — linear ReAct loop with budget + cost guards
+def _run_model_loop(  # noqa: PLR0912, linear ReAct loop with budget + cost guards
     provider: LLMProvider,
     tools: list[dict[str, Any]],
     messages: list[dict[str, Any]],
@@ -554,15 +648,17 @@ def _run_model_loop(  # noqa: PLR0912 — linear ReAct loop with budget + cost g
     effort: dict[str, Any] | None = None,
     model: str | None = None,
     max_run_cost: float | None = None,
-) -> tuple[int, int, bool, bool]:
+) -> tuple[int, int, bool, bool, int]:
     prompt_tokens = 0
     completion_tokens = 0
     finished = False
     cost_capped = False
+    actual_steps = 0
 
     for step in range(1, max_steps + 1):
         if not deadline.ensure_time(collector, "llm_request", step):
             break
+        actual_steps = step
         request_data: dict[str, Any] = {"step": step, "messages": len(messages)}
         if effort is not None:
             request_data["effort"] = effort
@@ -589,7 +685,7 @@ def _run_model_loop(  # noqa: PLR0912 — linear ReAct loop with budget + cost g
 
         # Per-run cost ceiling: once this run's own agent spend crosses the cap,
         # stop before paying for another (expensive) model call. The partial work
-        # is still verified and scored honestly — "hit the cap" is a real outcome,
+        # is still verified and scored honestly, "hit the cap" is a real outcome,
         # not an error. Only enforceable when the model is priced.
         if max_run_cost is not None and model is not None:
             run_cost = cost_usd(model, prompt_tokens, completion_tokens)
@@ -638,7 +734,7 @@ def _run_model_loop(  # noqa: PLR0912 — linear ReAct loop with budget + cost g
             if not deadline.ensure_time(collector, f"tool:{tc.name}", step):
                 break
 
-    return prompt_tokens, completion_tokens, finished, cost_capped
+    return prompt_tokens, completion_tokens, finished, cost_capped, actual_steps
 
 
 _MANIFEST_TOOLS = ("git", "ruff", "bandit", "radon", "go", "node")
@@ -750,7 +846,7 @@ def _collect_manifest(
             "network": network,
         },
         "tools": tools,
-    }
+    } | _route_entry(model)
 
 
 def _minimal_manifest(
@@ -772,7 +868,14 @@ def _minimal_manifest(
             "network": network,
         },
         "tools": {tool: None for tool in _MANIFEST_TOOLS},
-    }
+    } | _route_entry(model)
+
+
+def _route_entry(model: str) -> dict[str, Any]:
+    """``{"route": ...}`` when the run did not use the provider's default API
+    endpoint, else empty so default-route manifests keep their existing shape."""
+    route = route_manifest(model)
+    return {"route": route} if route else {}
 
 
 def _remaining_timeout(default: int, remaining_s: Callable[[], float | None] | None) -> int | None:
@@ -985,13 +1088,31 @@ def _executor_runner(executor: ToolProtocol) -> Runner:
     """
 
     def run(cmd: str, _workspace: Path, timeout: int) -> int:
-        try:
-            res = executor.run_command(RunCommandArgs(cmd=cmd, timeout=timeout))
-        except Exception:
-            return 124
-        return int(res.get("exit_code", 1))
+        return _executor_runner_outcome(executor, cmd, timeout).exit_code
 
     return run
+
+
+def _capturing_executor_runner(executor: ToolProtocol) -> Runner:
+    """Verifier runner variant that preserves output for infra classification."""
+
+    def run(cmd: str, _workspace: Path, timeout: int) -> RunnerOutcome:
+        return _executor_runner_outcome(executor, cmd, timeout)
+
+    return run
+
+
+def _executor_runner_outcome(executor: ToolProtocol, cmd: str, timeout: int) -> RunnerOutcome:
+    """Execute one verifier command and retain its exit code and output."""
+    try:
+        res = executor.run_command(RunCommandArgs(cmd=cmd, timeout=timeout))
+    except Exception as exc:
+        return RunnerOutcome(124, stderr=str(exc))
+    return RunnerOutcome(
+        int(res.get("exit_code", 1)),
+        stdout=str(res.get("stdout") or res.get("result") or ""),
+        stderr=str(res.get("stderr") or ""),
+    )
 
 
 def _verify(
@@ -1003,7 +1124,7 @@ def _verify(
 ) -> tuple[float, dict[str, Any]]:
     if task.tests_spec is not None:
         payload = run_declarative_verifier(
-            task, workspace, runner=_executor_runner(executor), timeout=timeout
+            task, workspace, runner=_capturing_executor_runner(executor), timeout=timeout
         )
     elif task.verifier is not None:
         payload = run_verifier(task.verifier, workspace, timeout=timeout)
@@ -1014,7 +1135,50 @@ def _verify(
     return functional, payload
 
 
-_WORKSPACE_GITIGNORE = ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n"
+# .cursor/, .grok/ and .zcode/ hold harness-written config, not agent work. The build
+# dirs matter beyond patch noise: node_modules/.cache/nyc/*.js and similar
+# generated files carry scored extensions, so an un-ignored build dir doesn't
+# just bloat final.patch -- group_by_language() picks them up and quality/
+# security analyzers score them as if they were the agent's real changes
+# (observed live: nyc cache JS files scored on oss-hono-client-header-merge).
+_WORKSPACE_GITIGNORE = (
+    ".coverage\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n*.pyc\n.cursor/\n.grok/\n.zcode/\n"
+    "target/\nnode_modules/\ndist/\nbuild/\n.gocache/\n.nyc_output/\n*.egg-info/\n"
+)
+
+
+def _resolve_workspace(
+    cli_adapter: CliAgentAdapter | None, run_id: str, run_dir: Path
+) -> tuple[Path | None, Path]:
+    """Where the agent works: outside this checkout for CLI harnesses.
+
+    CLI harnesses execute on the HOST, so a workspace inside the repo lets the
+    agent walk up into ``tasks/`` and read ``gold_patch.diff`` and the hidden
+    tests. Observed: 46 runs of a supposedly clean sweep did exactly that, and
+    all 46 solved. Those runs get a workspace with no benchmark data anywhere
+    above it; :func:`_reclaim_agent_workspace` moves the tree back into the run
+    dir afterwards so artifacts land where every other tool expects them.
+    """
+    if cli_adapter is None:
+        return None, run_dir / "workspace"
+    tmp_root = Path(tempfile.mkdtemp(prefix=f"vulcanbench-{run_id}-"))
+    return tmp_root, tmp_root / "workspace"
+
+
+def _reclaim_agent_workspace(tmp_root: Path | None, workspace: Path, run_dir: Path) -> None:
+    """Move a relocated agent workspace back under the run dir, then clean up.
+
+    Scoring is finished by this point, so the tree is inert; keeping it beside
+    the trace preserves the artifact layout every other tool assumes.
+    """
+    if tmp_root is None:
+        return
+    try:
+        dest = run_dir / "workspace"
+        if workspace.exists() and not dest.exists():
+            shutil.move(str(workspace), str(dest))
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
 
 
 def _git_init(workspace: Path) -> None:
@@ -1042,12 +1206,17 @@ def _git_init(workspace: Path) -> None:
 
 
 def _git_diff(workspace: Path) -> str:
+    # Lossy decoding: the diff contains whatever bytes the agent wrote. A single
+    # non-UTF-8 byte in a large artifact crashed the run at capture time -- after
+    # the model spend -- so a stray byte costs a replacement character instead.
     subprocess.run(["git", "add", "-A"], cwd=workspace, capture_output=True, text=True, check=False)
     proc = subprocess.run(
         ["git", "diff", "--cached"],
         cwd=workspace,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return proc.stdout
@@ -1061,19 +1230,25 @@ def _git_changed_files(workspace: Path) -> list[str]:
         cwd=workspace,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
 
 
 # Env var each provider needs before judging is worthwhile (mock needs none).
-_JUDGE_KEY_ENV = {
+_JUDGE_KEY_ENV: dict[str, str | tuple[str, ...]] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "zai": "ZAI_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    # OPENROUTER_API_KEY counts: a run routed through OpenRouter has no Meta key,
+    # and omitting it here would silently drop judging rather than fail loudly.
+    "meta": ("META_MUSE_SPARK_API", "MODEL_API_KEY", "OPENROUTER_API_KEY"),
+    "xai": "XAI_API_KEY",
 }
 
 
@@ -1102,7 +1277,10 @@ def _build_judge_provider(
         except ValueError:
             return None
     need = _JUDGE_KEY_ENV.get(provider.name)
-    if need is not None and not os.environ.get(need):
+    if isinstance(need, tuple):
+        if not any(os.environ.get(name) for name in need):
+            return None
+    elif need is not None and not os.environ.get(need):
         return None
     return provider
 

@@ -4,7 +4,7 @@ A task declares its tests in ``metadata.tests`` as two lists of
 ``{"name", "cmd"}`` entries; each ``cmd`` runs in the workspace and **exit code
 0 means the test passed**:
 
-- ``fail_to_pass``: must fail on the starting repo and pass after the fix — the
+- ``fail_to_pass``: must fail on the starting repo and pass after the fix, the
   real signal. ``functional`` is the fraction of these that pass.
 - ``pass_to_pass``: must keep passing (regression guard). If any of these fail,
   ``functional`` is gated to 0.0 regardless of the fail-to-pass results.
@@ -12,7 +12,7 @@ A task declares its tests in ``metadata.tests`` as two lists of
 This runs at scoring time, after copying the task's hidden ``tests/`` into the
 workspace (so the agent never saw them while solving).
 
-Test commands are dispatched through a ``Runner`` — a callable that takes
+Test commands are dispatched through a ``Runner``: a callable that takes
 ``(cmd, workspace, timeout)`` and returns an exit code. The default runs on the
 host; the agent loop passes a runner that ``exec``s inside the Docker sandbox so
 verification happens in the same isolated, reproducible environment as the run.
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -29,12 +30,26 @@ from harness.tasks import Task, install_hidden_tests
 
 DEFAULT_TIMEOUT = 120
 
-# (cmd, workspace, timeout) -> exit code (0 == pass).
-Runner = Callable[[str, Path, int], int]
+
+@dataclass(frozen=True)
+class RunnerOutcome:
+    """Captured verifier command result used to distinguish infra failures."""
+
+    exit_code: int
+    stdout: str = ""
+    stderr: str = ""
 
 
-def host_runner(cmd: str, workspace: Path, timeout: int) -> int:
-    """Run a test command on the host, in the workspace; returns its exit code."""
+class VerifierInfrastructureError(RuntimeError):
+    """The verifier environment failed before the task received a verdict."""
+
+
+# (cmd, workspace, timeout) -> exit code/result (0 == pass). Integer runners
+# remain supported for task validation fixtures and third-party integrations.
+Runner = Callable[[str, Path, int], int | RunnerOutcome]
+
+
+def _run_host_captured(cmd: str, workspace: Path, timeout: int) -> RunnerOutcome:
     try:
         proc = subprocess.run(
             cmd,
@@ -42,12 +57,50 @@ def host_runner(cmd: str, workspace: Path, timeout: int) -> int:
             cwd=workspace,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             check=False,
         )
-    except subprocess.TimeoutExpired:
-        return 124  # conventional timeout exit code
-    return proc.returncode
+    except subprocess.TimeoutExpired as exc:
+        return RunnerOutcome(124, str(exc.stdout or ""), str(exc.stderr or ""))
+    return RunnerOutcome(proc.returncode, proc.stdout, proc.stderr)
+
+
+def host_runner(cmd: str, workspace: Path, timeout: int) -> int:
+    """Run a test command on the host, in the workspace; returns its exit code."""
+    return _run_host_captured(cmd, workspace, timeout).exit_code
+
+
+def _infrastructure_reason(cmd: str, outcome: RunnerOutcome) -> str | None:
+    """Return a reason when a test runner is missing its required toolchain."""
+    output = f"{outcome.stdout}\n{outcome.stderr}".lower()
+    missing_commands = (
+        "python",
+        "python3",
+        "pytest",
+        "go",
+        "cargo",
+        "rustc",
+        "npm",
+        "node",
+        "tsx",
+    )
+    reason: str | None = None
+    if outcome.exit_code == 124:
+        reason = "verifier command timed out"
+    elif "no module named pytest" in output or "no module named 'pytest'" in output:
+        reason = "pytest is unavailable in the verifier environment"
+    elif "no module named 'jax'" in output or "no module named jax" in output:
+        reason = "pennylane verifier dependencies are unavailable"
+    elif "go.mod requires go" in output or "unsupported go version" in output:
+        reason = "go toolchain is too old for this task"
+    elif (
+        outcome.exit_code in {126, 127}
+        and any(cmd.lstrip().startswith(executable) for executable in missing_commands)
+    ) or (outcome.exit_code == 127 and "not found" in output):
+        reason = "verifier toolchain command is unavailable"
+    return reason
 
 
 def _run_group(
@@ -57,7 +110,19 @@ def _run_group(
     for i, entry in enumerate(entries):
         name = str(entry.get("name") or f"test_{i}")
         cmd = entry.get("cmd")
-        results[name] = bool(cmd) and runner(str(cmd), workspace, timeout) == 0
+        if not cmd:
+            results[name] = False
+            continue
+        raw_outcome = runner(str(cmd), workspace, timeout)
+        outcome = (
+            raw_outcome
+            if isinstance(raw_outcome, RunnerOutcome)
+            else RunnerOutcome(int(raw_outcome))
+        )
+        reason = _infrastructure_reason(str(cmd), outcome)
+        if reason:
+            raise VerifierInfrastructureError(f"{reason}: {name} ({cmd})")
+        results[name] = outcome.exit_code == 0
     return results
 
 
@@ -73,7 +138,7 @@ def run_declarative_verifier(
     verify inside a container. Either way, hidden tests are copied into the
     workspace first (the workspace is the container's bind mount under Docker).
     """
-    runner = runner or host_runner
+    runner = runner or _run_host_captured
     install_hidden_tests(task, workspace)
     spec = task.tests_spec or {}
     fail_to_pass = list(spec.get("fail_to_pass") or [])

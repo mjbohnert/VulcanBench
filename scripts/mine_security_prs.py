@@ -4,7 +4,7 @@
 This is a **discovery** helper: it finds real, merged, test-bearing PRs with a
 security signal, merged on/after a cutoff date, across a curated set of upstream
 repos, and prints a ``CANDIDATES.md``-ready table (plus an optional JSON sidecar).
-It never fabricates provenance and never writes into a task — a human triages the
+It never fabricates provenance and never writes into a task, a human triages the
 output, then builds each task with ``slice_repo.py`` + ``import_oss_issues.py``.
 
 It shells out to the authenticated ``gh`` CLI only (no tokens handled here) and
@@ -26,7 +26,7 @@ Output columns: repo | PR | merged | +/- LOC | files | tests? | title.
 Only PRs that (a) merged on/after ``--since`` and (b) touch a test path are kept
 unless ``--include-untested`` is passed. ``base_commit`` for slicing is the parent
 of the PR's first commit (correct for rebase/squash merges; the merge commit's
-first parent is only used as a fallback) — reported in JSON. Always re-confirm the
+first parent is only used as a fallback), reported in JSON. Always re-confirm the
 base is actually vulnerable before building a task from it.
 """
 
@@ -42,7 +42,7 @@ from dataclasses import asdict, dataclass, field
 # --- Curated repo sets -------------------------------------------------------
 # Family A: application/library repos whose security PRs are defensive vuln fixes.
 # Family B (``--tools``): security-tooling projects (scanners, detectors, etc.).
-# These are seeds, not an exhaustive list — extend freely; discovery is the point.
+# These are seeds, not an exhaustive list, extend freely; discovery is the point.
 
 VULN_REPOS: dict[str, list[str]] = {
     "python": [
@@ -260,7 +260,7 @@ def _search_repo(repo: str, since: str, per_repo: int) -> dict[int, list[str]]:
     one query per keyword (which would blow the 30/min search rate limit) we make a
     SINGLE search returning title+body+labels for the recent merged PRs, then match
     the security keyword list **locally**. ``per_repo`` caps how many recent merged
-    PRs we scan — raise it for busy repos where security PRs sit deeper in history.
+    PRs we scan, raise it for busy repos where security PRs sit deeper in history.
     """
     rows = _gh_json(
         [
@@ -346,7 +346,7 @@ def _enrich(repo: str, number: int, matched: list[str]) -> Candidate | None:
 
 
 def _pr_base(repo: str, number: int) -> str:
-    """Parent of the PR's first commit — the correct slice base for any merge style."""
+    """Parent of the PR's first commit, the correct slice base for any merge style."""
     try:
         proc = subprocess.run(
             ["gh", "api", f"repos/{repo}/pulls/{number}/commits", "--jq", ".[0].parents[0].sha"],
@@ -405,7 +405,7 @@ def mine(
     out: list[Candidate] = []
     for repo in repos:
         hits = _search_repo(repo, since, per_repo)
-        time.sleep(pause)  # one search per repo — stay under 30/min
+        time.sleep(pause)  # one search per repo, stay under 30/min
         # Enrich the most-recent signal PRs first, capped so a noisy repo does not
         # dominate the run; strong-signal PRs (label:security / strong keyword) win ties.
         ordered = sorted(

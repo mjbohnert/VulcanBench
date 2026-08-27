@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if provider.name == "mock":
-        print("note: mock grader approves any non-empty diff — not a real grader; pass --model\n")
+        print("note: mock grader approves any non-empty diff, not a real grader; pass --model\n")
     for rep in reports:
         print(f"## {rep['task_id']}  (model={rep['model']}, samples={rep['samples']})")
         for c in rep["cases"]:

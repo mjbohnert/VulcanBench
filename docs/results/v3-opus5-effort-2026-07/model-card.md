@@ -1,4 +1,4 @@
-# VulcanBench Technical Report No. 10 — Claude Opus 5 across the effort knob
+# VulcanBench Technical Report No. 10, Claude Opus 5 across the effort knob
 
 **July 26, 2026 · VulcanBench v3 · 23 tasks · 69 runs · 3 effort levels · 5 languages · $81.76**
 
@@ -21,12 +21,12 @@ score column together with the last two: its deficit is unfinished work, not bad
 
 1. **Low is never worse than high, and costs a third as much.** Measured, low leads 20 to 18.
    Two of high's three regressions are budget cutoffs on tasks it solves at low, so grant it
-   unlimited time on both and it reaches 20/23 — a tie, at 3.1× the cost. There is no reading
+   unlimited time on both and it reaches 20/23, a tie, at 3.1× the cost. There is no reading
    of this sweep where paying for effort wins.
 
 2. **Effort trades wrong answers for unfinished runs.** Wrong answers *fall* (3 → 3 → 1);
    runs that never finish climb (0 → 1 → 4). High effort spends 3× the tokens and 2.6× the
-   clock per task, then times out on the biggest repos — `networkx-leiden` was cut off at 60
+   clock per task, then times out on the biggest repos, `networkx-leiden` was cut off at 60
    minutes after solving in 11.6 at low, and `aiohttp` at 45 after solving in 3.9. The one
    regression the clock does *not* explain is `flask-teardown-robust`: it finished, and
    returned a worse patch (0.67) than it did at low.
@@ -38,7 +38,7 @@ score column together with the last two: its deficit is unfinished work, not bad
    task needing high effort. Opus 5 solves it at *low* and drops to 0.67 at high.
 
 5. **First crack in a wall.** `pennylane-trotter-fragmented` has never been solved by any model
-   on v3. At low effort Opus 5 finishes it with a **0.40 partial** — the first non-zero score
+   on v3. At low effort Opus 5 finishes it with a **0.40 partial**: the first non-zero score
    recorded on it. At medium and high it runs the full 60 minutes and scores nothing.
 
 ## Failure map
@@ -63,16 +63,16 @@ All five DNFs hit it to the second; none was step-limited. Scored 0.0, but not a
 A first pass at the high column returned 17/23. It was an artifact: five of six unfinished runs
 died on a hardcoded 16,000-token output cap (`harness/agent/providers.py`), returning no content
 and no tool calls. Thinking bills against `max_tokens`, so raising effort raised the truncation
-rate — and the harness scored the empty patch as a failed attempt.
+rate, and the harness scored the empty patch as a failed attempt.
 
 Fixed two ways: `max_tokens` now scales with effort (32 K → 128 K), and a truncated response
 raises instead of failing silently. Every run in this report was produced under the fix. Exactly
-three runs across the whole sweep had ever hit the cap — the high column, plus `pennylane` at
+three runs across the whole sweep had ever hit the cap, the high column, plus `pennylane` at
 low and medium, both re-run. The other 21 tasks at low and medium never came within 3 K of the
 ceiling, so raising it could not change them.
 
 **This reaches past this report.** Every prior VulcanBench result ran under the 16 K cap, and any
-run that hit it was scored as a wrong answer. Reports No. 07 and No. 08 can't be re-checked —
+run that hit it was scored as a wrong answer. Reports No. 07 and No. 08 can't be re-checked, 
 their raw runs have rotated out of `runs/`.
 
 ## Caveats

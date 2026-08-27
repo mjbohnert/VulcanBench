@@ -2,13 +2,13 @@
 
 For each task, in fresh temp workspaces, this checks:
 
-1. schema            — required metadata, declarative tests, repo + gold patch.
-2. toolchain         — SKIP (not fail) when a language's tool is absent on the host
+1. schema          , required metadata, declarative tests, repo + gold patch.
+2. toolchain       , SKIP (not fail) when a language's tool is absent on the host
                        (``--sandbox local`` only; Docker mode uses the sandbox image).
-3. gold solves       — apply gold_patch.diff -> functional == 1.0.
-4. fail-to-pass real — without the patch -> functional < 1.0 (not pre-solved).
-5. determinism       — the gold verifier scores identically across runs.
-6. provenance        — source + created present; an explicit `decontaminated`
+3. gold solves     , apply gold_patch.diff -> functional == 1.0.
+4. fail-to-pass real, without the patch -> functional < 1.0 (not pre-solved).
+5. determinism     , the gold verifier scores identically across runs.
+6. provenance      , source + created present; an explicit `decontaminated`
                        bool (hand-authored => true; oss => notes with a source
                        URL + commit/issue ref and a preserved LICENSE).
 
@@ -29,10 +29,12 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from harness.environment import start_environment
 from harness.sandbox.docker_executor import DockerToolExecutor
 from harness.sandbox.images import resolve_sandbox_image
 from harness.spec_check import WARN as _SPEC_WARN
@@ -157,7 +159,7 @@ def _functional(task: Task, workspace: Path, runner: Runner | None = None) -> fl
 
 def _docker_runner(task: Task, workspace: Path, image: str | None) -> tuple[Runner, Any]:
     """Open a Docker sandbox for ``workspace`` and return a verifier runner + executor."""
-    from harness.agent.loop import _executor_runner  # noqa: PLC0415 — shared with agent loop
+    from harness.agent.loop import _executor_runner  # noqa: PLC0415, shared with agent loop
 
     resolved = resolve_sandbox_image(task, image)
     executor: DockerToolExecutor = DockerToolExecutor(workspace, image=resolved)
@@ -177,7 +179,11 @@ def _fresh(
     runner: Runner | None = None
     if opts.sandbox == "docker":
         runner, executor = _docker_runner(task, ws, opts.image)
+    environment = None
     try:
+        environment = start_environment(
+            task, f"val-{name}-{uuid.uuid4().hex[:6]}", ws, sandbox=opts.sandbox
+        )
         if task.setup_commands:
             run_setup(task, ws, runner=runner)
         if apply_gold:
@@ -186,6 +192,8 @@ def _fresh(
                 raise RuntimeError("gold patch did not apply cleanly (git apply failed)")
         return _functional(task, ws, runner=runner)
     finally:
+        if environment is not None:
+            environment.down()
         if executor is not None:
             executor.close()
 
@@ -193,8 +201,8 @@ def _fresh(
 def validate_task(task_root: Path, opts: ValidateOptions | None = None) -> Result:
     """Validate a single task directory and return a :class:`Result`.
 
-    Runs the functional/provenance checks in :func:`_validate_core`, then — only
-    when those pass — applies the offline specification lint. An otherwise-valid
+    Runs the functional/provenance checks in :func:`_validate_core`, then, only
+    when those pass, applies the offline specification lint. An otherwise-valid
     task whose issue states no expected behavior is downgraded ``PASS -> WARN``:
     the gold patch solves the hidden test, but the agent was never told what
     "correct" means. ``WARN`` does not fail a validation run (see :func:`main`);
@@ -220,7 +228,7 @@ def _validate_agentic(task: Task) -> Result:
     happens at run time against a live model; this only proves the task is wired
     so a non-solution cannot pass.
     """
-    from harness.agent.providers import get_provider  # noqa: PLC0415 — avoid import cycle
+    from harness.agent.providers import get_provider  # noqa: PLC0415, avoid import cycle
     from harness.evaluator.agentic_grader import grade_correctness  # noqa: PLC0415
 
     criteria = task.metadata.get("acceptance_criteria")
@@ -261,7 +269,7 @@ def _validate_agentic(task: Task) -> Result:
         return Result(
             task.task_id,
             FAIL,
-            ["an empty change graded correct — the grader cannot reject a non-solution"],
+            ["an empty change graded correct, the grader cannot reject a non-solution"],
         )
     return Result(
         task.task_id,
@@ -279,7 +287,7 @@ def _validate_rubric(task: Task) -> Result:
     Real mergeability grading happens at run time against a live judge; this only
     proves the task is wired so a non-solution cannot pass.
     """
-    from harness.agent.providers import get_provider  # noqa: PLC0415 — avoid import cycle
+    from harness.agent.providers import get_provider  # noqa: PLC0415, avoid import cycle
     from harness.evaluator.agentic_grader import grade_rubric  # noqa: PLC0415
 
     rubric = task.metadata.get("rubric")
@@ -319,7 +327,7 @@ def _validate_rubric(task: Task) -> Result:
         return Result(
             task.task_id,
             FAIL,
-            ["an empty change graded mergeable — the grader cannot reject a non-solution"],
+            ["an empty change graded mergeable, the grader cannot reject a non-solution"],
         )
     return Result(
         task.task_id,
@@ -356,7 +364,7 @@ def _validate_core(task_root: Path, opts: ValidateOptions) -> Result:  # noqa: P
     if not task.metadata.get("created"):
         return Result(task_id, FAIL, ["metadata.created is required (contamination audit)"])
 
-    # 1b. decontamination honesty — provenance labeling must be explicit and provable.
+    # 1b. decontamination honesty, provenance labeling must be explicit and provable.
     decon_reason = _check_decontamination(task)
     if decon_reason is not None:
         return Result(task_id, FAIL, [decon_reason])
@@ -373,7 +381,7 @@ def _validate_core(task_root: Path, opts: ValidateOptions) -> Result:  # noqa: P
     if grader_mode == "rubric":
         return _validate_rubric(task)
 
-    # 2. toolchain — skip (do not fail) when a host language tool is absent (local mode only).
+    # 2. toolchain, skip (do not fail) when a host language tool is absent (local mode only).
     if opts.sandbox == "local":
         langs = task.metadata.get("languages", [])
         absent = sorted(
@@ -492,7 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     results = [validate_task(r, opts) for r in roots]
     icon = {PASS: "✓", SKIP: "○", FAIL: "✗", WARN: "⚠"}
     for res in results:
-        suffix = f" — {'; '.join(res.reasons)}" if res.reasons else ""
+        suffix = f", {'; '.join(res.reasons)}" if res.reasons else ""
         print(f"  {icon[res.status]} {res.status:4} {res.task_id}{suffix}")
 
     n_pass = sum(r.status == PASS for r in results)

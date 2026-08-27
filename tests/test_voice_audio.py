@@ -1,5 +1,5 @@
 """Audio cache keying, noise mixing SNR, subset determinism, adapter parsing,
-and report aggregation for the voice suite — all offline."""
+and report aggregation for the voice suite, all offline."""
 
 from __future__ import annotations
 

@@ -4,7 +4,7 @@ The default provider is OpenAI ``tts-1``: it emits 24 kHz WAV directly (the
 suite's master format) and honours a numeric ``speed`` parameter, which makes
 the ``fast`` (1.25x) condition well-defined rather than prompt-dependent.
 Voices used by voice-v1: ``onyx`` (male), ``shimmer`` (female), ``fable``
-(British-accented) — gender plus one accent axis. Accent range on OpenAI TTS
+(British-accented), gender plus one accent axis. Accent range on OpenAI TTS
 is limited; a second provider can be added behind :class:`TTSProvider`
 without touching the cache or runner.
 """

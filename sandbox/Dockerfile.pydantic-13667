@@ -1,6 +1,6 @@
 # Probe image for the pydantic task: base + pydantic's runtime deps, with the
 # compiled pydantic-core wheel version the base commit pins (2.48.0).
-# pydantic itself is overlaid from the workspace via PYTHONPATH=. — the
+# pydantic itself is overlaid from the workspace via PYTHONPATH=., the
 # in-tree pydantic-core sources are NOT importable (hyphenated dir), so
 # `import pydantic_core` always resolves to the wheel.
 #

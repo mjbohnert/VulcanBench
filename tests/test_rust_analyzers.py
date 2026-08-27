@@ -3,7 +3,7 @@
 Exercises the Rust branches of the quality/security evaluators with
 subprocess mocked: cargo present/absent, clippy JSON parsing, cargo-audit
 severity mapping, unsafe delta counting, and budget-exhausted paths.
-All paths must return score=None with a reason when tools are absent —
+All paths must return score=None with a reason when tools are absent,
 never a fabricated 0.0 or 1.0.
 """
 
@@ -179,7 +179,10 @@ def test_unsafe_delta_penalty() -> None:
     assert final == 0.9
 
 
-def test_security_rust_budget_exhausted(tmp_path: Path) -> None:
+def test_security_rust_budget_exhausted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # _rust checks for cargo before it checks the budget, so pretend cargo is
+    # installed, otherwise this asserts the wrong branch on machines without it.
+    monkeypatch.setattr(security.shutil, "which", lambda name: "/usr/bin/cargo")
     (tmp_path / "main.rs").write_text("fn main() {}\n")
     (tmp_path / "Cargo.lock").write_text("# lockfile\n")
     result = security._rust(tmp_path, ["main.rs"], remaining_s=lambda: -1.0)

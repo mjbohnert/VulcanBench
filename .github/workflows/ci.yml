@@ -48,12 +48,39 @@ jobs:
           pip install -e ".[dev,test]"
       - name: Ruff lint + format check
         run: ruff check . && ruff format --check .
+      - name: No em-dashes (U+2014) in authored source/docs
+        run: python scripts/check_no_emdash.py
       - name: Mypy typecheck
         run: mypy harness backend alembic/env.py scripts/ingest_runs.py
       - name: Pytest (fast, no Docker)
         run: pytest -m "not slow and not docker" --cov=harness --cov-fail-under=80
       - name: Validate tasks (gold patches solve, fail-to-pass real, deterministic)
         run: python scripts/validate_tasks.py tasks/v1
+
+  python-3-14-smoke:
+    # Deliberately light: the main job pins 3.12 and carries every toolchain;
+    # this one only proves the pure-Python layer installs and runs on the
+    # newest CPython. It exists because audioop left the stdlib in 3.13 and
+    # took every `vulcanbench` command down with it on 3.13+ until the
+    # audioop-lts marker dep landed -- a class of bug 3.12-only CI can't see.
+    # No LFS, no Go/Node/Rust/Java, no ruff/mypy (enforced on 3.12 already),
+    # no coverage gate (same number as the main job), no task validation.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: 'pip'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: CLI imports and starts
+        run: vulcanbench --version && vulcanbench --help
+      - name: Pytest (fast, no Docker, no coverage gate)
+        run: pytest -m "not slow and not docker" --no-cov -p no:cacheprovider
 
   dashboard-lint-build:
     runs-on: ubuntu-latest

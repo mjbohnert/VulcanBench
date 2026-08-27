@@ -20,7 +20,7 @@ export default async function Tasks() {
 
         {!backendUp && (
           <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-300">
-            Backend unreachable at <span className="font-mono">{API_BASE}</span> — the data
+            Backend unreachable at <span className="font-mono">{API_BASE}</span>, the data
             below may be empty or stale. Start it with{" "}
             <span className="font-mono">uvicorn backend.app:app --port 8000</span>.
           </div>

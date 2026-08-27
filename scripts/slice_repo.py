@@ -128,7 +128,7 @@ def _untrack_vendor_in_gitignore(slice_root: Path) -> bool:
 
     Task slices vendor their dependencies (``go mod vendor`` / ``cargo vendor``)
     so the offline sandbox needs no installs, and that ``vendor/`` MUST be
-    committed with the task. Many upstream repos — Go repos especially — carry a
+    committed with the task. Many upstream repos, Go repos especially, carry a
     ``vendor`` line in ``.gitignore``; the slice inherits it, so when the author
     later vendors and commits, git silently drops ``vendor/`` and a clean clone
     can no longer build the task (setup runs ``go build -mod=vendor``). Remove
@@ -211,7 +211,7 @@ def _rewrite_workspace_members(cargo_toml: Path, kept_members: set[str]) -> None
     """Rewrite ``[workspace] members`` in the root Cargo.toml to only ``kept_members``.
 
     ``kept_members`` are member directory paths relative to the workspace root
-    (e.g. ``crates/toml``), which is what the ``members`` array actually holds —
+    (e.g. ``crates/toml``), which is what the ``members`` array actually holds,
     crate names only coincide with them when crates sit at the root.
 
     Uses a minimal targeted text edit to avoid reformatting the file. Reads with
@@ -276,7 +276,7 @@ def _rewrite_workspace_members(cargo_toml: Path, kept_members: set[str]) -> None
             bracket_depth += stripped.count("[") - stripped.count("]")
             if bracket_depth <= 0:
                 members_done = True
-            continue  # Skip this line — it's part of the old array.
+            continue  # Skip this line, it's part of the old array.
 
         new_lines.append(line)
 
@@ -318,7 +318,7 @@ def _cargo_prune(slice_root: Path, target_crates: list[str]) -> None:
             shutil.rmtree(target)
 
     # Rewrite the root Cargo.toml members. Members are DIRECTORY PATHS relative
-    # to the workspace root, not crate names — with a glob like
+    # to the workspace root, not crate names, with a glob like
     # `members = ["crates/*"]` the two differ, and writing names produces a
     # workspace whose members cannot be found.
     kept_paths: set[str] = set()
@@ -336,7 +336,7 @@ def _cargo_prune(slice_root: Path, target_crates: list[str]) -> None:
         _cargo_metadata(slice_root)
     except RuntimeError as e:
         raise RuntimeError(
-            f"pruned workspace fails cargo metadata — the slice cannot resolve. "
+            f"pruned workspace fails cargo metadata, the slice cannot resolve. "
             f"Target crates: {target_crates}. Error: {e}"
         ) from e
 

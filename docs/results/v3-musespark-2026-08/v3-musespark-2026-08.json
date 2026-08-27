@@ -1,0 +1,199 @@
+{
+ "model": "meta:muse-spark-1.2",
+ "suite": "v3",
+ "date": "2026-08-25",
+ "repeat": 1,
+ "efforts": {
+  "low": {
+   "n": 23,
+   "solved": 20,
+   "wrong": 3,
+   "timeout": 0,
+   "pass1": 87.0,
+   "cost_usd": 8.19,
+   "tokens_per_task_k": 206.1,
+   "avg_steps": 51.1,
+   "median_min": 3.2,
+   "mean_min": 6.7,
+   "cost_per_task": 0.36,
+   "cost_per_solved": 0.41,
+   "solved_avg_tokens_k": 113.9,
+   "failed_avg_tokens_k": 820.8,
+   "solved_avg_min": 3.6,
+   "failed_avg_min": 27.6,
+   "tasks": {
+    "oss-aiohttp-upgrade-deferred": "solved",
+    "oss-chi-readfrom-tee-doublecount": "solved",
+    "oss-cobra-noduplicateargs": "solved",
+    "oss-flask-teardown-robust": "solved",
+    "oss-hono-client-header-merge": "solved",
+    "oss-hono-request-bytes": "solved",
+    "oss-itertools-strip-prefix": "solved",
+    "oss-jiff-date-day-lt1": "solved",
+    "oss-jiff-signdur-panic": "solved",
+    "oss-jiff-strftime-negpad": "solved",
+    "oss-more-itertools-interleave-empty": "solved",
+    "oss-networkx-leiden-communities": "wrong",
+    "oss-packaging-range-prerelease-policy": "solved",
+    "oss-pennylane-trotter-fragmented": "wrong",
+    "oss-pflag-uintslice-hex": "solved",
+    "oss-semver-inc-dotted-prerelease": "solved",
+    "oss-semver-truncate": "solved",
+    "oss-semver-xrange-order": "solved",
+    "oss-sqlglot-canonicalize-internal-names": "wrong",
+    "oss-sqlglot-iso8601-nanos": "solved",
+    "oss-sqlglot-qualify-lateral-star": "solved",
+    "oss-zod-invert-codec": "solved",
+    "oss-zod-proto-catchall": "solved"
+   }
+  },
+  "high": {
+   "n": 23,
+   "solved": 17,
+   "wrong": 1,
+   "timeout": 5,
+   "pass1": 73.9,
+   "cost_usd": 20.92,
+   "tokens_per_task_k": 483.3,
+   "avg_steps": 46.1,
+   "median_min": 12.4,
+   "mean_min": 21.3,
+   "cost_per_task": 0.91,
+   "cost_per_solved": 1.23,
+   "solved_avg_tokens_k": 345.5,
+   "failed_avg_tokens_k": 873.7,
+   "solved_avg_min": 14.5,
+   "failed_avg_min": 40.7,
+   "tasks": {
+    "oss-aiohttp-upgrade-deferred": "timeout",
+    "oss-chi-readfrom-tee-doublecount": "solved",
+    "oss-cobra-noduplicateargs": "solved",
+    "oss-flask-teardown-robust": "timeout",
+    "oss-hono-client-header-merge": "solved",
+    "oss-hono-request-bytes": "solved",
+    "oss-itertools-strip-prefix": "solved",
+    "oss-jiff-date-day-lt1": "solved",
+    "oss-jiff-signdur-panic": "solved",
+    "oss-jiff-strftime-negpad": "solved",
+    "oss-more-itertools-interleave-empty": "solved",
+    "oss-networkx-leiden-communities": "timeout",
+    "oss-packaging-range-prerelease-policy": "solved",
+    "oss-pennylane-trotter-fragmented": "timeout",
+    "oss-pflag-uintslice-hex": "solved",
+    "oss-semver-inc-dotted-prerelease": "solved",
+    "oss-semver-truncate": "solved",
+    "oss-semver-xrange-order": "solved",
+    "oss-sqlglot-canonicalize-internal-names": "timeout",
+    "oss-sqlglot-iso8601-nanos": "solved",
+    "oss-sqlglot-qualify-lateral-star": "wrong",
+    "oss-zod-invert-codec": "solved",
+    "oss-zod-proto-catchall": "solved"
+   }
+  },
+  "extra-high": {
+   "n": 23,
+   "solved": 12,
+   "wrong": 1,
+   "timeout": 10,
+   "pass1": 52.2,
+   "cost_usd": 27.25,
+   "tokens_per_task_k": 658.2,
+   "avg_steps": 47.2,
+   "median_min": 20.1,
+   "mean_min": 28.7,
+   "cost_per_task": 1.18,
+   "cost_per_solved": 2.27,
+   "solved_avg_tokens_k": 381.0,
+   "failed_avg_tokens_k": 960.5,
+   "solved_avg_min": 19.0,
+   "failed_avg_min": 39.4,
+   "tasks": {
+    "oss-aiohttp-upgrade-deferred": "timeout",
+    "oss-chi-readfrom-tee-doublecount": "solved",
+    "oss-cobra-noduplicateargs": "solved",
+    "oss-flask-teardown-robust": "timeout",
+    "oss-hono-client-header-merge": "solved",
+    "oss-hono-request-bytes": "solved",
+    "oss-itertools-strip-prefix": "timeout",
+    "oss-jiff-date-day-lt1": "solved",
+    "oss-jiff-signdur-panic": "solved",
+    "oss-jiff-strftime-negpad": "timeout",
+    "oss-more-itertools-interleave-empty": "solved",
+    "oss-networkx-leiden-communities": "timeout",
+    "oss-packaging-range-prerelease-policy": "timeout",
+    "oss-pennylane-trotter-fragmented": "timeout",
+    "oss-pflag-uintslice-hex": "solved",
+    "oss-semver-inc-dotted-prerelease": "timeout",
+    "oss-semver-truncate": "solved",
+    "oss-semver-xrange-order": "timeout",
+    "oss-sqlglot-canonicalize-internal-names": "timeout",
+    "oss-sqlglot-iso8601-nanos": "solved",
+    "oss-sqlglot-qualify-lateral-star": "wrong",
+    "oss-zod-invert-codec": "solved",
+    "oss-zod-proto-catchall": "solved"
+   }
+  }
+ },
+ "moved_tasks": {
+  "oss-aiohttp-upgrade-deferred": [
+   "solved",
+   "timeout",
+   "timeout"
+  ],
+  "oss-flask-teardown-robust": [
+   "solved",
+   "timeout",
+   "timeout"
+  ],
+  "oss-itertools-strip-prefix": [
+   "solved",
+   "solved",
+   "timeout"
+  ],
+  "oss-jiff-strftime-negpad": [
+   "solved",
+   "solved",
+   "timeout"
+  ],
+  "oss-networkx-leiden-communities": [
+   "wrong",
+   "timeout",
+   "timeout"
+  ],
+  "oss-packaging-range-prerelease-policy": [
+   "solved",
+   "solved",
+   "timeout"
+  ],
+  "oss-pennylane-trotter-fragmented": [
+   "wrong",
+   "timeout",
+   "timeout"
+  ],
+  "oss-semver-inc-dotted-prerelease": [
+   "solved",
+   "solved",
+   "timeout"
+  ],
+  "oss-semver-xrange-order": [
+   "solved",
+   "solved",
+   "timeout"
+  ],
+  "oss-sqlglot-canonicalize-internal-names": [
+   "wrong",
+   "timeout",
+   "timeout"
+  ],
+  "oss-sqlglot-qualify-lateral-star": [
+   "solved",
+   "wrong",
+   "wrong"
+  ]
+ },
+ "never_solved": [
+  "oss-networkx-leiden-communities",
+  "oss-pennylane-trotter-fragmented",
+  "oss-sqlglot-canonicalize-internal-names"
+ ]
+}

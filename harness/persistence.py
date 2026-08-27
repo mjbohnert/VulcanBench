@@ -56,7 +56,7 @@ def maybe_post_run_summary(summary: dict[str, Any]) -> bool:
                 return False
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        logger.warning("write-through failed: HTTP %s — %s", e.code, body[:500])
+        logger.warning("write-through failed: HTTP %s, %s", e.code, body[:500])
         return False
     except OSError as e:
         logger.warning("write-through failed: %s", e)

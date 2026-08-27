@@ -103,7 +103,7 @@ class DockerToolExecutor(ToolProtocol):
             ) from e
 
         # Run the container as the host UID/GID so files written to the bind mount
-        # stay owned by the host user — POSIX only. On Windows os.getuid is absent
+        # stay owned by the host user, POSIX only. On Windows os.getuid is absent
         # and Docker Desktop maps bind-mount ownership itself, so we omit --user.
         run_kwargs: dict[str, Any] = {}
         if hasattr(os, "getuid"):

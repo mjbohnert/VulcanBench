@@ -5,7 +5,7 @@ Sibling of ``mine_security_prs.py`` but **keyword-agnostic**: instead of a secur
 signal it selects real, merged, *test-bearing* PRs of task-shaped size across a
 curated repo set keyed by VulcanBench ``domain`` tag. Built for Python Suite v1
 (see ``tasks/python-1/CHARTER.md``): the point is to fill the difficulty band, so
-this is discovery only — a human measures each candidate (repeat >= 3) and admits.
+this is discovery only, a human measures each candidate (repeat >= 3) and admits.
 
 It shells out to the authenticated ``gh`` CLI only and makes read calls only
 (``gh search prs``, ``gh pr view``). It never writes into a task and never
@@ -34,11 +34,11 @@ import time
 from dataclasses import asdict, dataclass
 
 # --- Curated Python repo set, keyed by VulcanBench domain tag ----------------
-# Seeds, not exhaustive — extend freely; discovery is the point. Keep the set
+# Seeds, not exhaustive, extend freely; discovery is the point. Keep the set
 # spread across domains so the mid band does not end up dominated by one library.
 DOMAIN_REPOS: dict[str, list[str]] = {
     # App-scale, pure-Python frameworks whose PRs are real multi-module
-    # engineering (not one-file library edge fixes) — the shape that still
+    # engineering (not one-file library edge fixes), the shape that still
     # discriminates the 2026 frontier. Mine these with a wider --max-loc.
     "app-scale": [
         "django/django",
@@ -136,7 +136,7 @@ def _gh_json(args: list[str], retries: int = 3) -> object | None:
     """Run a ``gh`` command expected to emit JSON; None on failure, [] on empty.
 
     Retries transient GitHub server errors (503 / rate-limit / abuse) with a short
-    backoff — the GraphQL API 503s intermittently under load, and without a retry
+    backoff, the GraphQL API 503s intermittently under load, and without a retry
     those drop real candidates silently.
     """
     for attempt in range(retries):
