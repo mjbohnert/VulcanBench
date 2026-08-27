@@ -320,6 +320,8 @@ def finalize_session(
     duration_s: float | None = None,
 ) -> dict[str, Any]:
     """Grade a prepared session and write ``summary.json``."""
+    if agent_bc_id is None:
+        agent_bc_id = os.environ.get("CURSOR_CONVERSATION_ID") or None
     session_path = run_dir / "session.json"
     if not session_path.is_file():
         raise FileNotFoundError(f"missing session.json in {run_dir}")
@@ -415,3 +417,29 @@ def finalize_shard(
     }
     (shard_dir / "shard-summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     return report
+
+
+def apply_transcript(*, run_dir: Path, transcript_path: Path) -> dict[str, Any]:
+    """Re-price an already-finalized run from a transcript without re-grading."""
+    summary_path = run_dir / "summary.json"
+    if not summary_path.is_file():
+        raise FileNotFoundError(f"missing summary.json in {run_dir}; finalize first")
+    raw = json.loads(summary_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise TypeError(f"summary.json must be an object, got {type(raw).__name__}")
+    summary: dict[str, Any] = raw
+    transcript = load_transcript(transcript_path)
+    (run_dir / "transcript.json").write_text(json.dumps(transcript, indent=2), encoding="utf-8")
+    tokens = tokens_from_transcript(transcript)
+    token_block, estimated_cost, economics = _priced_tokens(str(summary["model"]), tokens)
+    summary["tokens"] = token_block
+    summary["cost_usd"] = estimated_cost
+    summary["cost_detail"] = {
+        "agent": estimated_cost,
+        "total": estimated_cost,
+        "model_priced": estimated_cost is not None,
+        "note": tokens.get("estimation"),
+    }
+    summary["economics"] = economics.as_summary()
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return summary

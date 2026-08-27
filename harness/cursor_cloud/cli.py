@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 
 from harness.cursor_cloud.session import (
+    apply_transcript,
     finalize_session,
     finalize_shard,
     prepare_session,
@@ -21,6 +22,7 @@ from harness.cursor_cloud.shards import (
     assign_shards,
     worker_prompt,
 )
+from harness.cursor_cloud.tokens import load_transcript, priced_transcript
 from harness.suite import load_suite
 
 console = Console()
@@ -166,3 +168,32 @@ def finalize_shard_cmd(
         ],
     }
     console.print_json(json.dumps(slim, indent=2))
+
+
+@cursor_cloud_app.command("price-transcript")
+def price_transcript_cmd(
+    transcript: Path = typer.Argument(..., help="Cloud-agent transcript.json"),  # noqa: B008
+    model: str = typer.Option(DEFAULT_MODEL, "--model"),
+) -> None:
+    """Price a Cursor cloud-agent transcript (provider usage or chars/4)."""
+    payload = priced_transcript(load_transcript(transcript), model)
+    console.print_json(json.dumps(payload, indent=2))
+
+
+@cursor_cloud_app.command("apply-transcript")
+def apply_transcript_cmd(
+    run_dir: Path = typer.Argument(..., help="Finalized run directory"),  # noqa: B008
+    transcript: Path = typer.Option(..., "--transcript"),  # noqa: B008
+) -> None:
+    """Re-price a finalized run from a transcript without re-running tests."""
+    summary = apply_transcript(run_dir=run_dir, transcript_path=transcript)
+    console.print_json(
+        json.dumps(
+            {
+                "task_id": summary.get("task_id"),
+                "cost_usd": summary.get("cost_usd"),
+                "tokens": summary.get("tokens"),
+            },
+            indent=2,
+        )
+    )

@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 from harness.cli import app
 from harness.cursor_cloud.session import (
+    apply_transcript,
     finalize_session,
     normalize_cloud_model,
     prepare_session,
@@ -55,6 +56,8 @@ def test_worker_prompt_lists_only_that_shard() -> None:
     assert "never `cd ..`" in prompt
     assert "gold_patch.diff" in prompt
     assert "WebSearch" in prompt
+    assert "CURSOR_CONVERSATION_ID" in prompt
+    assert "price-transcript" in prompt
 
 
 def test_estimate_tokens_from_transcript_chars() -> None:
@@ -69,6 +72,23 @@ def test_estimate_tokens_from_transcript_chars() -> None:
     assert tokens["input_tokens"] == 120  # (400+80)/4
     assert tokens["reasoning_tokens"] == 50
     assert tokens["output_tokens"] == 25
+    assert tokens["estimation"].startswith("chars/4")
+
+
+def test_estimate_tokens_from_cursor_cloud_export() -> None:
+    # Real Cursor cloud transcripts use thinking/tool_calls/tool_result, not content.
+    transcript = {
+        "messages": [
+            {"role": "user", "text": "a" * 40},
+            {"role": "assistant", "thinking": "b" * 20, "tool_calls": ["cc" * 20]},
+            {"role": "tool", "tool_name": "Shell", "tool_result": "d" * 80},
+            {"role": "assistant", "text": "e" * 8},
+        ]
+    }
+    tokens = tokens_from_transcript(transcript)
+    assert tokens["input_tokens"] == 30  # (40+80)/4
+    assert tokens["reasoning_tokens"] == 5  # 20/4
+    assert tokens["output_tokens"] == 12  # (40+8)/4
     assert tokens["estimation"].startswith("chars/4")
 
 
@@ -125,6 +145,42 @@ def test_prepare_and_finalize_hello_world(tmp_path: Path) -> None:
     )
     assert summary["cli_agent"]["harness"] == "cursor-cloud"
     assert (Path(manifest["run_dir"]) / "summary.json").is_file()
+
+
+def test_apply_transcript_reprices_without_regrade(tmp_path: Path) -> None:
+    manifest = prepare_session(
+        task_id="hello-world",
+        suite="v1",
+        model="cursor-cloud:composer-2.5",
+        output_dir=tmp_path / "runs",
+        tasks_root=Path("tasks/v1"),
+    )
+    workspace = Path(manifest["workspace"])
+    (workspace / "hello.py").write_text('print("hello from vulcanbench")\n', encoding="utf-8")
+    summary = finalize_session(run_dir=Path(manifest["run_dir"]))
+    assert summary["cost_usd"] is None
+
+    transcript_path = tmp_path / "t.json"
+    transcript_path.write_text(
+        json.dumps({"messages": [{"role": "user", "text": "a" * 400}]}),
+        encoding="utf-8",
+    )
+    updated = apply_transcript(run_dir=Path(manifest["run_dir"]), transcript_path=transcript_path)
+    assert updated["scores"]["functional"] == 1.0
+    assert updated["tokens"]["input"] == 100
+    assert updated["cost_usd"] is not None
+
+
+def test_price_transcript_cli(tmp_path: Path) -> None:
+    path = tmp_path / "t.json"
+    path.write_text(
+        json.dumps({"messages": [{"role": "user", "text": "a" * 400}]}), encoding="utf-8"
+    )
+    result = runner.invoke(app, ["cursor-cloud", "price-transcript", str(path)])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["tokens"]["input_tokens"] == 100
+    assert data["cost_usd"] is not None
 
 
 def test_shards_cli_v4() -> None:

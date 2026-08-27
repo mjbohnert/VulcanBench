@@ -73,7 +73,16 @@ The command prints JSON with one `workspace` path per task. Those workspaces liv
 vulcanbench cursor-cloud finalize-shard --suite {suite} --shard {shard_index} --shards {n_shards}
 ```
 
-Print the finalize JSON. Do not guess token counts; the harness records usage from the CLI stream or from a transcript if one is supplied.
+Print the finalize JSON. Record `CURSOR_CONVERSATION_ID` (the cloud agent bcId) in the output. Do not guess token counts.
+
+After the window finishes, a coordinator prices the cloud-agent transcript:
+
+```bash
+vulcanbench cursor-cloud price-transcript path/to/transcript.json --model {model}
+vulcanbench cursor-cloud apply-transcript RUN_DIR --transcript path/to/transcript.json
+```
+
+Cursor cloud transcripts usually have no provider `usage` block; the harness then estimates tokens as chars/4 over user text, assistant thinking/text/tool_calls, and tool_result payloads.
 
 ## Honesty
 

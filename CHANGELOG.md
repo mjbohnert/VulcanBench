@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enforced once usage appears. `CURSOR_API_KEY` still fails closed.
 - **`vulcanbench cursor-cloud`**: 8-way sharded Composer 2.5 runs inside
   Cursor cloud-agent windows on suite v4. Workspaces are created outside the
-  checkout so the agent cannot walk up into `gold_patch.diff`. See
+  checkout so the agent cannot walk up into `gold_patch.diff`. Cloud-agent
+  transcripts usually have no provider usage block; `price-transcript` /
+  `apply-transcript` estimate tokens as chars/4 over the real export shape
+  (`thinking`, `tool_calls`, `tool_result`). See
   [docs/CURSOR_CLOUD.md](docs/CURSOR_CLOUD.md).
 
 ## [Unreleased]

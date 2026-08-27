@@ -56,9 +56,23 @@ Each worker:
 3. Runs `vulcanbench cursor-cloud finalize-shard --shard N --suite v4`
 
 Optional: pass `--transcript path/to/transcript.json` (or `--transcript-dir`
-with `<run_id>.json` files) so finalize records provider token counts instead
-of a chars/4 estimate. Without a transcript, `economics.api_equivalent_cost_usd`
-is unavailable (not a fake `$0`).
+with `<run_id>.json` files) so finalize records token counts. Cursor cloud
+transcripts typically have **no** provider `usage` object; the harness then
+estimates chars/4 over user text, assistant `thinking`/`text`/`tool_calls`,
+and `tool_result` payloads (the fields the real export uses).
+
+After the eight windows finish, price an exported transcript without
+re-running tests:
+
+```bash
+vulcanbench cursor-cloud price-transcript path/to/transcript.json \
+  --model cursor-cloud:composer-2.5
+vulcanbench cursor-cloud apply-transcript RUN_DIR --transcript path/to/transcript.json
+```
+
+Workers should print `$CURSOR_CONVERSATION_ID` (the cloud agent bcId) so a
+coordinator can fetch that run's transcript later. Without a transcript,
+`economics.api_equivalent_cost_usd` is unavailable (not a fake `$0`).
 
 `oss-time-strftime-truncated-padding` needs rustc 1.90 (`vulcanbench/sandbox:rust-2024`).
 Host finalize on an older toolchain records an infrastructure error for that

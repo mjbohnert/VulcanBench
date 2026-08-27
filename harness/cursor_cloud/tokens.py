@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from harness.agent.cli_agents import cursor_usage_payload, fold_cursor_usage
+from harness.pricing import cost_usd
 
 
 def _chars_to_tokens(chars: int) -> int:
@@ -29,20 +30,24 @@ def _text_len(value: Any) -> int:
 def estimate_tokens_from_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
     """Chars/4 fallback when the transcript has no provider usage block.
 
-    - input: user prompts + tool results
-    - reasoning: assistant thinking blocks
-    - output: assistant visible text
+    Cursor cloud-agent exports (``{\"messages\": [...]}``) typically have no
+    ``usage`` object. Real messages use ``thinking`` / ``text`` / ``tool_calls``
+    on the assistant and ``tool_result`` on tools, not ``content``.
     """
     input_chars = reasoning_chars = output_chars = 0
     for msg in transcript.get("messages") or []:
         if not isinstance(msg, dict):
             continue
         role = str(msg.get("role") or "")
-        if role in {"user", "tool"}:
+        if role == "user":
             input_chars += _text_len(msg.get("text")) + _text_len(msg.get("content"))
+        elif role == "tool":
+            input_chars += _text_len(msg.get("text")) + _text_len(msg.get("content"))
+            input_chars += _text_len(msg.get("tool_result"))
         elif role == "assistant":
             reasoning_chars += _text_len(msg.get("thinking"))
             output_chars += _text_len(msg.get("text")) + _text_len(msg.get("content"))
+            output_chars += _text_len(msg.get("tool_calls"))
     return {
         "input_tokens": _chars_to_tokens(input_chars),
         "reasoning_tokens": _chars_to_tokens(reasoning_chars),
@@ -104,8 +109,22 @@ def tokens_from_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
     return official if official is not None else estimate_tokens_from_transcript(transcript)
 
 
+def priced_transcript(transcript: dict[str, Any], model: str) -> dict[str, Any]:
+    """Token counts plus API-equivalent USD for a transcript and model spec."""
+    tokens = tokens_from_transcript(transcript)
+    prompt = int(tokens.get("input_tokens") or 0)
+    completion = int(tokens.get("output_tokens") or 0) + int(tokens.get("reasoning_tokens") or 0)
+    cached = int(tokens.get("cached_input_tokens") or 0)
+    cost = None
+    if prompt or completion:
+        cost = cost_usd(model, prompt, completion, cached_input_tokens=cached)
+    return {"model": model, "tokens": tokens, "cost_usd": cost}
+
+
 def load_transcript(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        return {"messages": payload}
     if not isinstance(payload, dict):
         raise TypeError(f"transcript must be a JSON object, got {type(payload).__name__}")
     return payload

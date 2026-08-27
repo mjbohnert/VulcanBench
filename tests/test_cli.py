@@ -76,6 +76,7 @@ def test_cursor_cloud_help() -> None:
     assert result.exit_code == 0
     assert "prepare-shard" in result.output
     assert "print-prompt" in result.output
+    assert "price-transcript" in result.output
 
 
 def test_run_harness_options_normalize_subscription_spec() -> None:
