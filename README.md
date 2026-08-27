@@ -171,7 +171,8 @@ Specify a model as `provider:model`:
   Requires `--sandbox local`. Results measure **model + Cursor harness**, not
   the uniform VulcanBench loop. `cursor:composer-2.5` is standard list price
   ($0.50/$2.50 per 1M); `cursor:composer-2.5-fast` is the product-default Fast
-  tier ($3.00/$15.00). `--effort` is recorded as metadata only.
+  tier ($3.00/$15.00). `--effort` is recorded as metadata only. Operator
+  runbook: [docs/COMPOSER_25_V3.md](docs/COMPOSER_25_V3.md).
 
 `--effort` accepts `low`, `medium`, `high`, or `extra-high`. OpenAI runs map it
 to the Responses API `reasoning.effort` field; Anthropic runs map it to the

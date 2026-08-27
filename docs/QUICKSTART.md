@@ -149,7 +149,10 @@ What to know before using it:
 
 Composer 2.5 is only served inside Cursor (IDE / CLI / SDK), not as a public
 chat-completions API. `cursor:<model>` specs run the task with the **Cursor
-Agent CLI** (`agent -p`) instead of the VulcanBench agent loop:
+Agent CLI** (`agent -p`) instead of the VulcanBench agent loop. Each task's
+`issue.md` is the prompt (plus a short “solve in this repo, don’t commit”
+suffix). Operator runbook and a copy-paste prompt for a Composer 2.5 agent
+that *starts* the suite: [Composer 2.5 × v3](COMPOSER_25_V3.md).
 
 ```bash
 # Requires Cursor CLI installed and CURSOR_API_KEY (or `agent login`).

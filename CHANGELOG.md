@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the uniform loop. Requires `--sandbox local` and `CURSOR_API_KEY` (or an interactive
   Cursor CLI login). Override the binary with `CURSOR_AGENT_BIN`. `--effort` is recorded
   as metadata only — pick Fast vs standard via the model id. See QUICKSTART →
-  "Run Composer 2.5 in the Cursor harness".
+  "Run Composer 2.5 in the Cursor harness" and `docs/COMPOSER_25_V3.md` (operator
+  runbook + copy-paste prompt).
 - **Qwen reasoning effort** (`qwen:<model>`, Qwen3.8+): `--effort low/medium` maps to
   DashScope's `reasoning_effort` and `extra-high` maps to its `xhigh`; `high` is recorded
   as metadata only because Qwen's documented enum is low/medium/xhigh (no `high`) with
