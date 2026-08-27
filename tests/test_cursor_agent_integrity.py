@@ -49,7 +49,15 @@ def test_audit_transcript_flags_gold_patch() -> None:
 
 def test_audit_transcript_ignores_isolation_rule_wording() -> None:
     audit = audit_transcript(
-        {"messages": [{"role": "user", "text": "Do NOT read reference solution patches"}]}
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "text": "Do NOT read gold_patch.diff or tasks/v4/foo",
+                },
+                {"role": "assistant", "text": "fixed in workspace only"},
+            ]
+        }
     )
     assert audit["contaminated"] is False
 
