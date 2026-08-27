@@ -62,7 +62,8 @@ is unavailable (not a fake `$0`).
 
 `oss-time-strftime-truncated-padding` needs rustc 1.90 (`vulcanbench/sandbox:rust-2024`).
 Host finalize on an older toolchain records an infrastructure error for that
-task rather than a model fail.
+task rather than a model fail. v4 Python tests invoke `python` (not `python3`);
+the cloud install script links `python` to `python3` when the alias is missing.
 
 ## Pricing (API-equivalent, not cash)
 

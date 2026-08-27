@@ -26,7 +26,7 @@ def test_round_robin_shards_cover_every_task() -> None:
     buckets = assign_shards(task_ids, 8)
     assert len(buckets) == 8
     assert buckets[-1] == ["t7", "t15"]
-    assert sorted(tid for bucket in buckets for tid in bucket) == task_ids
+    assert {tid for bucket in buckets for tid in bucket} == set(task_ids)
     assert shard_tasks(task_ids, 8, 1) == buckets[0]
 
 

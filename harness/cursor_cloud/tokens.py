@@ -105,4 +105,7 @@ def tokens_from_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_transcript(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError(f"transcript must be a JSON object, got {type(payload).__name__}")
+    return payload
