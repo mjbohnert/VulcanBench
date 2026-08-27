@@ -11,7 +11,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from harness.agent.cli_agents import build_cli_prompt
+from harness.cursor_agent.integrity import ISOLATION_VERSION, assess_integrity
+from harness.cursor_agent.paths import default_cursor_runs_dir
+from harness.cursor_agent.prompt import build_cursor_agent_prompt
 from harness.cursor_agent.tokens import estimate_tokens_from_transcript, load_transcript
 from harness.pricing import cost_usd
 from harness.suite import load_suite
@@ -76,12 +78,14 @@ def prepare_session(
 
     task = load_task(task_id, tasks_root)
     run_id = f"{task_id}-{uuid.uuid4().hex[:8]}"
+    if str(output_dir) in ("runs", "."):
+        output_dir = default_cursor_runs_dir(suite)
     run_dir = output_dir / run_id
     workspace = run_dir / "workspace"
     prepare_workspace(task, workspace)
     _git_init(workspace)
 
-    prompt = build_cli_prompt(task.issue)
+    prompt = build_cursor_agent_prompt(issue=task.issue, workspace=workspace)
     (run_dir / "agent_prompt.md").write_text(prompt, encoding="utf-8")
 
     started_at = datetime.now(UTC)
@@ -99,6 +103,8 @@ def prepare_session(
         "harness": "cursor-agent",
         "billing": "subscription",
         "cost_basis": "estimated-from-transcript",
+        "isolation_version": ISOLATION_VERSION,
+        "isolated_runs_root": str(output_dir),
     }
     (run_dir / "session.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return manifest
@@ -135,10 +141,12 @@ def finalize_session(
         json.dumps(transcript, indent=2), encoding="utf-8"
     )
 
+    task = load_task(task_id, tasks_root)
+    integrity = assess_integrity(task=task, workspace=workspace, transcript=transcript)
+
     patch = _git_diff(workspace)
     (run_dir / "final.patch").write_text(patch, encoding="utf-8")
 
-    task = load_task(task_id, tasks_root)
     started = datetime.fromisoformat(str(session["started_at"]))
     if duration_s is None:
         duration_s = (datetime.now(UTC) - started).total_seconds()
@@ -192,6 +200,7 @@ def finalize_session(
         },
         "task_hash": task_hash(task),
         "finished_at": datetime.now(UTC).isoformat(),
+        "integrity": integrity,
         "verifier": verifier_payload,
         "cli_agent": {
             "harness": "cursor-agent",

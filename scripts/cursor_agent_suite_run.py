@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from harness.cursor_agent.paths import default_cursor_runs_dir
 from harness.suite import load_suite
 
 
@@ -96,21 +97,30 @@ def main() -> None:
     prep = sub.add_parser("prepare", help="Prepare all suite runs")
     prep.add_argument("--suite", default="v4")
     prep.add_argument("--repeats", type=int, default=3)
-    prep.add_argument("--output-dir", type=Path, default=Path("runs"))
+    prep.add_argument("--output-dir", type=Path, default=None, help="Isolated run root")
     prep.add_argument("--model", default="cursor-agent:composer-2.5")
-    prep.add_argument("--manifest", type=Path, default=Path("runs/cursor-agent-manifest.json"))
+    prep.add_argument(
+        "--manifest",
+        type=Path,
+        default=Path("/tmp/vulcanbench-runs/cursor-agent-manifest.json"),
+    )
     prep.add_argument("--task", action="append", dest="tasks", help="Limit to task id(s)")
 
     st = sub.add_parser("status", help="Show run progress")
-    st.add_argument("--manifest", type=Path, default=Path("runs/cursor-agent-manifest.json"))
-    st.add_argument("--runs-dir", type=Path, default=Path("runs"))
+    st.add_argument(
+        "--manifest",
+        type=Path,
+        default=Path("/tmp/vulcanbench-runs/cursor-agent-manifest.json"),
+    )
+    st.add_argument("--runs-dir", type=Path, default=None, help="Run root (default: isolated)")
 
     args = parser.parse_args()
     if args.cmd == "prepare":
+        out = args.output_dir if args.output_dir is not None else default_cursor_runs_dir(args.suite)
         manifests = prepare_all(
             suite=args.suite,
             repeats=args.repeats,
-            output_dir=args.output_dir,
+            output_dir=out,
             model=args.model,
             tasks=args.tasks,
         )
@@ -134,7 +144,12 @@ def main() -> None:
         )
         print(f"Prepared {len(manifests)} runs -> {args.manifest}")
     elif args.cmd == "status":
-        print(json.dumps(status(args.runs_dir, args.manifest), indent=2))
+        manifest = load_manifest(args.manifest) if args.manifest.is_file() else {"runs": []}
+        runs_dir = args.runs_dir
+        if runs_dir is None:
+            suite = manifest.get("suite", "v4")
+            runs_dir = default_cursor_runs_dir(str(suite))
+        print(json.dumps(status(runs_dir, args.manifest), indent=2))
 
 
 if __name__ == "__main__":

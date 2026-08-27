@@ -9,7 +9,9 @@ engineering tasks. VulcanBench measures how models perform across reasoning
 effort, language, codebase scale, and task complexity — with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.8.0** — adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
+**v0.8.2** — adds **cursor-agent integrity checks**: isolated run roots, mandatory
+isolation prompts, hidden-test stripping, and transcript contamination audits for
+`cursor-agent:composer-2.5` sessions. Previous: **v0.8.0** — adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0** — adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
 so Alibaba Cloud models can be benchmarked like OpenAI / Anthropic / Z.ai / Kimi.
 Builds on v0.6's frontier-hard task tier and cost-efficient reporting
 (`--max-run-cost`, `compare`, `regrade`, `--only-missing`), and on v0.5's 52

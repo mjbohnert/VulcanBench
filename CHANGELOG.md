@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-27
+
 ### Added
 
-- **Qwen reasoning effort** (`qwen:<model>`, Qwen3.8+): `--effort low/medium` maps to
-  DashScope's `reasoning_effort` and `extra-high` maps to its `xhigh`; `high` is recorded
-  as metadata only because Qwen's documented enum is low/medium/xhigh (no `high`) with
-  `xhigh` as the default — an unset request already runs at xhigh. Built-in pricing adds
-  `qwen3.8-max` ($2/$6 per 1M, flat across the 1M context).
+- **cursor-agent integrity checks** — detect and strip hidden tests copied into
+  workspaces before grading; audit cloud-agent transcripts for gold-patch /
+  tasks-tree leakage; isolated run roots under `/tmp/vulcanbench-runs/<suite>`
+  with mandatory isolation rules in agent prompts.
+
+### Changed
+
+- **`cursor-agent` prepare/finalize** — `summary.json` now includes an
+  `integrity` block (`passed`, `leaked_tests_removed`, transcript flags).
 
 ## [0.8.1] - 2026-08-23
 

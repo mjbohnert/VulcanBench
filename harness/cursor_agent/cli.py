@@ -8,6 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from harness.cursor_agent.paths import default_cursor_runs_dir
 from harness.cursor_agent.session import finalize_session, prepare_session
 from harness.suite import load_suite
 
@@ -24,15 +25,20 @@ def prepare_cmd(
     task: str = typer.Option(..., "--task", help="Task id"),
     suite: str = typer.Option("v4", "--suite"),
     model: str = typer.Option("cursor-agent:composer-2.5", "--model"),
-    output_dir: Path = typer.Option(Path("runs"), "--output-dir"),  # noqa: B008
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Run root (default: isolated /tmp/vulcanbench-runs/<suite>)",
+    ),
     repeat: int = typer.Option(1, "--repeat", min=1, help="Repeat index (metadata only)"),
 ) -> None:
     """Prepare a workspace for a Cursor cloud agent to solve."""
+    out = output_dir if output_dir is not None else default_cursor_runs_dir(suite)
     manifest = prepare_session(
         task_id=task,
         model=model,
         suite=suite,
-        output_dir=output_dir,
+        output_dir=out,
         repeat_index=repeat,
     )
     console.print_json(json.dumps(manifest, indent=2))

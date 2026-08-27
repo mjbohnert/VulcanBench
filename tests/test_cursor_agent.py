@@ -41,6 +41,11 @@ def test_prepare_and_finalize_writes_summary(tmp_path: Path) -> None:
     transcript_path = tmp_path / "transcript.json"
     transcript_path.write_text(json.dumps(transcript), encoding="utf-8")
 
+    session = json.loads((run_dir / "session.json").read_text(encoding="utf-8"))
+    assert session["isolation_version"] >= 2
+    prompt = (run_dir / "agent_prompt.md").read_text(encoding="utf-8")
+    assert "Benchmark isolation rules" in prompt
+
     summary = finalize_session(
         run_dir=run_dir,
         transcript_path=transcript_path,
@@ -50,4 +55,6 @@ def test_prepare_and_finalize_writes_summary(tmp_path: Path) -> None:
     assert summary["tokens"]["reasoning"] >= 1
     assert summary["tokens"]["output"] >= 1
     assert summary["cli_agent"]["harness"] == "cursor-agent"
+    assert summary["integrity"]["passed"] is True
+    assert summary["integrity"]["isolation_version"] >= 2
     assert (run_dir / "summary.json").is_file()
