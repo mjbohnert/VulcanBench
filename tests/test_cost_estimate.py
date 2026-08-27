@@ -206,3 +206,17 @@ def test_estimate_v1_compare_cold_start(tmp_path: Path) -> None:
     assert all(t.source == "prior_exact" for t in plan.models[0].per_task)
     assert plan.models[0].confidence == "medium"
     assert plan.mid_usd > 0.07
+
+
+def test_estimate_cursor_composer_is_priced(tmp_path: Path) -> None:
+    plan = estimate_plan(
+        models=["cursor:composer-2.5", "cursor:composer-2.5-fast"],
+        task_ids=["hello-world"],
+        judges=False,
+        runs_dir=tmp_path / "runs",
+        use_priors=False,
+    )
+    assert plan.models[0].env_var == "CURSOR_API_KEY"
+    assert plan.models[0].mid_usd == pytest.approx(0.15)
+    # Fast is ~6x list price; the cold-start default scales with that.
+    assert plan.models[1].mid_usd == pytest.approx(0.90)

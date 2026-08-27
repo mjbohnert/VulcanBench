@@ -86,8 +86,8 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
         ...,
         "--model",
         "-m",
-        help="provider:model e.g. openai:gpt-4o, anthropic:claude-opus-4-8, or "
-        "claude-code:claude-opus-4-8 (Claude Code CLI, subscription billing; "
+        help="provider:model e.g. openai:gpt-4o, anthropic:claude-opus-4-8, "
+        "claude-code:claude-opus-4-8, or cursor:composer-2.5 (Cursor Agent CLI; "
         "needs --sandbox local)",
     ),
     output_dir: Path = typer.Option(  # noqa: B008
@@ -222,10 +222,13 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
         if is_priced(model):
             try:
                 if suite is not None:
-                    task_ids = load_suite(suite).task_ids
+                    loaded = load_suite(suite)
+                    task_ids = loaded.task_ids
+                    estimate_root = loaded.tasks_root
                 else:
                     assert task is not None  # one of --task/--suite is required
                     task_ids = [task]
+                    estimate_root = tasks_root
                 plan = estimate_plan(
                     models=[model],
                     task_ids=task_ids,
@@ -233,6 +236,7 @@ def run(  # noqa: PLR0912, PLR0915 — CLI entry: option declarations + linear g
                     judges=judges,
                     runs_dir=output_dir,
                     use_priors=use_priors,
+                    tasks_root=estimate_root,
                 )
                 _print_cost_estimate(plan)
             except ValueError as e:
@@ -381,10 +385,13 @@ def estimate(
 
     try:
         if suite is not None:
-            task_ids = load_suite(suite).task_ids
+            loaded = load_suite(suite)
+            task_ids = loaded.task_ids
+            estimate_root = loaded.tasks_root
         else:
             assert task is not None  # one of --task/--suite is required
             task_ids = [task]
+            estimate_root = Path("tasks/v1")
         plan = estimate_plan(
             models=model,
             task_ids=task_ids,
@@ -392,6 +399,7 @@ def estimate(
             judges=judges,
             runs_dir=runs_dir,
             use_priors=use_priors,
+            tasks_root=estimate_root,
         )
     except (ValueError, FileNotFoundError) as e:
         console.print(f"[red]error[/red] {e}")

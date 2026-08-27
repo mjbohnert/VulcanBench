@@ -36,6 +36,7 @@ _DEFAULT_PER_RUN: dict[str, float] = {
     "kimi:": 0.055,
     "qwen:": 0.03,
     "deepseek:": 0.02,
+    "cursor:": 0.15,
 }
 _DEFAULT_FALLBACK = 0.08
 
@@ -46,6 +47,7 @@ _PROVIDER_ENV = {
     "kimi": "MOONSHOT_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    "cursor": "CURSOR_API_KEY",
 }
 
 _PROVIDER_LABEL = {
@@ -55,6 +57,7 @@ _PROVIDER_LABEL = {
     "kimi": "Moonshot (Kimi)",
     "qwen": "Qwen (DashScope)",
     "deepseek": "DeepSeek",
+    "cursor": "Cursor",
 }
 
 _KNOWN_TASK_SOURCES = frozenset({"exact", "prior_exact"})
@@ -252,9 +255,14 @@ class _CostIndex:
         if costs:
             return statistics.median(costs)
         prefix = _provider(model) + ":"
-        if prefix in _DEFAULT_PER_RUN:
-            return _DEFAULT_PER_RUN[prefix]
-        return _DEFAULT_FALLBACK
+        base = _DEFAULT_PER_RUN.get(prefix, _DEFAULT_FALLBACK)
+        # Composer Fast is the same model at ~6x list price; don't quote the
+        # standard default for both specs when there is no run history.
+        if prefix == "cursor:":
+            idx = _price_index(model)
+            if idx:
+                return base * (idx / 3.0)  # 3.0 = standard $0.50+$2.50
+        return base
 
     def estimate_one(self, model: str, task_id: str, tasks_root: Path) -> RunCostEstimate:  # noqa: PLR0911
         direct = self.by_model_task.get((model, task_id))

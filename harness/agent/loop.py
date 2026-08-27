@@ -33,6 +33,7 @@ from harness.agent.cli_agents import (
     is_cli_agent_spec,
     run_claude_code_task,
     run_codex_task,
+    run_cursor_task,
 )
 from harness.agent.local_executor import LocalToolExecutor
 from harness.agent.protocol import RunCommandArgs, ToolCall, ToolProtocol, get_openai_tool_schemas
@@ -314,9 +315,9 @@ def _resolve_run_engine(
 ) -> tuple[bool, LLMProvider | None, Any]:
     """Decide whether ``model`` runs as a vendor agent CLI or via a provider.
 
-    Vendor agent CLIs (``claude-code:*``) execute their own tools host-side
-    (subscription billing); the sandbox executor is only used for setup and
-    verification. Docker would verify in a different environment than the
+    Vendor agent CLIs (``claude-code:*``, ``codex:*``, ``cursor:*``) execute
+    their own tools host-side; the sandbox executor is only used for setup
+    and verification. Docker would verify in a different environment than the
     agent ran in, so CLI runs require the explicit ``--sandbox local`` opt-in.
     """
     if provider is None and is_cli_agent_spec(model):
@@ -366,6 +367,18 @@ def _execute_agent(
                 network=network,
                 max_run_cost=max_run_cost,
                 effort=effort_meta.requested if effort_meta else None,
+            )
+        elif cli_provider == "cursor":
+            outcome = run_cursor_task(
+                workspace=workspace,
+                prompt=build_cli_prompt(task.issue),
+                model=cli_model,
+                priced_spec=model,
+                collector=collector,
+                stream_log_path=run_dir / "cli-agent-stream.jsonl",
+                timeout_s=deadline.remaining_s(),
+                network=network,
+                max_run_cost=max_run_cost,
             )
         else:
             outcome = run_claude_code_task(

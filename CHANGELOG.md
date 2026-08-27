@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-27
+
 ### Added
 
+- **Cursor Agent CLI** (`cursor:<model>` specs): the task is handed to Cursor's headless
+  agent (`agent -p --output-format stream-json`, or `cursor-agent`) in the prepared
+  workspace instead of the VulcanBench agent loop. Composer 2.5 is priced at Cursor list
+  rates — standard `$0.50/$2.50` per 1M (`cursor:composer-2.5`) and Fast `$3.00/$15.00`
+  (`cursor:composer-2.5-fast`, the product default). `cost_usd` is that list-price spend
+  from the CLI's reported token usage (camelCase `inputTokens` / `outputTokens` plus
+  cache fold); the summary records `cli_agent: {harness: "cursor", billing: "cursor-usage",
+  cost_basis: "cursor-list-price", ...}` so vendor-harness columns can't be mixed with
+  the uniform loop. Requires `--sandbox local` and `CURSOR_API_KEY` (or an interactive
+  Cursor CLI login). Override the binary with `CURSOR_AGENT_BIN`. `--effort` is recorded
+  as metadata only — pick Fast vs standard via the model id. See QUICKSTART →
+  "Run Composer 2.5 in the Cursor harness" and `docs/COMPOSER_25_V3.md` (operator
+  runbook + copy-paste prompt).
 - **Qwen reasoning effort** (`qwen:<model>`, Qwen3.8+): `--effort low/medium` maps to
   DashScope's `reasoning_effort` and `extra-high` maps to its `xhigh`; `high` is recorded
   as metadata only because Qwen's documented enum is low/medium/xhigh (no `high`) with

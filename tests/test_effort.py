@@ -135,6 +135,17 @@ def test_anthropic_effort_maps_to_output_config_values() -> None:
     assert xhigh.provider_value == "xhigh"
 
 
+def test_cursor_effort_is_noop_metadata() -> None:
+    cfg = effort_config("cursor", "high")
+    assert cfg is not None
+    assert cfg.as_summary() == {
+        "requested": "high",
+        "provider": "cursor",
+        "provider_value": None,
+        "supported": False,
+    }
+
+
 def test_unknown_provider_effort_rejected() -> None:
     with pytest.raises(ValueError, match="not supported for provider"):
         effort_config("acme", "medium")
