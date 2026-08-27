@@ -49,7 +49,7 @@ def audit_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
     """Heuristic audit of a cloud-agent transcript for benchmark leakage."""
     blob = json.dumps(transcript)
     flags = {
-        "gold_patch": bool(re.search(r"gold_patch", blob, re.I)),
+        "gold_patch": bool(re.search(r"gold_patch\.diff|/gold_patch", blob, re.I)),
         "tasks_tree": bool(re.search(r"tasks/v\d+/", blob)),
         "hidden_tests": bool(re.search(r"/tests/oss_tests|\"vb_", blob)),
     }

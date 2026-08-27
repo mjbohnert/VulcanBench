@@ -47,6 +47,13 @@ def test_audit_transcript_flags_gold_patch() -> None:
     assert audit["flags"]["gold_patch"] is True
 
 
+def test_audit_transcript_ignores_isolation_rule_wording() -> None:
+    audit = audit_transcript(
+        {"messages": [{"role": "user", "text": "Do NOT read reference solution patches"}]}
+    )
+    assert audit["contaminated"] is False
+
+
 def test_audit_transcript_flags_tasks_tree() -> None:
     audit = audit_transcript({"messages": [{"role": "tool", "text": "tasks/v4/oss-pflag/foo"}]})
     assert audit["contaminated"] is True
@@ -125,7 +132,7 @@ def test_build_cursor_agent_prompt_includes_isolation_rules(tmp_path: Path) -> N
     assert "Benchmark isolation rules" in prompt
     assert str(workspace.resolve()) in prompt
     assert "Do NOT read `tasks/`" in prompt
-    assert "gold_patch.diff" in prompt
+    assert "reference solution patches" in prompt
 
 
 def test_build_solve_instructions_points_at_agent_prompt(tmp_path: Path) -> None:
