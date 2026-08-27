@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from harness.cursor_cloud.session import (
 from harness.cursor_cloud.shards import assign_shards, shard_tasks, worker_prompt
 from harness.cursor_cloud.tokens import tokens_from_transcript
 from harness.suite import load_suite
+from harness.tasks import load_task
 
 runner = CliRunner()
 
@@ -145,6 +147,35 @@ def test_prepare_and_finalize_hello_world(tmp_path: Path) -> None:
     )
     assert summary["cli_agent"]["harness"] == "cursor-cloud"
     assert (Path(manifest["run_dir"]) / "summary.json").is_file()
+
+
+def test_prepare_and_finalize_v4_python_gold(tmp_path: Path) -> None:
+    """Baseline suite v4 goes through cursor-cloud prepare/grade, not only hello-world."""
+    task_id = "oss-more-itertools-interleave-empty"
+    manifest = prepare_session(
+        task_id=task_id,
+        suite="v4",
+        model="composer-2.5",
+        output_dir=tmp_path / "runs",
+        tasks_root=Path("tasks/v4"),
+    )
+    workspace = Path(manifest["workspace"])
+    assert "/tasks/" not in str(workspace)
+    assert not (workspace / "gold_patch.diff").exists()
+    assert manifest["model"] == "cursor-cloud:composer-2.5"
+    task = load_task(task_id, Path("tasks/v4"))
+    assert task.gold_patch is not None
+    applied = subprocess.run(
+        ["git", "apply", str(task.gold_patch.resolve())],
+        cwd=workspace,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert applied.returncode == 0, applied.stderr
+    summary = finalize_session(run_dir=Path(manifest["run_dir"]))
+    assert summary["scores"]["functional"] == 1.0
+    assert summary["suite"] == "v4"
 
 
 def test_apply_transcript_reprices_without_regrade(tmp_path: Path) -> None:
