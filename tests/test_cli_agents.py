@@ -145,9 +145,21 @@ elif "-p" in args:
                       "leaked_key": os.environ.get("XAI_API_KEY", "")}))
     print(json.dumps({"type": "assistant", "session_id": "cur-1", "message": {
         "role": "assistant", "content": [{"type": "text", "text": "Implemented."}]}}))
-    print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
-                      "duration_ms": 1200, "duration_api_ms": 800,
-                      "result": "done", "session_id": "cur-1"}))
+    if mode != "no_usage":
+        print(json.dumps({"type": "usage", "usage": {
+            "inputTokens": 1000, "outputTokens": 200,
+            "cacheReadTokens": 100, "cacheWriteTokens": 0,
+            "reasoningTokens": 50}}))
+        print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                          "duration_ms": 1200, "duration_api_ms": 800,
+                          "result": "done", "session_id": "cur-1",
+                          "usage": {"inputTokens": 1000, "outputTokens": 200,
+                                    "cacheReadTokens": 100, "cacheWriteTokens": 0,
+                                    "reasoningTokens": 50}}))
+    else:
+        print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                          "duration_ms": 1200, "duration_api_ms": 800,
+                          "result": "done", "session_id": "cur-1"}))
 else:
     print("unsupported", file=sys.stderr)
     sys.exit(1)
@@ -354,12 +366,17 @@ def test_run_agent_via_cursor_subscription(tmp_path: Path, fake_cursor: Path) ->
     summary = res["summary"]
     assert summary["scores"]["functional"] == 1.0
     assert summary["finished"] is True
-    # Cursor's stream reports no usage: token counts are honestly zero and the
-    # API-equivalent value is unavailable rather than a fabricated $0.
-    assert summary["tokens"]["total"] == 0
-    assert summary["cost_usd"] is None
+    # Fake stream emits Cursor camelCase usage: 1000 in + 100 cache + 200 out + 50
+    # reasoning. Prompt total 1100, completion 250. Priced via xai:grok-4.6.
+    assert summary["tokens"]["prompt"] == 1100
+    assert summary["tokens"]["completion"] == 250
+    assert summary["tokens"]["cached_input"] == 100
+    assert summary["tokens"]["reasoning_output"] == 50
+    assert summary["cost_usd"] == cost_usd("cursor:grok-4.6", 1100, 250, cached_input_tokens=100)
     assert summary["economics"]["billing_mode"] == "subscription-included"
-    assert summary["economics"]["measurement_quality"]["api_equivalent_cost_usd"] == "unavailable"
+    assert summary["economics"]["measurement_quality"]["api_equivalent_cost_usd"] == (
+        "estimated-from-reported-tokens-with-cache-pricing"
+    )
     cli = summary["cli_agent"]
     assert cli["harness"] == "cursor"
     assert cli["auth_method"] == "subscription"
@@ -514,17 +531,51 @@ def test_cursor_usage_limit_raises_quota_error(
         )
 
 
-def test_cursor_rejects_unenforceable_live_cost_cap(tmp_path: Path, fake_cursor: Path) -> None:
-    with pytest.raises(ProviderError, match="max-run-cost"):
-        run_cursor_task(
-            workspace=tmp_path,
-            prompt="fix",
-            model="grok-4.6",
-            priced_spec="cursor:grok-4.6",
-            max_turns=10,
-            collector=_Collector(),
-            max_run_cost=1.0,
-        )
+def test_cursor_without_usage_keeps_cost_unknown(tmp_path: Path, fake_cursor: Path) -> None:
+    outcome = run_cursor_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="grok-4.6",
+        priced_spec="cursor:grok-4.6",
+        max_turns=10,
+        collector=_Collector(),
+        env_overrides={"FAKE_CURSOR_MODE": "no_usage"},
+    )
+    assert outcome.finished is True
+    assert outcome.prompt_tokens == 0
+    assert outcome.usage_reported is False
+
+
+def test_cursor_enforces_live_cost_cap(tmp_path: Path, fake_cursor: Path) -> None:
+    outcome = run_cursor_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="grok-4.6",
+        priced_spec="cursor:grok-4.6",
+        max_turns=10,
+        collector=_Collector(),
+        max_run_cost=0.0001,
+    )
+    assert outcome.cost_capped is True
+    assert outcome.prompt_tokens == 1100
+
+
+def test_cursor_max_run_cost_without_usage_does_not_raise(
+    tmp_path: Path, fake_cursor: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_CURSOR_MODE", "no_usage")
+    outcome = run_cursor_task(
+        workspace=tmp_path,
+        prompt="fix",
+        model="grok-4.6",
+        priced_spec="cursor:grok-4.6",
+        max_turns=10,
+        collector=_Collector(),
+        max_run_cost=1.0,
+        env_overrides={"FAKE_CURSOR_MODE": "no_usage"},
+    )
+    assert outcome.finished is True
+    assert outcome.prompt_tokens == 0
 
 
 def test_run_agent_via_codex_subscription(tmp_path: Path, fake_codex: Path) -> None:

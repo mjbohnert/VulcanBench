@@ -266,6 +266,54 @@ def _fold_usage_totals(usages: Iterable[dict[str, Any]]) -> tuple[int, int]:
     return prompt, completion
 
 
+def _usage_int(usage: dict[str, Any], *keys: str) -> int:
+    """First present numeric field among ``keys`` (snake_case or camelCase)."""
+    for key in keys:
+        value = usage.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def fold_cursor_usage(usage: dict[str, Any]) -> tuple[int, int, int, int]:
+    """Cursor TokenUsage -> (prompt_total, completion, cached_input, reasoning).
+
+    Cursor CLI/SDK emit camelCase (``inputTokens``) or snake_case. ``inputTokens``
+    is uncached prompt; cache reads/writes are separate; ``reasoningTokens`` are
+    excluded from ``totalTokens`` and billed as output at Composer list rates.
+    """
+    uncached = _usage_int(usage, "input_tokens", "inputTokens")
+    output_tokens = _usage_int(usage, "output_tokens", "outputTokens")
+    cache_read = _usage_int(
+        usage, "cache_read_input_tokens", "cacheReadTokens", "cached_input_tokens"
+    )
+    cache_write = _usage_int(usage, "cache_creation_input_tokens", "cacheWriteTokens")
+    reasoning = _usage_int(usage, "reasoning_tokens", "reasoningTokens")
+    return (
+        uncached + cache_read + cache_write,
+        output_tokens + reasoning,
+        cache_read,
+        reasoning,
+    )
+
+
+def cursor_usage_payload(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Pull a usage object from a stream-json event, if one is present."""
+    etype = event.get("type")
+    usage = event.get("usage")
+    if etype in {"usage", "result"} and isinstance(usage, dict):
+        return usage
+    message = event.get("message")
+    if isinstance(message, dict) and isinstance(message.get("usage"), dict):
+        payload = message.get("usage")
+        return payload if isinstance(payload, dict) else None
+    return None
+
+
 def _version(executable: str) -> str | None:
     if shutil.which(executable) is None:
         return None
@@ -451,21 +499,18 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
 ) -> CliAgentOutcome:
     """Run one task through ``cursor-agent -p`` billed to the Cursor account.
 
-    Cursor's stream-json reports no token usage or cost, so the outcome carries
-    zero token counts and the economics receipt honestly records the
-    API-equivalent value as unavailable, Cursor's own dashboard is the only
-    ledger for what a run consumed. ``max_turns`` cannot be forwarded (no such
-    flag) and ``max_run_cost`` cannot be enforced live (no streamed usage).
+    Recent Cursor CLIs emit per-turn ``usage`` events (camelCase TokenUsage) and
+    may repeat the totals on the terminal ``result``. Those counts feed
+    ``cost_usd`` at Composer / Grok list rates (API-equivalent, not cash). Older
+    CLIs that stream no usage still record zeros and leave the economics
+    receipt ``unavailable``. ``max_turns`` cannot be forwarded (no such flag).
+    ``max_run_cost`` is enforced live once usage appears; without a usage
+    stream it cannot fire, so pair it with ``--timeout``.
     """
-    del priced_spec, max_turns
+    del max_turns
     workspace = workspace.resolve()
     if timeout_s is not None and timeout_s <= 0:
         raise ProviderError("run budget exhausted before CLI agent start")
-    if max_run_cost is not None:
-        raise ProviderError(
-            "cursor-agent reports no usage stream, so --max-run-cost cannot be "
-            "enforced; use a wall-clock --timeout for subscription runs"
-        )
 
     checked = preflight or _cursor_preflight(cursor_bin)
     _require_subscription(checked)
@@ -551,8 +596,9 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
         harness_version=checked.version,
         auth_method=checked.auth_mode,
         plan_name=checked.plan_name,
+        usage_reported=False,
     )
-    killed = {"timeout": False}
+    killed = {"timeout": False, "cost": False}
 
     def _kill_on_timeout() -> None:
         killed["timeout"] = True
@@ -565,7 +611,44 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
         watchdog.start()
 
     result_msg: dict[str, Any] | None = None
+    acc = {"prompt": 0, "completion": 0, "cached": 0, "reasoning": 0, "turns": 0}
     stream_f = stream_log_path.open("w", encoding="utf-8") if stream_log_path else None
+
+    def _ingest_usage(usage: dict[str, Any], *, replace: bool) -> None:
+        prompt, completion, cached, reasoning = fold_cursor_usage(usage)
+        if replace:
+            acc["prompt"] = prompt
+            acc["completion"] = completion
+            acc["cached"] = cached
+            acc["reasoning"] = reasoning
+        else:
+            acc["prompt"] += prompt
+            acc["completion"] += completion
+            acc["cached"] += cached
+            acc["reasoning"] += reasoning
+            acc["turns"] += 1
+        outcome.prompt_tokens = acc["prompt"]
+        outcome.completion_tokens = acc["completion"]
+        outcome.cached_input_tokens = acc["cached"]
+        outcome.reasoning_output_tokens = acc["reasoning"]
+        outcome.usage_reported = True
+        if max_run_cost is None:
+            return
+        run_cost = cost_usd(
+            priced_spec,
+            acc["prompt"],
+            acc["completion"],
+            cached_input_tokens=acc["cached"],
+        )
+        if run_cost is not None and run_cost >= max_run_cost:
+            collector.record(
+                "cost_cap_exceeded",
+                {"cost_usd": run_cost, "max_run_cost": max_run_cost},
+            )
+            outcome.cost_capped = True
+            killed["cost"] = True
+            proc.kill()
+
     try:
         assert proc.stdout is not None
         for raw_line in proc.stdout:
@@ -597,6 +680,11 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
             elif etype == "assistant":
                 msg = event.get("message") or {}
                 collector.record("llm_response", _assistant_trace_data(msg))
+                payload = cursor_usage_payload(event)
+                if payload:
+                    _ingest_usage(payload, replace=False)
+                    if killed["cost"]:
+                        break
             elif etype == "tool_call":
                 collector.record(
                     "tool_observation" if event.get("subtype") == "completed" else "tool_call",
@@ -605,8 +693,19 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
                         "result": event.get("result"),
                     },
                 )
+            elif etype == "usage":
+                payload = cursor_usage_payload(event)
+                if payload:
+                    _ingest_usage(payload, replace=False)
+                    if killed["cost"]:
+                        break
             elif etype == "result":
                 result_msg = event
+                payload = cursor_usage_payload(event)
+                if payload:
+                    _ingest_usage(payload, replace=True)
+                    if killed["cost"]:
+                        break
     finally:
         if watchdog is not None:
             watchdog.cancel()
@@ -616,9 +715,10 @@ def run_cursor_task(  # noqa: PLR0912, PLR0915, linear stream-parse loop
     proc.wait()
     stderr_thread.join(timeout=5)
     outcome.timed_out = killed["timeout"]
+    outcome.num_turns = acc["turns"] or None
 
     if result_msg is None:
-        if killed["timeout"]:
+        if killed["timeout"] or killed["cost"]:
             # Partial work still counts; the caller diffs and verifies it.
             return outcome
         tail = "".join(stderr_chunks)[-500:].strip()
@@ -1806,6 +1906,9 @@ class CliAgentOutcome:
     cli_total_tokens: int | None = None
     reported_effort: str | None = None
     sandbox_profile: str | None = None
+    # False until a usage event arrives. Cursor CLIs older than the usage
+    # stream would otherwise price 0 tokens as $0 on a now-priced spec.
+    usage_reported: bool = True
 
     def summary(self) -> dict[str, Any]:
         """Provenance block persisted into the run summary."""
@@ -1829,6 +1932,7 @@ class CliAgentOutcome:
             "cli_total_tokens": self.cli_total_tokens,
             "reported_effort": self.reported_effort,
             "sandbox_profile": self.sandbox_profile,
+            "usage_reported": self.usage_reported,
         }
 
 
@@ -2325,12 +2429,11 @@ class CursorAdapter:
             display_name="Cursor CLI",
             executable="cursor-agent",
             structured_events=True,
-            # stream-json carries no usage or cost fields: token counts and
-            # API-equivalent value are honestly unavailable for cursor runs.
-            reports_tokens=False,
+            # Recent CLIs emit per-turn usage; older builds still report zeros.
+            reports_tokens=True,
             reports_model=True,
             supports_effort=True,
-            supports_live_cost_cap=False,
+            supports_live_cost_cap=True,
             sandbox="cursor-sandbox=enabled; force-allow",
         )
 

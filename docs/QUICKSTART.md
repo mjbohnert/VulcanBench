@@ -103,7 +103,7 @@ vulcanbench report --suite v1 -o report.md
 >   `mock:synthetic`). Override prices any time with
 >   `VULCANBENCH_PRICING=/path/to/prices.json`.
 
-## Run through a Claude or ChatGPT subscription
+## Run through a Claude, ChatGPT, or Cursor subscription
 
 Check that the product CLI is installed and using subscription authentication:
 
@@ -117,7 +117,14 @@ vulcanbench run --task py-topo-sort-cycle \
 vulcanbench run --task py-topo-sort-cycle \
   --harness codex --billing subscription \
   --model gpt-5.6-sol --no-judges
+
+vulcanbench run --task py-topo-sort-cycle \
+  --harness cursor --billing subscription \
+  --model composer-2.5 --no-judges
 ```
+
+For eight parallel Composer 2.5 cloud-agent windows on suite v4, see
+[CURSOR_CLOUD.md](CURSOR_CLOUD.md).
 
 What to know before using it:
 

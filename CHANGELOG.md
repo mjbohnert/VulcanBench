@@ -5,6 +5,21 @@ All notable changes to VulcanBench are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-27
+
+### Added
+
+- **Composer 2.5 on Cursor, no API key.** `cursor:composer-2.5` prices at
+  Cursor's published list rates (standard $0.50/$2.50 per 1M, Fast $3/$15,
+  cache reads $0.20/$0.50). The `cursor-agent` adapter now reads per-turn
+  `usage` events from stream-json (camelCase TokenUsage) so token counts and
+  API-equivalent `cost_usd` are no longer stuck at zero. `--max-run-cost` is
+  enforced once usage appears. `CURSOR_API_KEY` still fails closed.
+- **`vulcanbench cursor-cloud`**: 8-way sharded Composer 2.5 runs inside
+  Cursor cloud-agent windows on suite v4. Workspaces are created outside the
+  checkout so the agent cannot walk up into `gold_patch.diff`. See
+  [docs/CURSOR_CLOUD.md](docs/CURSOR_CLOUD.md).
+
 ## [Unreleased]
 
 ### Added

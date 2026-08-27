@@ -271,6 +271,11 @@ def run_agent(  # noqa: PLR0915
         scores,
         cached_input_tokens=cached_input_tokens,
     )
+    if cli_outcome is not None and not cli_outcome.usage_reported:
+        # A harness that streamed no usage (older cursor-agent) must not
+        # turn "unknown" into a $0 receipt just because the spec is priced.
+        cost["agent"] = None
+        cost["total"] = None
     grading_uses_subscription = bool(cli_outcome and is_cli_agent_spec(judge_model or model))
     economics = (
         subscription_receipt(

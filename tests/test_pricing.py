@@ -133,3 +133,21 @@ def test_anthropic_frontier_models_priced() -> None:
     # Fable 5: input 10.00/1M, output 50.00/1M -> 60.00.
     assert pricing.is_priced("anthropic:claude-fable-5")
     assert pricing.cost_usd("anthropic:claude-fable-5", 1_000_000, 1_000_000) == 60.0
+
+
+def test_composer_25_list_prices() -> None:
+    # Standard: $0.50 in + $2.50 out per 1M.
+    assert pricing.cost_usd("cursor:composer-2.5", 1_000_000, 1_000_000) == 3.00
+    assert pricing.cost_usd("cursor-cloud:composer-2.5", 1_000_000, 1_000_000) == 3.00
+    # Cache reads at $0.20/M.
+    assert (
+        pricing.cost_usd("cursor:composer-2.5", 1_000_000, 0, cached_input_tokens=1_000_000) == 0.20
+    )
+    # Fast variant: $3 in + $15 out.
+    assert pricing.cost_usd("cursor:composer-2.5-fast", 1_000_000, 1_000_000) == 18.00
+
+
+def test_cursor_grok_prices_at_xai_rates() -> None:
+    assert pricing.cost_usd("cursor:grok-4.6", 1_000_000, 1_000_000) == 8.00
+    assert pricing.cost_usd("cursor:cursor-grok-4.6-high", 1_000_000, 1_000_000) == 8.00
+    assert pricing.has_cached_input_price("cursor:grok-4.6") is True

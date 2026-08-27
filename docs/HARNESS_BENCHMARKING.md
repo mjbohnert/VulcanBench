@@ -15,18 +15,23 @@ Release A supports:
 | Grok Build | `grok-build:<model>` | `grok login` (grok.com OIDC) | custom kernel profile: workspace writes + repo reads denied (Seatbelt/Landlock); Vulcan setup/verifier may use Docker |
 | ZCode | `zcode:<model>` | `zcode login` (Z.ai OAuth, GLM Coding Plan) | ZCode permission mode `yolo` on the host workspace; web tools removed and the Browser Use plugin disabled; Vulcan setup/verifier may use Docker |
 
-Cursor-specific limits: `cursor-agent` streams no token usage or cost, so
-token counts are recorded as zero and the economics receipt marks the
-API-equivalent value **unavailable**: Cursor's own usage dashboard is the
-only ledger of what a run consumed. `--max-run-cost` is rejected (nothing to
-enforce it against) and `--effort low|medium|high` travels via Cursor's
-`model[effort=...]` bracket syntax, though Cursor's Grok family bakes effort
-into the model id instead (`cursor-grok-4.6-low` … `-xhigh`), so sweep those by
-model id without `--effort`. Run with `--sandbox docker` so hidden-test
-verification uses the sandbox image toolchains; `--sandbox local` puts the
-verifier on the host, where missing toolchains fail Python tasks. Preflight
-fails closed when signed out or when `CURSOR_API_KEY` is set (API-key auth
-bills metered usage, not the plan).
+Cursor-specific notes: recent `cursor-agent` builds stream per-turn token
+usage (`inputTokens` / `outputTokens` / cache / reasoning). The adapter folds
+those into `cost_usd` at Composer 2.5 list rates (`$0.50/$2.50` per 1M
+standard; Fast `$3/$15`) or at `xai:` rates for Grok ids. Older CLIs that emit
+no usage still record zeros and mark API-equivalent value **unavailable**.
+`--max-run-cost` is enforced once usage appears (pair it with `--timeout` on
+old CLIs). `--effort low|medium|high` travels via Cursor's `model[effort=...]`
+bracket syntax, though Cursor's Grok family bakes effort into the model id
+instead (`cursor-grok-4.6-low` ... `-xhigh`), so sweep those by model id
+without `--effort`. Run with `--sandbox docker` so hidden-test verification
+uses the sandbox image toolchains; `--sandbox local` puts the verifier on the
+host, where missing toolchains fail Python tasks. Preflight fails closed when
+signed out or when `CURSOR_API_KEY` is set (API-key auth bills metered usage,
+not the plan).
+
+To run Composer 2.5 inside Cursor cloud-agent windows instead of the CLI,
+see [CURSOR_CLOUD.md](CURSOR_CLOUD.md).
 
 Grok Build-specific notes (verified on grok 0.2.69 and 1.0.5, both alpha, 
 the surface moves fast; re-verify these on every CLI update before a sweep):
@@ -213,6 +218,13 @@ vulcanbench run --task hello-world \
   --harness codex \
   --billing subscription \
   --model gpt-5.6-sol \
+  --no-judges
+
+# Cursor CLI through a Cursor subscription (Composer 2.5)
+vulcanbench run --task hello-world \
+  --harness cursor \
+  --billing subscription \
+  --model composer-2.5 \
   --no-judges
 
 # ZCode (Z.ai's GLM harness) through a GLM Coding Plan

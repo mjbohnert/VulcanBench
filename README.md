@@ -9,7 +9,13 @@ engineering tasks. VulcanBench measures how models perform across reasoning
 effort, language, codebase scale, and task complexity, with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.8.0**: adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni, with a 200-question held-out set, a voices/rate/noise audio matrix, and modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous: **v0.7.0**: adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
+**v0.9.0**: Cursor Composer 2.5 on the Cursor harness and Cursor Cloud (no API
+key), with streamed token usage and list-price receipts. Previous: **v0.8.0**:
+adds the **Voice Eval Suite v1** (`vulcanbench voice`): text-vs-audio delta
+measurement ("voice tax") across OpenAI Realtime, Gemini Live, and Qwen3-Omni,
+with a 200-question held-out set, a voices/rate/noise audio matrix, and
+modality-blind scoring. See [docs/VOICE_EVAL.md](docs/VOICE_EVAL.md). Previous:
+**v0.7.0**: adds a **Qwen / DashScope provider** (`qwen:qwen3.7-plus` and friends)
 so Alibaba Cloud models can be benchmarked like OpenAI / Anthropic / Z.ai / Kimi.
 Builds on v0.6's frontier-hard task tier and cost-efficient reporting
 (`--max-run-cost`, `compare`, `regrade`, `--only-missing`), and on v0.5's 52
@@ -59,9 +65,14 @@ vulcanbench run --task hello-world --model qwen:qwen3.7-plus
 vulcanbench run --task hello-world --model deepseek:deepseek-v4-flash
 
 # Or benchmark the product harness through an existing subscription:
-vulcanbench harness doctor codex
-vulcanbench run --task hello-world --harness codex --billing subscription \
-  --model gpt-5.6-sol --no-judges
+vulcanbench harness doctor cursor
+vulcanbench run --task hello-world --harness cursor --billing subscription \
+  --model composer-2.5 --no-judges
+
+# Cursor Cloud (Composer 2.5, no API key): prepare an 8-way shard, then
+# paste `vulcanbench cursor-cloud print-prompt --shard N` into a new window.
+vulcanbench cursor-cloud shards --suite v4
+vulcanbench cursor-cloud print-prompt --shard 1 --suite v4
 
 # Each run prints all five metrics + cost, e.g.:
 #   functional=1.0 quality=1.0 security=1.0 human_like=0.8 total=0.974 cost=$0.0
@@ -208,13 +219,20 @@ Specify a model as `provider:model`:
   subscription, with JSONL traces and Codex's workspace-write sandbox.
 - `cursor:<model>` / `--harness cursor`: Cursor's `cursor-agent` CLI billed to
   a Cursor account (plan or credits). Results measure the model plus Cursor's
-  agent harness. The CLI streams no token usage, so token counts are zero and
-  API-equivalent cost is recorded as unavailable; check spend in Cursor's
-  dashboard. Effort travels via Cursor's `model[effort=low|medium|high]`
-  bracket syntax, except model families that bake effort into the id
-  (`cursor-grok-4.6-low` … `-xhigh`), sweep those by model id. Use
-  `--sandbox docker` so hidden-test verification runs in the sandbox image;
-  the Cursor agent itself works the host workspace under Cursor's own sandbox.
+  agent harness. Recent CLIs stream per-turn token usage (`inputTokens`,
+  `outputTokens`, cache, reasoning); the harness folds those into `cost_usd` at
+  Composer 2.5 list rates (`$0.50/$2.50` per 1M standard, Fast `$3/$15`) or at
+  `xai:` rates for Grok ids. Older CLIs that emit no usage still record zeros
+  and mark API-equivalent cost unavailable. Effort travels via Cursor's
+  `model[effort=low|medium|high]` bracket syntax, except model families that
+  bake effort into the id (`cursor-grok-4.6-low` ... `-xhigh`); sweep those by
+  model id. Use `--sandbox docker` so hidden-test verification runs in the
+  sandbox image; the Cursor agent itself works the host workspace under Cursor's
+  own sandbox. `CURSOR_API_KEY` is rejected: unset it so the CLI bills the
+  Cursor plan, not metered API usage.
+- `vulcanbench cursor-cloud`: run the same baseline (default suite **v4**)
+  inside Cursor cloud-agent windows with Composer 2.5. No API key. See
+  [docs/CURSOR_CLOUD.md](docs/CURSOR_CLOUD.md) for the 8-window worker prompts.
 
 Subscription runs record marginal cash, plan allocation, quota, and
 API-equivalent value separately; they are not mixed silently with raw API runs.

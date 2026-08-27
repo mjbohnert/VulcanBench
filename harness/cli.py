@@ -29,6 +29,7 @@ from harness.agent.providers import ProviderError
 from harness.calibration import calibrate_tasks, calibration_to_markdown
 from harness.compare import build_matrix
 from harness.cost_estimate import estimate_plan
+from harness.cursor_cloud.cli import cursor_cloud_app
 from harness.effort import DEFAULT_SWEEP_EFFORTS, parse_efforts
 from harness.leaderboard import aggregate_by_model, scan_leaderboard
 from harness.pricing import is_priced
@@ -60,6 +61,7 @@ harness_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(harness_app, name="harness")
+app.add_typer(cursor_cloud_app, name="cursor-cloud")
 
 console = Console()
 

@@ -91,6 +91,10 @@ PRICES: dict[str, dict[str, float]] = {
     # prompts/completions for training in exchange for the lower rate.
     "meta:muse-spark-1.2": {"input": 1.25, "output": 4.25},
     "meta:muse-spark-1.2-contributor": {"input": 0.10, "output": 0.20},
+    # Cursor first-party Composer list prices (cursor.com/docs/models).
+    # Standard is the published API-equivalent rate; Fast is the interactive default.
+    "cursor:composer-2.5": {"input": 0.50, "cached_input": 0.20, "output": 2.50},
+    "cursor:composer-2.5-fast": {"input": 3.00, "cached_input": 0.50, "output": 15.00},
     # Free / offline.
     "mock:": {"input": 0.0, "output": 0.0},
     # Local inference: no marginal per-token cost. $0 is the marginal cash truth;
@@ -112,7 +116,30 @@ _SPEC_ALIASES = {
 }
 
 
+def _cursor_canonical(name: str) -> str:
+    """Map a Cursor CLI / cloud-agent model id onto a priced spec.
+
+    Composer stays on the Cursor price table. Grok ids (including the
+    effort-baked ``cursor-grok-4.6-high`` form) price at the matching ``xai:``
+    row. Unknown Cursor models stay as ``cursor:<name>`` so a missing price
+    remains ``None`` rather than a guessed Composer rate.
+    """
+    name = name.split("[", 1)[0].strip()
+    if name.startswith("composer"):
+        return f"cursor:{name}"
+    bare = name.removeprefix("cursor-")
+    if bare.startswith("grok-"):
+        parts = bare.split("-")
+        if len(parts) >= 2:
+            return f"xai:grok-{parts[1]}"
+    return f"cursor:{name}"
+
+
 def _canonical_spec(model: str) -> str:
+    if model.startswith("cursor-cloud:"):
+        model = "cursor:" + model[len("cursor-cloud:") :]
+    if model.startswith("cursor:"):
+        return _cursor_canonical(model[len("cursor:") :])
     for prefix, replacement in _SPEC_ALIASES.items():
         if model.startswith(prefix):
             return replacement + model[len(prefix) :]
