@@ -62,17 +62,25 @@ def print_prompt_cmd(
     all_shards: bool = typer.Option(False, "--all", help="Print every shard prompt"),
 ) -> None:
     """Print a paste-ready prompt for one Composer 2.5 cloud-agent window."""
+    # markup=False: the prompt contains pip extras like ".[dev,test]", which
+    # Rich would otherwise treat as a tag and drop from the pasted text.
     if all_shards:
         for index in range(1, n_shards + 1):
-            console.print(f"===== SHARD {index}/{n_shards} =====")
+            console.print(f"===== SHARD {index}/{n_shards} =====", markup=False, highlight=False)
             console.print(
-                worker_prompt(shard_index=index, n_shards=n_shards, suite=suite, model=model)
+                worker_prompt(shard_index=index, n_shards=n_shards, suite=suite, model=model),
+                markup=False,
+                highlight=False,
             )
             console.print("")
         return
     if shard is None:
         raise typer.BadParameter("pass --shard N or --all")
-    console.print(worker_prompt(shard_index=shard, n_shards=n_shards, suite=suite, model=model))
+    console.print(
+        worker_prompt(shard_index=shard, n_shards=n_shards, suite=suite, model=model),
+        markup=False,
+        highlight=False,
+    )
 
 
 @cursor_cloud_app.command("prepare")

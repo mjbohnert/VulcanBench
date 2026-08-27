@@ -203,3 +203,4 @@ def test_print_prompt_all_v4() -> None:
     assert "SHARD 1/8" in result.output
     assert "SHARD 8/8" in result.output
     assert "oss-aiohttp-upgrade-deferred" in result.output
+    assert ".[dev,test]" in result.output
