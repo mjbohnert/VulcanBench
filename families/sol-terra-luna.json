@@ -1,0 +1,26 @@
+{
+  "id": "sol-terra-luna",
+  "display_name": "Sol + Terra + Luna",
+  "description": "Uniform-loop OpenAI family. Replace model ids with the specs you actually run (cursor:… if served only inside Cursor — keep every member on one harness). Omit efforts to discover whatever levels exist in ./runs.",
+  "members": [
+    {
+      "id": "luna",
+      "model": "openai:gpt-5.6-luna",
+      "efforts": ["low", "medium", "high"],
+      "role": "driver"
+    },
+    {
+      "id": "terra",
+      "model": "openai:gpt-5.6-terra",
+      "efforts": ["low", "medium", "high"],
+      "role": "driver"
+    },
+    {
+      "id": "sol",
+      "model": "openai:gpt-5.6-sol",
+      "efforts": ["low", "medium", "high"],
+      "role": "driver"
+    }
+  ],
+  "cascade_order": ["luna", "terra", "sol"]
+}

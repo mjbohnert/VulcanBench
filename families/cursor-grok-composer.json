@@ -1,0 +1,20 @@
+{
+  "id": "cursor-grok-composer",
+  "display_name": "Grok 4.6 + Composer 2.5",
+  "description": "Same-harness Cursor CLI family. Composer has no --effort mapping (use cursor:composer-2.5-fast as a separate member if you want the Fast SLA). Swap grok's model spec to xai:grok-4.6 if you measure Grok on the uniform loop — family-report will then flag mixed_harness.",
+  "members": [
+    {
+      "id": "composer",
+      "model": "cursor:composer-2.5",
+      "efforts": [null],
+      "role": "driver"
+    },
+    {
+      "id": "grok",
+      "model": "cursor:grok-4.6",
+      "efforts": [null],
+      "role": "driver"
+    }
+  ],
+  "cascade_order": ["composer", "grok"]
+}

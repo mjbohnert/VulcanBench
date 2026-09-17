@@ -22,7 +22,7 @@ runner = CliRunner()
 def test_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert __version__ == "0.9.0"
+    assert __version__ == "0.10.0"
     assert __version__ in result.output
 
 
@@ -52,6 +52,7 @@ def test_help() -> None:
     assert result.exit_code == 0
     assert "vulcanbench" in result.output.lower()
     assert "run" in result.output
+    assert "family-report" in result.output
 
 
 def test_run_unknown_task() -> None:

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-17
+
+### Added
+
+- **Family routing from cached runs** (`vulcanbench family-report`): given a
+  roster JSON (`families/cursor-grok-composer.json`, `families/sol-terra-luna.json`)
+  or `--members provider:model,...`, score static members, a leave-one-task-out
+  metadata router, a simulated cheap-then-escalate cascade, and oracle upper
+  bounds — without launching new runs. Fair comparison uses the intersection of
+  tasks every family cell already covers. Mixed vendor-CLI + uniform-loop
+  rosters are flagged (`mixed_harness`). Live orchestrators and patch-handoff
+  cascades are specified, not implemented; see `docs/FAMILY_BENCH.md`.
+
 ## [0.9.0] - 2026-08-27
 
 ### Added

@@ -45,3 +45,10 @@ Functional failures dominate; ancillary metrics refine ranking among passes.
 
 Per-run USD estimate from the built-in pricing table (`VULCANBENCH_PRICING` to
 override). Unknown models report `cost_usd: null`.
+
+## Family policies
+
+A *family* (several models treated as one product) is not a sixth metric.
+`vulcanbench family-report` routes cached single-model runs onto pass@1 vs
+USD vs latency under static, metadata-routed, cascade-sim, and oracle
+policies. See [FAMILY_BENCH.md](FAMILY_BENCH.md).
