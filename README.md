@@ -9,11 +9,12 @@ engineering tasks. VulcanBench measures how models perform across reasoning
 effort, language, codebase scale, and task complexity — with full traces,
 reproducible scoring, and a local dashboard.
 
-**v0.9.0** — adds a **Cursor Agent CLI** harness (`cursor:composer-2.5` /
-`cursor:composer-2.5-fast`) so Composer 2.5 can be scored through Cursor's own
-agent instead of the uniform API loop, with list-price cost from CLI token
-usage. Previous: **v0.8.0** — Voice Eval Suite v1 (`vulcanbench voice`). See
-[docs/QUICKSTART.md](docs/QUICKSTART.md) to get started.
+**v0.10.0** — adds **`family-report`**: from cached single-model runs, score a
+model family (Grok 4.6 + Composer 2.5, Sol + Terra + Luna, …) under static,
+metadata-routed, cascade-sim, and oracle policies so you can decide *whether*
+an orchestrator is worth it. Previous: **v0.9.0** — Cursor Agent CLI
+(`cursor:composer-2.5`). See [docs/QUICKSTART.md](docs/QUICKSTART.md) to get
+started.
 
 ## One-command setup
 
@@ -109,7 +110,7 @@ artifacts are safe to publish. See `make ci`, `make docker-up`, docs/.
 ## Cost-efficient reporting
 
 Grading is deterministic and every run records the `task_hash` it was scored
-against, so comparisons are queries over `./runs`, not re-runs. Four commands
+against, so comparisons are queries over `./runs`, not re-runs. These commands
 turn a "$70 full-matrix re-run" into a "~$10 one new column":
 
 ```bash
@@ -128,6 +129,10 @@ vulcanbench run --suite v2 --model anthropic:claude-opus-4-8 --effort high \
 # baselines are never re-run. Add a model = run that one model, then re-compare.
 vulcanbench compare --suite v2                 # complete cells (prints a frozen version id)
 vulcanbench compare --suite v2 --incomplete    # show gaps + the command to fill them
+
+# After those columns exist, score a *family* (which member + effort per task):
+vulcanbench family-report --suite v3 --family families/cursor-grok-composer.json
+vulcanbench family-report --suite v3 --members xai:grok-4.5,cursor:composer-2.5
 
 # Re-score existing runs against the current task definition at $0 API cost
 # (rebuilds base + captured agent patch + current hidden tests, re-verifies).

@@ -215,6 +215,17 @@ baselines come from cache. That turns a new-model report from a full-matrix
 re-run into a single new column, and pairs naturally with `--max-run-cost` to
 bound the cost of that one column.
 
+**Score a model family without new runs.** Once each member has a cached column,
+`family-report` asks which member and reasoning level should handle each task
+(static vs metadata router vs cascade-sim vs oracle). It does not measure a
+live orchestrator — that is the next phase, and only worth it if the router
+cannot close the gap. Design: [FAMILY_BENCH.md](FAMILY_BENCH.md).
+
+```bash
+vulcanbench family-report --suite v3 --family families/cursor-grok-composer.json
+vulcanbench family-report --suite v3 --members xai:grok-4.5,cursor:composer-2.5 -f json
+```
+
 `--only-missing` closes the loop: on a suite run it skips tasks that already have
 enough fresh cached runs for that model+effort and launches only the gaps, so an
 interrupted or partial column is *resumed* rather than re-run. Stale cached runs

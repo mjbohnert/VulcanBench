@@ -1,7 +1,8 @@
 """VulcanBench CLI entrypoint (Typer + Rich).
 
-Commands: run, estimate, effort-sweep, compare, regrade, leaderboard, report,
-calibrate, replay, validate-task, list-tasks. See ``vulcanbench --help``.
+Commands: run, estimate, effort-sweep, compare, family-report, regrade,
+leaderboard, report, calibrate, replay, validate-task, list-tasks. See
+``vulcanbench --help``.
 """
 
 from __future__ import annotations
@@ -25,6 +26,16 @@ from harness.calibration import calibrate_tasks, calibration_to_markdown
 from harness.compare import build_matrix
 from harness.cost_estimate import estimate_plan
 from harness.effort import DEFAULT_SWEEP_EFFORTS, parse_efforts
+from harness.family import (
+    FamilySpecError,
+    build_family_report,
+    family_from_models,
+    load_family_spec,
+    parse_members,
+)
+from harness.family import (
+    to_markdown as family_to_markdown,
+)
 from harness.leaderboard import aggregate_by_model, scan_leaderboard
 from harness.pricing import is_priced
 from harness.regrade import find_run_dirs, regrade_run
@@ -1031,6 +1042,76 @@ def regrade(
     console.print(
         f"[cyan]regraded[/cyan] {len(records)} run(s), {n_changed} score change(s), $0 API spend"
     )
+
+
+@app.command("family-report")
+def family_report(
+    suite: str = typer.Option(..., "--suite", help="Frozen suite, e.g. v3"),
+    family: Path | None = typer.Option(  # noqa: B008
+        None, "--family", help="Family roster JSON (see families/ and docs/FAMILY_BENCH.md)"
+    ),
+    members: str | None = typer.Option(
+        None,
+        "--members",
+        help="Comma-separated provider:model specs (alternative to --family; "
+        "effort levels are discovered from cached runs)",
+    ),
+    runs_dir: Path = typer.Option(  # noqa: B008
+        Path("./runs"), "--runs-dir", help="Where cached runs live"
+    ),
+    tasks_base: Path = typer.Option(  # noqa: B008
+        Path("tasks"), "--tasks-base", help="Root holding task suites"
+    ),
+    format: str = typer.Option("md", "--format", "-f", help="md|json"),
+    output: Path | None = typer.Option(  # noqa: B008
+        None, "--output", "-o", help="Write to a file (default: stdout)"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON (alias for --format json)"),
+) -> None:
+    """Score a model family from cached single-model runs (no new API calls).
+
+    Given a roster (Grok+Composer, Sol+Terra+Luna, …) and a frozen suite, compare
+    static members, a metadata router, a simulated cheap-then-escalate cascade,
+    and oracle upper bounds. Run each member with ``vulcanbench run`` /
+    ``effort-sweep`` first; this command only queries ``./runs``. Live
+    orchestrators and patch-handoff cascades are not measured here — see
+    docs/FAMILY_BENCH.md.
+    """
+    fmt = "json" if json_output else format
+    if fmt not in {"md", "json"}:
+        console.print(f"[red]error[/red] --format must be md|json, got {format!r}")
+        raise typer.Exit(code=1)
+    if (family is None) == (members is None):
+        console.print("[red]error[/red] pass exactly one of --family or --members")
+        raise typer.Exit(code=1)
+
+    try:
+        spec = (
+            load_family_spec(family)
+            if family is not None
+            else family_from_models(parse_members(members or ""))
+        )
+        report = build_family_report(spec, suite, runs_dir=runs_dir, tasks_base=tasks_base)
+    except FamilySpecError as e:
+        console.print(f"[red]error[/red] {e}")
+        raise typer.Exit(code=1) from e
+    except FileNotFoundError as e:
+        console.print(f"[red]error[/red] {e}")
+        raise typer.Exit(code=1) from e
+    except ValueError as e:
+        console.print(f"[red]error[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+    text = json.dumps(report, indent=2) if fmt == "json" else family_to_markdown(report)
+    if output is not None:
+        output.write_text(text, encoding="utf-8")
+        console.print(
+            f"[green]wrote[/green] {output} "
+            f"({report.get('n_fair_tasks', 0)} fair tasks, "
+            f"{len(report.get('policies') or [])} policies)"
+        )
+        return
+    typer.echo(text)
 
 
 @app.command()

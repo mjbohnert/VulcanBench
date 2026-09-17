@@ -61,7 +61,7 @@ Legend: ✅ done · 🟧 in progress / next · 🟨 polish · 🔮 future
 | 🟨 | Non-Python quality depth | Go/TS/Rust partially covered |
 | 🟨 | Multi-arch sandbox CI matrix | ARM64 + x86 gold-patch validation |
 | 🟨 | Supply-chain scan in CI | cargo-audit only today |
-| 🟨 | `docs/SPEC.md` | Formal benchmark spec (optional) |
+| 🟧 | Model-family routing | `vulcanbench family-report` scores a roster from cached columns (phase 1). Live cascade / orchestrator: [FAMILY_BENCH.md](FAMILY_BENCH.md) |
 | 🟨 | Dashboard automated tests | Lint + build only in CI |
 | 🟨 | Docker integration test in default CI | Live test gated behind `@pytest.mark.docker` |
 
